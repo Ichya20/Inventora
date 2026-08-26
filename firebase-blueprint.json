@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0.0",
+  "collections": [
+    {
+      "name": "purchaseOrders",
+      "documentId": "poId",
+      "description": "Purchase orders created in the system",
+      "fields": [
+        { "name": "vendor", "type": "string", "description": "Vendor name" },
+        { "name": "desc", "type": "string", "description": "Description of the PO" },
+        { "name": "date", "type": "string", "description": "Date created" },
+        { "name": "total", "type": "number", "description": "Total amount" },
+        { "name": "status", "type": "string", "description": "Current status (Pending Approval, Disetujui, etc.)" },
+        { "name": "color", "type": "string", "description": "Color for the UI badge" }
+      ],
+      "access": [
+        { "role": "admin", "permissions": ["read", "write"] },
+        { "role": "user", "permissions": ["read"] }
+      ]
+    },
+    {
+      "name": "activities",
+      "documentId": "activityId",
+      "description": "Global activity stream events",
+      "fields": [
+        { "name": "time", "type": "string", "description": "Time of activity" },
+        { "name": "user", "type": "string", "description": "User who performed the activity" },
+        { "name": "action", "type": "string", "description": "Action performed" },
+        { "name": "icon", "type": "string", "description": "Icon name for UI" },
+        { "name": "color", "type": "string", "description": "Color class for icon" }
+      ],
+      "access": [
+        { "role": "admin", "permissions": ["read", "write"] },
+        { "role": "user", "permissions": ["read"] }
+      ]
+    }
+  ]
+}
