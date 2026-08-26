@@ -1906,8 +1906,8 @@ function Login() {
     setIsLoading(true);
     setErrorMsg('');
     try {
-      const { auth, signInWithGoogle } = await import('./firebase');
-      await signInWithGoogle();
+      const { auth, googleSignIn } = await import('./firebase');
+      await googleSignIn();
       navigate('/dashboard');
     } catch (e: any) {
       setErrorMsg(e.message || 'Login failed');
