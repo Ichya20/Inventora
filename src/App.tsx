@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
-import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages } from 'lucide-react';
+import { ToastType, ToastItem, Role, PurchaseOrder, PaymentTransaction, AppNotification } from './types';
+import { translations, Language, Translations } from './i18n';
+import { NotificationCenter } from './components/NotificationCenter';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ViewSkeleton } from './components/ViewSkeleton';
+import { useDebounce } from './lib/useDebounce';
 
-export type ToastType = 'success' | 'warning' | 'info' | 'error';
-export type ToastItem = { id: number, msg: string, type: ToastType };
-export type Role = 'Super Admin' | 'Warehouse Manager' | 'Finance Manager' | 'HR Manager';
+// Lazy-loaded views for code splitting and instant initial page load
+const ProcurementView = lazy(() => import('./components/ProcurementView').then(m => ({ default: m.ProcurementView })));
+const FinanceView = lazy(() => import('./components/FinanceView').then(m => ({ default: m.FinanceView })));
+const HRView = lazy(() => import('./components/HRView').then(m => ({ default: m.HRView })));
+const PurchaseUnitView = lazy(() => import('./components/PurchaseUnitView').then(m => ({ default: m.PurchaseUnitView })));
+const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
 
 const Card = ({ children }: { children: React.ReactNode }) => (
   <div className="bg-white dark:bg-[#111] p-6 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.2)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_8px_16px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_8px_16px_rgba(0,0,0,0.4)] transition-shadow duration-300">
@@ -174,28 +183,40 @@ const Toaster = ({ toasts }: { toasts: ToastItem[] }) => {
   );
 };
 
-function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) => void }) {
+function InventoryView({ 
+  onToast, 
+  t, 
+  lang = 'en' 
+}: { 
+  onToast: (msg: string, type?: ToastType) => void;
+  t?: Translations;
+  lang?: Language;
+}) {
+  const activeT = t || translations[lang] || translations.en;
+  const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [search, setSearch] = useState('');
   const [items, setItems] = useState([
-    { id: 'NV-H100-TC', name: 'NVIDIA H100 Tensor Core GPU', desc: 'AI Engineering Infra', stock: 142, status: 'Safe Range', color: 'blue' as const },
-    { id: 'RS-W1-PRO', name: 'Rack Server Web Infrastructure', desc: 'Server Infra', stock: 58, status: 'Optimal', color: 'green' as const },
-    { id: 'NV-4090-FE', name: 'NVIDIA RTX 4090 Founders Edition', desc: 'Workstation Graphics', stock: 12, status: 'Monitoring', color: 'orange' as const },
-    { id: 'SW-10GBE-L3', name: '10GbE Network L3 Managed Switch', desc: 'Networking', stock: 86, status: 'Optimal', color: 'green' as const },
-    { id: 'AP-WIFI-6E', name: 'Enterprise WiFi 6E Access Point', desc: 'Networking', stock: 24, status: 'Optimal', color: 'green' as const },
-    { id: 'STR-NVME-8TB', name: '8TB NVMe Enterprise Storage', desc: 'Storage Infra', stock: 8, status: 'Critical', color: 'red' as const },
-    { id: 'UPS-3KVA-RT', name: '3kVA Rackmount UPS', desc: 'Power Infra', stock: 45, status: 'Safe Range', color: 'blue' as const },
-    { id: 'FW-NGFW-10G', name: 'Next-Gen Firewall 10Gbps', desc: 'Security', stock: 15, status: 'Monitoring', color: 'orange' as const },
-    { id: 'LB-L4-PRO', name: 'Hardware Load Balancer L4/L7', desc: 'Networking', stock: 22, status: 'Optimal', color: 'green' as const },
-    { id: 'MON-32-4K', name: '32" 4K Professional Monitor', desc: 'Workstation', stock: 110, status: 'Safe Range', color: 'blue' as const },
-    { id: 'KBM-WL-PRO', name: 'Wireless Pro Keyboard & Mouse', desc: 'Workstation', stock: 340, status: 'Safe Range', color: 'blue' as const },
-    { id: 'DS-24B-NAS', name: '24-Bay Enterprise NAS', desc: 'Storage Infra', stock: 5, status: 'Critical', color: 'red' as const }
+    { id: 'NV-H100-TC', name: 'NVIDIA H100 Tensor Core GPU', desc: lang === 'en' ? 'AI Engineering Infra' : 'Infrastruktur AI Engineering', stock: 142, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
+    { id: 'RS-W1-PRO', name: 'Rack Server Web Infrastructure', desc: lang === 'en' ? 'Server Infra' : 'Infrastruktur Server', stock: 58, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
+    { id: 'NV-4090-FE', name: 'NVIDIA RTX 4090 Founders Edition', desc: lang === 'en' ? 'Workstation Graphics' : 'Grafis Workstation', stock: 12, status: lang === 'en' ? 'Monitoring' : 'Pemantauan', color: 'orange' as const },
+    { id: 'SW-10GBE-L3', name: '10GbE Network L3 Managed Switch', desc: lang === 'en' ? 'Networking' : 'Jaringan', stock: 86, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
+    { id: 'AP-WIFI-6E', name: 'Enterprise WiFi 6E Access Point', desc: lang === 'en' ? 'Networking' : 'Jaringan', stock: 24, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
+    { id: 'STR-NVME-8TB', name: '8TB NVMe Enterprise Storage', desc: lang === 'en' ? 'Storage Infra' : 'Infrastruktur Penyimpanan', stock: 8, status: lang === 'en' ? 'Critical' : 'Kritis', color: 'red' as const },
+    { id: 'UPS-3KVA-RT', name: '3kVA Rackmount UPS', desc: lang === 'en' ? 'Power Infra' : 'Infrastruktur Daya', stock: 45, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
+    { id: 'FW-NGFW-10G', name: 'Next-Gen Firewall 10Gbps', desc: lang === 'en' ? 'Security' : 'Keamanan', stock: 15, status: lang === 'en' ? 'Monitoring' : 'Pemantauan', color: 'orange' as const },
+    { id: 'LB-L4-PRO', name: 'Hardware Load Balancer L4/L7', desc: lang === 'en' ? 'Networking' : 'Jaringan', stock: 22, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
+    { id: 'MON-32-4K', name: '32" 4K Professional Monitor', desc: 'Workstation', stock: 110, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
+    { id: 'KBM-WL-PRO', name: 'Wireless Pro Keyboard & Mouse', desc: 'Workstation', stock: 340, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
+    { id: 'DS-24B-NAS', name: '24-Bay Enterprise NAS', desc: lang === 'en' ? 'Storage Infra' : 'Infrastruktur Penyimpanan', stock: 5, status: lang === 'en' ? 'Critical' : 'Kritis', color: 'red' as const }
   ]);
 
   const [page, setPage] = useState(1);
   const itemsPerPage = 5;
   const [sortConfig, setSortConfig] = useState<{ key: keyof typeof items[0], direction: 'asc' | 'desc' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const debouncedSearch = useDebounce(search, 180);
 
   const chartData = [
     { name: 'Jan', stock: 900 },
@@ -214,26 +235,32 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
     setSortConfig({ key, direction });
   };
 
-  const sortedItems = [...items].sort((a, b) => {
-    if (!sortConfig) return 0;
-    if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      if (!sortConfig) return 0;
+      if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [items, sortConfig]);
 
-  const filteredItems = sortedItems.filter(item => 
-    item.name.toLowerCase().includes(search.toLowerCase()) || 
-    item.id.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredItems = useMemo(() => {
+    return sortedItems.filter(item => 
+      item.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+      item.id.toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [sortedItems, debouncedSearch]);
 
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const paginatedItems = filteredItems.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
+  const paginatedItems = useMemo(() => {
+    return filteredItems.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  }, [filteredItems, page, itemsPerPage]);
 
   const handleExport = () => {
     setIsExporting(true);
     setTimeout(() => {
       setIsExporting(false);
-      onToast("Data exported as CSV", "success");
+      onToast(lang === 'en' ? "Data exported as CSV" : "Data diekspor sebagai CSV", "success");
     }, 1500);
   };
 
@@ -241,7 +268,7 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
     setIsGenerating(true);
     setTimeout(() => {
       setIsGenerating(false);
-      onToast("Inventory report generated successfully");
+      onToast(activeT.inventory.reportSuccess, "success");
     }, 1200);
   };
 
@@ -252,7 +279,7 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
       }
       return item;
     }));
-    onToast(`1 unit of ${id} deployed successfully`);
+    onToast(lang === 'en' ? `1 unit of ${id} deployed successfully` : `1 unit ${id} berhasil dideploy`, "success");
   };
 
   return (
@@ -261,9 +288,13 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
         <Card>
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Total Unit Infrastruktur</p>
-              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">{items.reduce((acc, item) => acc + item.stock, 1104).toLocaleString()}</h3>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#0070f3] dark:text-[#3291ff] font-medium">+12.5%</span> dari bulan lalu</p>
+              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.totalUnits}</p>
+              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
+                {items.reduce((acc, item) => acc + item.stock, 1104).toLocaleString(numLocale)}
+              </h3>
+              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
+                <span className="text-[#0070f3] dark:text-[#3291ff] font-medium">+12.5%</span> {activeT.inventory.fromLastMonth}
+              </p>
             </div>
             <div className="w-24 h-16">
               <ResponsiveContainer width="100%" height="100%">
@@ -281,14 +312,18 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
           </div>
         </Card>
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Valuasi Aset Terintegrasi</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">Rp 21.03M</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">Estimasi Kurs: Rp 15,000/Unit</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.assetValuation}</p>
+          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
+            {lang === 'en' ? '$1.4M / Rp 21.03B' : 'Rp 21,03 Miliar'}
+          </h3>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">{activeT.inventory.valuationHint}</p>
         </Card>
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Permintaan Outbound Aktif</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.outboundRequests}</p>
           <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">24</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#f5a623] font-medium">8 Diproses</span> hari ini</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
+            <span className="text-[#f5a623] font-medium">8</span> {activeT.inventory.processedToday}
+          </p>
         </Card>
       </div>
 
@@ -300,16 +335,18 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
             </svg>
           </div>
           <div>
-            <h4 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">Status Ketersediaan: Optimal</h4>
-            <p className="text-sm text-[#666] dark:text-[#a1a1aa]">Seluruh unit infrastruktur kritis berada di atas ambang batas minimum keamanan.</p>
+            <h4 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">{activeT.inventory.statusOptimal}</h4>
+            <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{activeT.inventory.statusOptimalDesc}</p>
           </div>
         </div>
-        <Button variant="primary" onClick={handleGenerateReport} isLoading={isGenerating}>Generate Report</Button>
+        <Button variant="primary" onClick={handleGenerateReport} isLoading={isGenerating}>
+          {activeT.inventory.generateReport}
+        </Button>
       </div>
 
       <TableWrapper 
-        title="Distribusi Hardware Komputasi" 
-        placeholder="Cari SKU atau Nama..."
+        title={activeT.inventory.tableTitle} 
+        placeholder={activeT.inventory.searchPlaceholder}
         searchValue={search}
         onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
         onExport={handleExport}
@@ -320,11 +357,11 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
       >
         <thead className="sticky top-0 z-10">
           <tr>
-            <Th sortable onSort={() => handleSort('id')}>SKU</Th>
-            <Th sortable onSort={() => handleSort('name')}>Nama Perangkat</Th>
-            <Th sortable onSort={() => handleSort('stock')}>Stok Saat Ini</Th>
-            <Th sortable onSort={() => handleSort('status')}>Kondisi</Th>
-            <Th align="right">Aksi Cepat</Th>
+            <Th sortable onSort={() => handleSort('id')}>{activeT.inventory.skuCol}</Th>
+            <Th sortable onSort={() => handleSort('name')}>{activeT.inventory.deviceNameCol}</Th>
+            <Th sortable onSort={() => handleSort('stock')}>{activeT.inventory.stockCol}</Th>
+            <Th sortable onSort={() => handleSort('status')}>{activeT.inventory.conditionCol}</Th>
+            <Th align="right">{activeT.inventory.quickActionCol}</Th>
           </tr>
         </thead>
         <tbody>
@@ -340,7 +377,7 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
                 <Td><Badge color={item.color}>{item.status}</Badge></Td>
                 <Td align="right">
                   <Button variant="secondary" onClick={() => handleDeploy(item.id)} disabled={item.stock === 0}>
-                    Deploy 1 Unit
+                    {activeT.inventory.deployBtn}
                   </Button>
                 </Td>
               </Tr>
@@ -348,7 +385,7 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
           ) : (
             <tr>
               <td colSpan={5} className="px-6 py-12 text-center text-[#666] dark:text-[#a1a1aa] text-sm">
-                Tidak ada data yang cocok dengan pencarian "{search}".
+                {activeT.inventory.noItems}
               </td>
             </tr>
           )}
@@ -358,864 +395,7 @@ function InventoryView({ onToast }: { onToast: (msg: string, type?: ToastType) =
   );
 }
 
-function ProcurementView({ onNavigate, onToast }: { onNavigate: (menu: string) => void, onToast: (msg: string, type?: ToastType) => void }) {
-  const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
-  const defaultPOs = [
-    { id: 'PO-2026-1042', vendor: 'NVIDIA Corp Indonesia', desc: 'Supplier Utama', date: '22 Ags 2026', total: 2100000000, status: 'Pending Approval', color: 'orange' },
-    { id: 'PO-2026-1041', vendor: 'Cisco Systems Indonesia', desc: 'Networking Vendor', date: '18 Ags 2026', total: 850000000, status: 'Disetujui', color: 'green' },
-    { id: 'PO-2026-1040', vendor: 'Dell EMC Indonesia', desc: 'Server Partner', date: '15 Ags 2026', total: 1200000000, status: 'Disetujui', color: 'green' },
-    { id: 'PO-2026-1039', vendor: 'Lenovo Enterprise', desc: 'Hardware Vendor', date: '12 Ags 2026', total: 450000000, status: 'Selesai', color: 'blue' },
-    { id: 'PO-2026-1038', vendor: 'APC by Schneider', desc: 'Power Infra', date: '10 Ags 2026', total: 320000000, status: 'Selesai', color: 'blue' },
-    { id: 'PO-2026-1037', vendor: 'Fortinet Indonesia', desc: 'Security Vendor', date: '05 Ags 2026', total: 550000000, status: 'Ditolak', color: 'red' },
-  ];
-  const [pos, setPos] = useState<any[]>(defaultPOs);
-
-  useEffect(() => {
-    let unsub = () => {};
-    import('./firebase').then(({ db }) => {
-      import('firebase/firestore').then(({ collection, onSnapshot, setDoc, doc }) => {
-        unsub = onSnapshot(collection(db, 'purchaseOrders'), (snap) => {
-          if (snap.empty) {
-            // Seed initial data
-            defaultPOs.forEach(item => setDoc(doc(db, 'purchaseOrders', item.id), item));
-          } else {
-            const loaded = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-            setPos(loaded);
-          }
-        }, (err) => {
-          console.warn("Firestore snapshot unavailable, using local state:", err.message);
-        });
-      }).catch(err => console.warn("Firestore import error:", err));
-    }).catch(err => console.warn("Firebase import error:", err));
-    return () => unsub();
-  }, []);
-
-  const updateStatus = async (id: string, status: string, color: string) => {
-    // Optimistic local update
-    setPos(current => current.map(item => item.id === id ? { ...item, status, color } : item));
-    try {
-      const { db } = await import('./firebase');
-      const { updateDoc, doc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'purchaseOrders', id), { status, color });
-      onToast(`PO ${id} updated to ${status}`, 'success');
-    } catch (e: any) {
-      console.warn("Firestore update skipped or failed (state updated locally):", e);
-      onToast(`PO ${id} updated to ${status}`, 'success');
-    }
-  };
-
-  const [activeModal, setActiveModal] = useState<{ type: 'review' | 'detail', data: any } | null>(null);
-  
-  const [page, setPage] = useState(1);
-  const itemsPerPage = 4;
-  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedPos = [...pos].sort((a, b) => {
-    if (!sortConfig) return 0;
-    if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const filteredPos = sortedPos.filter(po => 
-    po.vendor?.toLowerCase().includes(search.toLowerCase()) || 
-    po.id?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredPos.length / itemsPerPage);
-  const paginatedPos = filteredPos.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-
-  const handleExport = async () => {
-    const { getAccessToken } = await import('./firebase');
-    const token = await getAccessToken();
-    if (!token) {
-      onToast("Please sign in first to export to Google Sheets", "error");
-      return;
-    }
-    setIsExporting(true);
-    try {
-      // Create spreadsheet
-      const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ properties: { title: `Purchase Orders - ${new Date().toLocaleDateString()}` } })
-      });
-      const sheet = await res.json();
-      
-      // Append data
-      const values = [
-        ['No. PO', 'Vendor', 'Description', 'Date', 'Total', 'Status'],
-        ...pos.map(po => [po.id, po.vendor, po.desc, po.date, po.total, po.status])
-      ];
-
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/Sheet1!A1:append?valueInputOption=USER_ENTERED`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values })
-      });
-
-      onToast("Exported to Google Sheets successfully!", "success");
-    } catch (e: any) {
-      onToast(`Export failed: ${e.message}`, "error");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleApprove = (id: string) => {
-    updateStatus(id, 'Disetujui', 'green');
-    setActiveModal(null);
-  };
-
-  const handleReject = (id: string) => {
-    updateStatus(id, 'Ditolak', 'red');
-    setActiveModal(null);
-  };
-
-  const onDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData('po_id', id);
-  };
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-  const onDrop = (e: React.DragEvent, status: string, color: 'orange' | 'green' | 'blue' | 'red') => {
-    e.preventDefault();
-    const id = e.dataTransfer.getData('po_id');
-    updateStatus(id, status, color);
-  };
-
-  const kanbanColumns = [
-    { title: 'Pending Approval', status: 'Pending Approval', color: 'orange' as const },
-    { title: 'Disetujui', status: 'Disetujui', color: 'green' as const },
-    { title: 'Selesai', status: 'Selesai', color: 'blue' as const },
-    { title: 'Ditolak', status: 'Ditolak', color: 'red' as const },
-  ];
-
-  return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Total PO Aktif</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">45</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#0070f3] dark:text-[#3291ff] font-medium">12 PO</span> Dalam Proses</p>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Nilai Pengadaan (Bulan Ini)</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">Rp 4.25M</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">Menunggu Persetujuan Final</p>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Vendor Terdaftar</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">128</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+3 Vendor</span> Baru</p>
-        </Card>
-      </div>
-
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] rounded-md p-1">
-          <button 
-            onClick={() => setViewMode('list')}
-            className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${viewMode === 'list' ? 'bg-[#fafafa] dark:bg-[#333] text-[#171717] dark:text-[#ededed] shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed]'}`}
-          >
-            List View
-          </button>
-          <button 
-            onClick={() => setViewMode('kanban')}
-            className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${viewMode === 'kanban' ? 'bg-[#fafafa] dark:bg-[#333] text-[#171717] dark:text-[#ededed] shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed]'}`}
-          >
-            Kanban Board
-          </button>
-        </div>
-      </div>
-
-      {viewMode === 'list' ? (
-        <TableWrapper 
-          title="Daftar Purchase Order (PO)" 
-          placeholder="Cari No PO atau Vendor..."
-          searchValue={search}
-          onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
-          onExport={handleExport}
-          isExporting={isExporting}
-          currentPage={page}
-          totalPages={totalPages || 1}
-          onPageChange={setPage}
-          action={<Button onClick={() => onNavigate('purchase')} variant="primary">Buat PO (Beli Unit)</Button>}
-        >
-          <thead className="sticky top-0 z-10">
-            <tr>
-              <Th sortable onSort={() => handleSort('id')}>No. PO</Th>
-              <Th sortable onSort={() => handleSort('vendor')}>Vendor</Th>
-              <Th sortable onSort={() => handleSort('date')}>Tanggal Pengajuan</Th>
-              <Th sortable onSort={() => handleSort('total')}>Total (Rp)</Th>
-              <Th sortable onSort={() => handleSort('status')}>Status</Th>
-              <Th align="right">Aksi</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedPos.length > 0 ? (
-              paginatedPos.map((po, idx) => (
-                <Tr key={po.id} index={idx}>
-                  <Td><span className="font-mono text-xs text-[#666] dark:text-[#a1a1aa]">{po.id}</span></Td>
-                  <Td>
-                    <div className="font-medium tracking-tight">{po.vendor}</div>
-                    <div className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{po.desc}</div>
-                  </Td>
-                  <Td><span className="tabular-nums">{po.date}</span></Td>
-                  <Td><span className="tabular-nums font-medium">Rp {po.total.toLocaleString()}</span></Td>
-                  <Td><Badge color={po.color}>{po.status}</Badge></Td>
-                  <Td align="right">
-                    {po.status === 'Pending Approval' ? (
-                      <Button variant="secondary" onClick={() => setActiveModal({ type: 'review', data: po })}>Review</Button>
-                    ) : (
-                      <Button variant="secondary" onClick={() => setActiveModal({ type: 'detail', data: po })}>Detail</Button>
-                    )}
-                  </Td>
-                </Tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-[#666] dark:text-[#a1a1aa] text-sm">
-                  Tidak ada Purchase Order yang cocok dengan pencarian "{search}".
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </TableWrapper>
-      ) : (
-        <div className="flex flex-1 gap-6 overflow-x-auto pb-4">
-          {kanbanColumns.map(col => (
-            <div 
-              key={col.status} 
-              className="flex-shrink-0 w-80 bg-[#eaeaea]/50 dark:bg-[#111] rounded-xl flex flex-col max-h-full border border-[#eaeaea] dark:border-[#333]"
-              onDragOver={onDragOver}
-              onDrop={(e) => onDrop(e, col.status, col.color)}
-            >
-              <div className="px-4 py-3 border-b border-[#eaeaea] dark:border-[#333] flex items-center justify-between bg-[#fafafa] dark:bg-[#0a0a0a] rounded-t-xl shrink-0">
-                <span className="font-semibold text-sm tracking-tight text-[#171717] dark:text-[#ededed]">{col.title}</span>
-                <Badge color={col.color}>{pos.filter(po => po.status === col.status).length}</Badge>
-              </div>
-              <div className="p-3 flex-1 overflow-y-auto space-y-3">
-                <AnimatePresence>
-                  {pos.filter(po => po.status === col.status).map(po => (
-                    <motion.div
-                      key={po.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      draggable
-                      onDragStart={(e: any) => onDragStart(e, po.id)}
-                      className="bg-white dark:bg-[#1a1a1a] p-4 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.1)] cursor-grab active:cursor-grabbing hover:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.08)] transition-shadow"
-                      onClick={() => setActiveModal({ type: po.status === 'Pending Approval' ? 'review' : 'detail', data: po })}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="font-mono text-xs font-medium text-[#666] dark:text-[#a1a1aa]">{po.id}</span>
-                      </div>
-                      <div className="font-medium text-sm text-[#171717] dark:text-[#ededed] leading-tight mb-1">{po.vendor}</div>
-                      <div className="text-xs text-[#666] dark:text-[#a1a1aa] mb-4">{po.desc}</div>
-                      <div className="flex justify-between items-end mt-4 pt-3 border-t border-[#eaeaea] dark:border-[#333]">
-                        <span className="text-xs text-[#999]">{po.date}</span>
-                        <span className="font-medium text-sm text-[#171717] dark:text-[#ededed] tabular-nums">Rp {(po.total / 1000000).toFixed(1)}M</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                {pos.filter(po => po.status === col.status).length === 0 && (
-                  <div className="py-6 px-4 text-center border-2 border-dashed border-[#eaeaea] dark:border-[#333] rounded-lg">
-                    <span className="text-xs text-[#999]">Drop cards here</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Modal 
-        isOpen={activeModal !== null} 
-        onClose={() => setActiveModal(null)} 
-        title={activeModal?.type === 'review' ? 'Review Purchase Order' : 'Purchase Order Detail'}
-      >
-        {activeModal && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">PO Number</p>
-                <p className="font-mono text-[#171717] dark:text-[#ededed]">{activeModal.data.id}</p>
-              </div>
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">Date Submitted</p>
-                <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.date}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">Vendor</p>
-                <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.vendor}</p>
-                <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{activeModal.data.desc}</p>
-              </div>
-              <div className="col-span-2 p-4 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg shadow-inner dark:shadow-none dark:border dark:border-[#333]">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 text-xs uppercase tracking-wider">Total Amount</p>
-                <p className="text-2xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">{activeModal.data.total}</p>
-              </div>
-            </div>
-
-            {activeModal.type === 'review' && (
-              <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333]">
-                <Button variant="secondary" onClick={() => handleReject(activeModal.data.id)}>Reject</Button>
-                <Button variant="primary" onClick={() => handleApprove(activeModal.data.id)}>Approve PO</Button>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-    </section>
-  );
-}
-
-function FinanceView({ onToast }: { onToast: (msg: string, type?: ToastType) => void }) {
-  const [search, setSearch] = useState('');
-  const [invoices, setInvoices] = useState([
-    { id: 'INV-OUT-889', client: 'Bank Mandiri (Persero)', desc: 'Enterprise Client', date: '30 Ags 2026', total: 1450000000, status: 'Lunas', color: 'green' as const, isOverdue: false },
-    { id: 'INV-OUT-890', client: 'PT Telkom Indonesia', desc: 'Enterprise Client', date: '21 Ags 2026', total: 890000000, status: 'Overdue', color: 'red' as const, isOverdue: true },
-    { id: 'INV-OUT-891', client: 'Astra International', desc: 'Enterprise Client', date: '15 Ags 2026', total: 2100000000, status: 'Lunas', color: 'green' as const, isOverdue: false },
-    { id: 'INV-OUT-892', client: 'BCA Group', desc: 'Financial Sector', date: '10 Ags 2026', total: 600000000, status: 'Pending', color: 'orange' as const, isOverdue: false },
-    { id: 'INV-OUT-893', client: 'Gojek Tokopedia', desc: 'Tech Startup', date: '05 Ags 2026', total: 1100000000, status: 'Overdue', color: 'red' as const, isOverdue: true },
-  ]);
-
-  const [activeModal, setActiveModal] = useState<{ type: 'receipt' | 'warning', data: any } | null>(null);
-
-  const [page, setPage] = useState(1);
-  const itemsPerPage = 3;
-  const [sortConfig, setSortConfig] = useState<{ key: keyof typeof invoices[0], direction: 'asc' | 'desc' } | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-
-  const chartData = [
-    { name: 'Week 1', rev: 400 },
-    { name: 'Week 2', rev: 300 },
-    { name: 'Week 3', rev: 500 },
-    { name: 'Week 4', rev: 800 },
-  ];
-
-  const handleSort = (key: keyof typeof invoices[0]) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedInvoices = [...invoices].sort((a, b) => {
-    if (!sortConfig) return 0;
-    if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const filteredInvoices = sortedInvoices.filter(inv => 
-    inv.client.toLowerCase().includes(search.toLowerCase()) || 
-    inv.id.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
-  const paginatedInvoices = filteredInvoices.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-
-  const handleExport = () => {
-    setIsExporting(true);
-    setTimeout(() => {
-      setIsExporting(false);
-      onToast("Data exported as PDF", "success");
-    }, 1500);
-  };
-
-  const handleSendWarning = (id: string, clientName: string) => {
-    setActiveModal(null);
-    onToast(`Automated warning email sent to ${clientName} for invoice ${id}`, "info");
-  };
-
-  return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-        <Card>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Total Pendapatan (Bulan Ini)</p>
-              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">Rp 12.8M</h3>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+18%</span> dari target bulanan</p>
-            </div>
-            <div className="w-24 h-16">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="rev" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Outstanding Invoice</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">Rp 3.1M</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#e00] dark:text-[#ff3333] font-medium">4 Invoice</span> melewati jatuh tempo</p>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Kas & Setara Kas</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">Rp 45.2M</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">Posisi Likuiditas Aman</p>
-        </Card>
-      </div>
-
-      <TableWrapper 
-        title="Buku Besar & Tagihan Aktif" 
-        placeholder="Cari No Tagihan atau Klien..."
-        searchValue={search}
-        onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
-        onExport={handleExport}
-        isExporting={isExporting}
-        currentPage={page}
-        totalPages={totalPages || 1}
-        onPageChange={setPage}
-      >
-        <thead className="sticky top-0 z-10">
-          <tr>
-            <Th sortable onSort={() => handleSort('id')}>No. Invoice</Th>
-            <Th sortable onSort={() => handleSort('client')}>Klien / Mitra</Th>
-            <Th sortable onSort={() => handleSort('date')}>Jatuh Tempo</Th>
-            <Th sortable onSort={() => handleSort('total')}>Nominal (Rp)</Th>
-            <Th sortable onSort={() => handleSort('status')}>Status</Th>
-            <Th align="right">Aksi</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {paginatedInvoices.length > 0 ? (
-            paginatedInvoices.map((inv, idx) => (
-              <Tr key={inv.id} index={idx}>
-                <Td><span className="font-mono text-xs text-[#666] dark:text-[#a1a1aa]">{inv.id}</span></Td>
-                <Td>
-                  <div className="font-medium tracking-tight">{inv.client}</div>
-                  <div className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{inv.desc}</div>
-                </Td>
-                <Td><span className={`tabular-nums ${inv.isOverdue ? 'text-[#e00] dark:text-[#ff3333] font-medium' : ''}`}>{inv.date}</span></Td>
-                <Td><span className="tabular-nums font-medium">Rp {inv.total.toLocaleString()}</span></Td>
-                <Td><Badge color={inv.color}>{inv.status}</Badge></Td>
-                <Td align="right">
-                  {inv.status === 'Lunas' ? (
-                    <Button variant="secondary" onClick={() => setActiveModal({ type: 'receipt', data: inv })}>Receipt</Button>
-                  ) : (
-                    <Button variant="secondary" onClick={() => setActiveModal({ type: 'warning', data: inv })}>Send Warning</Button>
-                  )}
-                </Td>
-              </Tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={6} className="px-6 py-12 text-center text-[#666] dark:text-[#a1a1aa] text-sm">
-                Tidak ada tagihan yang cocok dengan pencarian "{search}".
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </TableWrapper>
-
-      <Modal 
-        isOpen={activeModal !== null} 
-        onClose={() => setActiveModal(null)} 
-        title={activeModal?.type === 'receipt' ? 'Invoice Receipt' : 'Send Payment Warning'}
-      >
-        {activeModal && activeModal.type === 'receipt' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-start pb-6 border-b border-[#eaeaea] dark:border-[#333]">
-              <div>
-                <h4 className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">INVENTORA CORP</h4>
-                <p className="text-sm text-[#666] dark:text-[#a1a1aa]">Official Payment Receipt</p>
-              </div>
-              <div className="text-right">
-                <Badge color="green">Paid in Full</Badge>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">Invoice Number</p>
-                <p className="font-mono text-[#171717] dark:text-[#ededed]">{activeModal.data.id}</p>
-              </div>
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">Payment Date</p>
-                <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.date}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">Billed To</p>
-                <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.client}</p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg shadow-inner dark:shadow-none dark:border dark:border-[#333] flex justify-between items-center">
-              <span className="text-[#666] dark:text-[#a1a1aa] font-medium">Total Paid</span>
-              <span className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">{activeModal.data.total}</span>
-            </div>
-
-            <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333]">
-              <Button variant="secondary" onClick={() => {
-                onToast('Receipt downloading as PDF...');
-                setActiveModal(null);
-              }}>Download PDF</Button>
-            </div>
-          </div>
-        )}
-
-        {activeModal && activeModal.type === 'warning' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-[#fff0f0] dark:bg-[#331111] rounded-lg border border-[#ffcccc] dark:border-[#662222]">
-              <h4 className="text-[#e00] dark:text-[#ff5555] font-medium flex items-center gap-2">
-                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                Overdue Invoice Alert
-              </h4>
-              <p className="text-sm text-[#d00] dark:text-[#ff8888] mt-1">Invoice {activeModal.data.id} is overdue since {activeModal.data.date}.</p>
-            </div>
-            
-            <div className="text-sm text-[#171717] dark:text-[#ededed]">
-              <p>You are about to send an automated payment reminder to <strong>{activeModal.data.client}</strong>.</p>
-              <p className="mt-2 text-[#666] dark:text-[#a1a1aa]">This will dispatch an email to the client's registered billing address and log the warning in the CRM.</p>
-            </div>
-
-            <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333]">
-              <Button variant="secondary" onClick={() => setActiveModal(null)}>Cancel</Button>
-              <Button variant="primary" onClick={() => handleSendWarning(activeModal.data.id, activeModal.data.client)}>Dispatch Warning</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-    </section>
-  );
-}
-
-function HRView({ onToast }: { onToast: (msg: string, type?: ToastType) => void }) {
-  const [search, setSearch] = useState('');
-  const [employees, setEmployees] = useState([
-    { id: 'EMP-10024', name: 'Budi Santoso', email: 'budi.s@inventora.com', dept: 'Engineering', role: 'Senior AI Engineer', status: 'Aktif', color: 'green' as const, joined: '12 Jan 2022' },
-    { id: 'EMP-10088', name: 'Siti Rahmawati', email: 'siti.r@inventora.com', dept: 'Finance', role: 'Financial Controller', status: 'Cuti Tahunan', color: 'gray' as const, joined: '04 Mar 2023' },
-    { id: 'EMP-10091', name: 'Andi Wijaya', email: 'andi.w@inventora.com', dept: 'Operations', role: 'Ops Manager', status: 'Aktif', color: 'green' as const, joined: '15 Aug 2021' },
-    { id: 'EMP-10105', name: 'Rina Kusuma', email: 'rina.k@inventora.com', dept: 'HR', role: 'HR Specialist', status: 'Sakit', color: 'red' as const, joined: '10 Feb 2024' },
-    { id: 'EMP-10112', name: 'Joko Anwar', email: 'joko.a@inventora.com', dept: 'Engineering', role: 'Backend Engineer', status: 'Aktif', color: 'green' as const, joined: '01 Nov 2023' },
-  ]);
-
-  const [activeProfile, setActiveProfile] = useState<any | null>(null);
-
-  const [page, setPage] = useState(1);
-  const itemsPerPage = 4;
-  const [sortConfig, setSortConfig] = useState<{ key: keyof typeof employees[0], direction: 'asc' | 'desc' } | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-
-  const handleSort = (key: keyof typeof employees[0]) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedEmployees = [...employees].sort((a, b) => {
-    if (!sortConfig) return 0;
-    if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const filteredEmployees = sortedEmployees.filter(emp => 
-    emp.name.toLowerCase().includes(search.toLowerCase()) || 
-    emp.id.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
-  const paginatedEmployees = filteredEmployees.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-
-  const handleExport = () => {
-    setIsExporting(true);
-    setTimeout(() => {
-      setIsExporting(false);
-      onToast("Data exported as CSV", "success");
-    }, 1500);
-  };
-
-  const handleOnboardToCalendar = async (emp: any) => {
-    const { getAccessToken } = await import('./firebase');
-    const token = await getAccessToken();
-    if (!token) {
-      onToast("Please sign in first to export to Google Calendar", "error");
-      return;
-    }
-    try {
-      const event = {
-        summary: `Onboarding: ${emp.name}`,
-        description: `Role: ${emp.role}\nDepartment: ${emp.dept}\nEmail: ${emp.email}`,
-        start: {
-          dateTime: new Date(Date.now() + 86400000).toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        },
-        end: {
-          dateTime: new Date(Date.now() + 86400000 + 3600000).toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        },
-      };
-
-      const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(event)
-      });
-      
-      if (!res.ok) throw new Error('Failed to create calendar event');
-      
-      onToast(`Onboarding event for ${emp.name} created in Calendar`, "success");
-    } catch (e: any) {
-      onToast(`Calendar export failed: ${e.message}`, "error");
-    }
-  };
-
-  return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Total Pegawai Aktif</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">342</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#0070f3] dark:text-[#3291ff] font-medium">+15 Rekrutmen</span> Bulan Ini</p>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Estimasi Payroll (Agustus)</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">Rp 4.8M</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">Pencairan: 25 Ags 2026</p>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Cuti Pending</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">8</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#f5a623] font-medium">Menunggu Persetujuan</span> Manajer</p>
-        </Card>
-      </div>
-
-      <TableWrapper 
-        title="Direktori SDM & Payroll" 
-        placeholder="Cari Nama Pegawai atau ID..."
-        searchValue={search}
-        onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
-        onExport={handleExport}
-        isExporting={isExporting}
-        currentPage={page}
-        totalPages={totalPages || 1}
-        onPageChange={setPage}
-      >
-        <thead className="sticky top-0 z-10">
-          <tr>
-            <Th sortable onSort={() => handleSort('id')}>ID Pegawai</Th>
-            <Th sortable onSort={() => handleSort('name')}>Nama Pegawai</Th>
-            <Th sortable onSort={() => handleSort('dept')}>Departemen</Th>
-            <Th sortable onSort={() => handleSort('role')}>Posisi</Th>
-            <Th sortable onSort={() => handleSort('status')}>Status</Th>
-            <Th align="right">Aksi</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {paginatedEmployees.length > 0 ? (
-            paginatedEmployees.map((emp, idx) => (
-              <Tr key={emp.id} index={idx}>
-                <Td><span className="font-mono text-xs text-[#666] dark:text-[#a1a1aa]">{emp.id}</span></Td>
-                <Td>
-                  <div className="font-medium tracking-tight">{emp.name}</div>
-                  <div className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{emp.email}</div>
-                </Td>
-                <Td>{emp.dept}</Td>
-                <Td>{emp.role}</Td>
-                <Td><Badge color={emp.color}>{emp.status}</Badge></Td>
-                <Td align="right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="secondary" onClick={() => handleOnboardToCalendar(emp)}>Schedule Onboard</Button>
-                    <Button variant="secondary" onClick={() => setActiveProfile(emp)}>Profile</Button>
-                  </div>
-                </Td>
-              </Tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={6} className="px-6 py-12 text-center text-[#666] dark:text-[#a1a1aa] text-sm">
-                Tidak ada pegawai yang cocok dengan pencarian "{search}".
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </TableWrapper>
-
-      <Modal 
-        isOpen={activeProfile !== null} 
-        onClose={() => setActiveProfile(null)} 
-        title="Employee Profile"
-      >
-        {activeProfile && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 pb-6 border-b border-[#eaeaea]">
-              <div className="w-16 h-16 rounded-full bg-[#f0f0f0] text-[#999] flex items-center justify-center text-2xl font-semibold shadow-inner">
-                {activeProfile.name.charAt(0)}
-              </div>
-              <div>
-                <h4 className="text-xl font-semibold tracking-tight text-[#171717]">{activeProfile.name}</h4>
-                <p className="text-sm text-[#666]">{activeProfile.role}</p>
-                <div className="mt-1">
-                  <Badge color={activeProfile.color}>{activeProfile.status}</Badge>
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
-              <div>
-                <p className="text-[#666] mb-1">Employee ID</p>
-                <p className="font-mono text-[#171717]">{activeProfile.id}</p>
-              </div>
-              <div>
-                <p className="text-[#666] mb-1">Department</p>
-                <p className="font-medium text-[#171717]">{activeProfile.dept}</p>
-              </div>
-              <div>
-                <p className="text-[#666] mb-1">Work Email</p>
-                <p className="font-medium text-[#171717]">{activeProfile.email}</p>
-              </div>
-              <div>
-                <p className="text-[#666] mb-1">Date Joined</p>
-                <p className="font-medium text-[#171717]">{activeProfile.joined}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea]">
-              <Button variant="secondary" onClick={() => setActiveProfile(null)}>Close</Button>
-              <Button variant="primary" onClick={() => {
-                onToast(`Accessing payroll settings for ${activeProfile.name}...`);
-                setActiveProfile(null);
-              }}>Manage Payroll</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-    </section>
-  );
-}
-
-function PurchaseUnitView({ onNavigate }: { onNavigate: (menu: string) => void }) {
-  const [step, setStep] = useState<'form' | 'success'>('form');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setStep('success');
-    }, 1200);
-  };
-
-  if (step === 'success') {
-    return (
-      <section className="p-4 md:p-8 flex-1 flex flex-col items-center justify-center overflow-y-auto">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-white dark:bg-[#111] p-8 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] text-center max-w-sm w-full"
-        >
-          <div className="w-12 h-12 rounded-full bg-[#10b981]/10 flex items-center justify-center text-[#10b981] mx-auto mb-4">
-            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"></path></svg>
-          </div>
-          <h2 className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-2">Order Confirmed</h2>
-          <p className="text-sm text-[#666] dark:text-[#a1a1aa] mb-6">Purchase Order <span className="font-mono text-[#171717] dark:text-[#ededed] font-medium">PO-2026-1043</span> has been generated and sent for approval.</p>
-          <Button onClick={() => onNavigate('po')} variant="secondary">Return to Procurement</Button>
-        </motion.div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col overflow-y-auto">
-      <div className="flex items-center gap-4 mb-6 shrink-0">
-        <button onClick={() => onNavigate('po')} className="text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed] transition-colors shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] bg-white dark:bg-[#1a1a1a] w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#fafafa] dark:hover:bg-[#333]">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        </button>
-        <h2 className="text-2xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">Buat Purchase Order Baru</h2>
-      </div>
-
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] max-w-3xl flex-shrink-0"
-      >
-        <div className="px-6 py-4 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] bg-[#fafafa] dark:bg-[#1a1a1a] rounded-t-xl">
-          <h3 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">Formulir Pengadaan</h3>
-          <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">Masukkan detail unit yang akan dipesan melalui vendor terdaftar.</p>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">Vendor Supplier</label>
-              <select required className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] outline-none text-sm px-3 py-2 rounded-md transition-shadow text-[#171717] dark:text-[#ededed] appearance-none cursor-pointer">
-                <option value="">Pilih Vendor...</option>
-                <option value="nvidia">NVIDIA Corp Indonesia</option>
-                <option value="cisco">Cisco Systems Indonesia</option>
-                <option value="dell">Dell EMC Indonesia</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">SKU / Nama Perangkat</label>
-              <input required type="text" placeholder="e.g. NV-H100-TC" className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] outline-none text-sm px-3 py-2 rounded-md transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">Kuantitas (Unit)</label>
-              <input required type="number" min="1" placeholder="10" className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] outline-none text-sm px-3 py-2 rounded-md transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">Total Estimasi Harga (Rp)</label>
-              <input required type="text" placeholder="150,000,000" className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] outline-none text-sm px-3 py-2 rounded-md transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">Catatan / Urgensi</label>
-            <textarea rows={3} placeholder="Tambahkan catatan jika diperlukan..." className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] outline-none text-sm px-3 py-2 rounded-md transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed] resize-none"></textarea>
-          </div>
-          
-          <div className="pt-2 flex items-center justify-end gap-3">
-            <Button onClick={() => onNavigate('po')} variant="secondary">Batal</Button>
-            <Button type="submit" disabled={isSubmitting} variant="primary">
-              {isSubmitting ? (
-                <div className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Memproses...
-                </div>
-              ) : "Submit Order"}
-            </Button>
-          </div>
-        </form>
-      </motion.div>
-    </section>
-  );
-}
-
-function OverviewView({ onNavigate }: { onNavigate: (menu: string) => void }) {
+function OverviewView({ onNavigate, t, lang }: { onNavigate: (menu: string) => void, t: Translations, lang: Language }) {
   const chartData = [
     { name: 'Jan', revenue: 4000 },
     { name: 'Feb', revenue: 3000 },
@@ -1226,11 +406,11 @@ function OverviewView({ onNavigate }: { onNavigate: (menu: string) => void }) {
   ];
 
   const activities = [
-    { id: 1, time: '10:42 AM', user: 'Admin', action: 'approved PO-2026-1042', icon: CheckCircle2, color: 'text-[#10b981]' },
-    { id: 2, time: '09:15 AM', user: 'System', action: 'flagged STR-NVME-8TB as low stock', icon: AlertCircle, color: 'text-[#e00]' },
-    { id: 3, time: 'Yesterday', user: 'Finance', action: 'generated invoice INV-OUT-893', icon: FileText, color: 'text-[#0070f3]' },
-    { id: 4, time: 'Yesterday', user: 'HR', action: 'onboarded new employee EMP-10113', icon: UserCircle, color: 'text-[#f5a623]' },
-    { id: 5, time: 'Aug 24', user: 'System', action: 'completed weekly payroll run', icon: Activity, color: 'text-[#10b981]' },
+    { id: 1, time: '10:42 AM', user: 'Admin', action: lang === 'en' ? 'approved PO-2026-1042' : 'menyetujui PO-2026-1042', icon: CheckCircle2, color: 'text-[#10b981]' },
+    { id: 2, time: '09:15 AM', user: 'System', action: lang === 'en' ? 'flagged STR-NVME-8TB as low stock' : 'menandai STR-NVME-8TB stok kritis', icon: AlertCircle, color: 'text-[#e00]' },
+    { id: 3, time: 'Yesterday', user: 'Finance', action: lang === 'en' ? 'generated invoice INV-OUT-893' : 'menerbitkan invoice INV-OUT-893', icon: FileText, color: 'text-[#0070f3]' },
+    { id: 4, time: 'Yesterday', user: 'HR', action: lang === 'en' ? 'onboarded new employee EMP-10113' : 'menyelesaikan onboarding EMP-10113', icon: UserCircle, color: 'text-[#f5a623]' },
+    { id: 5, time: 'Aug 24', user: 'System', action: lang === 'en' ? 'completed weekly payroll run' : 'menyelesaikan siklus payroll mingguan', icon: Activity, color: 'text-[#10b981]' },
   ];
 
   return (
@@ -1239,9 +419,11 @@ function OverviewView({ onNavigate }: { onNavigate: (menu: string) => void }) {
         <Card>
           <div className="flex flex-col justify-between h-full">
             <div>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Total Revenue</p>
-              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">Rp 12.8M</h3>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+18%</span> vs last month</p>
+              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.totalRevenue}</p>
+              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
+                {lang === 'en' ? '$850K / Rp 12.8M' : 'Rp 12,8 Miliar'}
+              </h3>
+              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+18%</span> {t.overview.vsLastMonth}</p>
             </div>
             <div className="w-full h-16 mt-4">
               <ResponsiveContainer width="100%" height="100%">
@@ -1260,29 +442,29 @@ function OverviewView({ onNavigate }: { onNavigate: (menu: string) => void }) {
         </Card>
         
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Active POs</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.activePos}</p>
           <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">45</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#0070f3] dark:text-[#3291ff] font-medium">12 pending</span> approvals</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#0070f3] dark:text-[#3291ff] font-medium">12</span> {t.overview.pendingApprovals}</p>
           <div className="mt-6">
-            <Button variant="secondary" onClick={() => onNavigate('po')}>Review POs</Button>
+            <Button variant="secondary" onClick={() => onNavigate('po')}>{lang === 'en' ? 'Review POs' : 'Tinjau PO'}</Button>
           </div>
         </Card>
 
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Low Stock Alerts</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.lowStockAlerts}</p>
           <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#e00] dark:text-[#ff3333] tabular-nums">4</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">Items below safety threshold</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">{t.overview.belowSafety}</p>
           <div className="mt-6">
-            <Button variant="secondary" onClick={() => onNavigate('stok')}>Check Inventory</Button>
+            <Button variant="secondary" onClick={() => onNavigate('stok')}>{lang === 'en' ? 'Check Inventory' : 'Periksa Stok'}</Button>
           </div>
         </Card>
 
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">Employee Headcount</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.employeeHeadcount}</p>
           <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">342</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+15 new</span> this month</p>
+          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+15</span> {t.overview.newThisMonth}</p>
           <div className="mt-6">
-            <Button variant="secondary" onClick={() => onNavigate('sdm')}>Manage HR</Button>
+            <Button variant="secondary" onClick={() => onNavigate('sdm')}>{lang === 'en' ? 'Manage HR' : 'Kelola SDM'}</Button>
           </div>
         </Card>
       </div>
@@ -1290,19 +472,19 @@ function OverviewView({ onNavigate }: { onNavigate: (menu: string) => void }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-6">
           <div className="bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] p-6">
-            <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-4">Quick Actions</h3>
+            <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-4">{t.overview.quickActions}</h3>
             <div className="flex flex-wrap gap-4">
-              <Button variant="secondary" onClick={() => onNavigate('purchase')}>Create New PO</Button>
-              <Button variant="secondary" onClick={() => onNavigate('keuangan')}>Generate Invoice</Button>
-              <Button variant="secondary" onClick={() => onNavigate('sdm')}>Onboard Employee</Button>
-              <Button variant="secondary" onClick={() => onNavigate('analytics')}>View Full Analytics</Button>
+              <Button variant="secondary" onClick={() => onNavigate('purchase')}>{t.overview.createPo}</Button>
+              <Button variant="secondary" onClick={() => onNavigate('keuangan')}>{t.overview.generateInvoice}</Button>
+              <Button variant="secondary" onClick={() => onNavigate('sdm')}>{t.overview.onboardEmployee}</Button>
+              <Button variant="secondary" onClick={() => onNavigate('analytics')}>{t.overview.viewAnalytics}</Button>
             </div>
           </div>
         </div>
 
         <div className="lg:col-span-1">
           <div className="bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] p-6 h-full">
-            <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">Activity Stream</h3>
+            <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">{t.overview.activityStream}</h3>
             <div className="space-y-6">
               {activities.map((act, index) => {
                 const Icon = act.icon;
@@ -1329,16 +511,34 @@ function OverviewView({ onNavigate }: { onNavigate: (menu: string) => void }) {
   );
 }
 
-function SettingsView({ onToast }: { onToast: (msg: string, type?: ToastType) => void }) {
-  const [activeTab, setActiveTab] = useState('profile');
+function SettingsView({ 
+  onToast, 
+  lang, 
+  onLanguageChange, 
+  t 
+}: { 
+  onToast: (msg: string, type?: ToastType) => void;
+  lang: Language;
+  onLanguageChange: (newLang: Language) => void;
+  t: Translations;
+}) {
+  const [activeTab, setActiveTab] = useState<'profile' | 'workspace' | 'language' | 'billing'>('profile');
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedLang, setSelectedLang] = useState<Language>(lang);
+
+  useEffect(() => {
+    setSelectedLang(lang);
+  }, [lang]);
 
   const handleSave = () => {
     setIsSaving(true);
+    if (selectedLang !== lang) {
+      onLanguageChange(selectedLang);
+    }
     setTimeout(() => {
       setIsSaving(false);
-      onToast("Settings updated successfully", "success");
-    }, 800);
+      onToast(lang === 'en' ? "Settings updated successfully" : "Pengaturan berhasil diperbarui", "success");
+    }, 600);
   };
 
   return (
@@ -1349,28 +549,41 @@ function SettingsView({ onToast }: { onToast: (msg: string, type?: ToastType) =>
             onClick={() => setActiveTab('profile')} 
             className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'profile' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
           >
-            Profile & Account
+            {t.settings.profileTab}
           </div>
           <div 
             onClick={() => setActiveTab('workspace')} 
             className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'workspace' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
           >
-            Workspace Preferences
+            {t.settings.workspaceTab}
+          </div>
+          <div 
+            onClick={() => setActiveTab('language')} 
+            className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors flex items-center justify-between ${activeTab === 'language' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
+          >
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              <span>{t.settings.languageTab}</span>
+            </div>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              {lang.toUpperCase()}
+            </span>
           </div>
           <div 
             onClick={() => setActiveTab('billing')} 
             className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'billing' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
           >
-            Billing & Plans
+            {t.settings.billingTab}
           </div>
         </div>
 
         <div className="flex-1">
           <Card>
             <h2 className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">
-              {activeTab === 'profile' && 'Profile Settings'}
-              {activeTab === 'workspace' && 'Workspace Configuration'}
-              {activeTab === 'billing' && 'Billing Overview'}
+              {activeTab === 'profile' && t.settings.profileTitle}
+              {activeTab === 'workspace' && t.settings.workspaceTitle}
+              {activeTab === 'language' && t.settings.languageTitle}
+              {activeTab === 'billing' && t.settings.billingTitle}
             </h2>
 
             {activeTab === 'profile' && (
@@ -1380,22 +593,22 @@ function SettingsView({ onToast }: { onToast: (msg: string, type?: ToastType) =>
                     A
                   </div>
                   <div>
-                    <Button variant="secondary">Change Avatar</Button>
-                    <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-2">JPG, GIF or PNG. Max size of 800K</p>
+                    <Button variant="secondary">{t.settings.changeAvatar}</Button>
+                    <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-2">{t.settings.avatarHint}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">Full Name</label>
+                    <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">{t.settings.fullName}</label>
                     <input type="text" defaultValue="Admin User" className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] outline-none text-sm px-3 py-2 rounded-md focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] text-[#171717] dark:text-[#ededed]" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">Email Address</label>
+                    <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">{t.settings.emailAddress}</label>
                     <input type="email" defaultValue="admin@inventora.com" className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] outline-none text-sm px-3 py-2 rounded-md focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] text-[#171717] dark:text-[#ededed]" />
                   </div>
                 </div>
                 <div className="pt-4 flex justify-end">
-                  <Button variant="primary" onClick={handleSave} isLoading={isSaving}>Save Changes</Button>
+                  <Button variant="primary" onClick={handleSave} isLoading={isSaving}>{t.settings.saveChanges}</Button>
                 </div>
               </div>
             )}
@@ -1403,18 +616,208 @@ function SettingsView({ onToast }: { onToast: (msg: string, type?: ToastType) =>
             {activeTab === 'workspace' && (
               <div className="space-y-6 text-[#171717] dark:text-[#ededed]">
                 <p className="text-sm text-[#666] dark:text-[#a1a1aa]">Configure your workspace preferences and notification settings.</p>
+                
+                {/* Language section in Workspace tab */}
+                <div className="p-4 rounded-lg bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-[#171717] dark:text-[#ededed] flex items-center gap-1.5">
+                        <Globe className="w-4 h-4 text-[#0070f3]" />
+                        <span>{t.settings.systemLanguage}</span>
+                      </h4>
+                      <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{t.settings.systemLanguageHint}</p>
+                    </div>
+                    <select
+                      value={selectedLang}
+                      onChange={(e) => {
+                        const val = e.target.value as Language;
+                        setSelectedLang(val);
+                        onLanguageChange(val);
+                      }}
+                      className="text-xs font-semibold bg-white dark:bg-[#222] border border-[#eaeaea] dark:border-[#444] rounded-md px-3 py-1.5 outline-none focus:border-[#0070f3] cursor-pointer"
+                    >
+                      <option value="en">English (US)</option>
+                      <option value="id">Bahasa Indonesia</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
-                  <label className="flex items-center gap-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-[#0070f3] focus:ring-[#0070f3]" />
-                    <span className="text-sm">Email me when a new PO is created</span>
+                    <span className="text-sm">{t.settings.emailOnPo}</span>
                   </label>
-                  <label className="flex items-center gap-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-[#0070f3] focus:ring-[#0070f3]" />
-                    <span className="text-sm">Weekly inventory summary reports</span>
+                    <span className="text-sm">{t.settings.weeklySummary}</span>
                   </label>
                 </div>
                 <div className="pt-4 flex justify-end">
-                  <Button variant="primary" onClick={handleSave} isLoading={isSaving}>Update Preferences</Button>
+                  <Button variant="primary" onClick={handleSave} isLoading={isSaving}>{t.settings.updatePreferences}</Button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'language' && (
+              <div className="space-y-6">
+                <div>
+                  <p className="text-sm text-[#666] dark:text-[#a1a1aa]">
+                    {t.common.languageDescription}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* English Card */}
+                  <div 
+                    onClick={() => {
+                      setSelectedLang('en');
+                      onLanguageChange('en');
+                    }}
+                    className={`p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 relative ${
+                      lang === 'en'
+                        ? 'border-[#0070f3] bg-[#0070f3]/[0.03] dark:bg-[#0070f3]/10 shadow-sm'
+                        : 'border-[#eaeaea] dark:border-[#333] hover:border-[#ccc] dark:hover:border-[#555] bg-white dark:bg-[#111]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">🇺🇸</span>
+                        <div>
+                          <h3 className="text-base font-semibold text-[#171717] dark:text-[#ededed]">
+                            English (US)
+                          </h3>
+                          <span className="text-xs text-[#888] font-mono">en-US</span>
+                        </div>
+                      </div>
+                      {lang === 'en' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0070f3] dark:text-[#3291ff] bg-[#0070f3]/10 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" /> {t.settings.currentLanguageBadge}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[#888] hover:text-[#171717] font-medium">
+                          Select
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-[#666] dark:text-[#a1a1aa] leading-relaxed mb-4">
+                      Standard international enterprise localization with USD/IDR currency parsing and English menu headers.
+                    </p>
+
+                    <div className="p-3 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg border border-[#eaeaea] dark:border-[#2b2b2b] text-[11px] space-y-1.5 font-mono text-[#555] dark:text-[#aaa]">
+                      <div className="flex justify-between">
+                        <span>Date Format:</span>
+                        <span className="text-[#171717] dark:text-[#ededed] font-medium">MM/DD/YYYY (e.g. Sep 21, 2026)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Currency Format:</span>
+                        <span className="text-[#171717] dark:text-[#ededed] font-medium">IDR / USD $</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Number Separator:</span>
+                        <span className="text-[#171717] dark:text-[#ededed] font-medium">1,234,567.89</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedLang('en');
+                        onLanguageChange('en');
+                      }}
+                      className={`w-full mt-4 text-xs font-semibold py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                        lang === 'en'
+                          ? 'bg-[#0070f3] text-white shadow-sm'
+                          : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[#171717] dark:text-[#ededed]'
+                      }`}
+                    >
+                      {lang === 'en' ? 'Active Language' : 'Switch to English'}
+                    </button>
+                  </div>
+
+                  {/* Indonesian Card */}
+                  <div 
+                    onClick={() => {
+                      setSelectedLang('id');
+                      onLanguageChange('id');
+                    }}
+                    className={`p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 relative ${
+                      lang === 'id'
+                        ? 'border-[#0070f3] bg-[#0070f3]/[0.03] dark:bg-[#0070f3]/10 shadow-sm'
+                        : 'border-[#eaeaea] dark:border-[#333] hover:border-[#ccc] dark:hover:border-[#555] bg-white dark:bg-[#111]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">🇮🇩</span>
+                        <div>
+                          <h3 className="text-base font-semibold text-[#171717] dark:text-[#ededed]">
+                            Bahasa Indonesia
+                          </h3>
+                          <span className="text-xs text-[#888] font-mono">id-ID</span>
+                        </div>
+                      </div>
+                      {lang === 'id' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0070f3] dark:text-[#3291ff] bg-[#0070f3]/10 px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" /> {t.settings.currentLanguageBadge}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[#888] hover:text-[#171717] font-medium">
+                          Pilih
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-[#666] dark:text-[#a1a1aa] leading-relaxed mb-4">
+                      Format nasional Indonesia dengan pemisah ribuan titik, mata uang Rupiah (Rp), dan nomenklatur ERP standar Indonesia.
+                    </p>
+
+                    <div className="p-3 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg border border-[#eaeaea] dark:border-[#2b2b2b] text-[11px] space-y-1.5 font-mono text-[#555] dark:text-[#aaa]">
+                      <div className="flex justify-between">
+                        <span>Format Tanggal:</span>
+                        <span className="text-[#171717] dark:text-[#ededed] font-medium">DD/MM/YYYY (cth: 21 Sep 2026)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Format Mata Uang:</span>
+                        <span className="text-[#171717] dark:text-[#ededed] font-medium">Rupiah (Rp)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Pemisah Angka:</span>
+                        <span className="text-[#171717] dark:text-[#ededed] font-medium">1.234.567,89</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedLang('id');
+                        onLanguageChange('id');
+                      }}
+                      className={`w-full mt-4 text-xs font-semibold py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                        lang === 'id'
+                          ? 'bg-[#0070f3] text-white shadow-sm'
+                          : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[#171717] dark:text-[#ededed]'
+                      }`}
+                    >
+                      {lang === 'id' ? 'Bahasa Aktif' : 'Ganti ke Bahasa Indonesia'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold mb-0.5">
+                      {lang === 'en' ? 'Seamless Persistence' : 'Tersimpan Otomatis'}
+                    </p>
+                    <p className="text-blue-800 dark:text-blue-300 text-[11px] leading-relaxed">
+                      {lang === 'en' 
+                        ? 'Your language selection is saved locally across sessions and synchronized with the top navigation bar quick switcher.' 
+                        : 'Pilihan bahasa Anda disimpan secara otomatis untuk seluruh sesi kerja dan disinkronkan langsung dengan tombol cepat di header atas.'}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -1422,13 +825,13 @@ function SettingsView({ onToast }: { onToast: (msg: string, type?: ToastType) =>
             {activeTab === 'billing' && (
               <div className="space-y-6">
                 <div className="p-4 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg border border-[#eaeaea] dark:border-[#333]">
-                  <h4 className="font-medium text-[#171717] dark:text-[#ededed]">Enterprise Plan</h4>
-                  <p className="text-sm text-[#666] dark:text-[#a1a1aa] mt-1">Unlimited users, advanced analytics, and priority support.</p>
+                  <h4 className="font-medium text-[#171717] dark:text-[#ededed]">{t.settings.activePlan}</h4>
+                  <p className="text-sm text-[#666] dark:text-[#a1a1aa] mt-1">{t.settings.planDesc}</p>
                   <div className="mt-4">
                     <Badge color="green">Active</Badge>
                   </div>
                 </div>
-                <Button variant="secondary">Manage Subscription via Stripe</Button>
+                <Button variant="secondary">{t.settings.manageStripe}</Button>
               </div>
             )}
           </Card>
@@ -1438,187 +841,21 @@ function SettingsView({ onToast }: { onToast: (msg: string, type?: ToastType) =>
   );
 }
 
-function AnalyticsView() {
-  const pieData = [
-    { name: 'Engineering', value: 45 },
-    { name: 'Marketing', value: 25 },
-    { name: 'Operations', value: 20 },
-    { name: 'HR', value: 10 },
-  ];
-  const COLORS = ['#0070f3', '#10b981', '#f5a623', '#888888'];
-
-  const barData = [
-    { name: 'NVIDIA', volume: 4000 },
-    { name: 'Cisco', volume: 3000 },
-    { name: 'Dell', volume: 2000 },
-    { name: 'Lenovo', volume: 1500 },
-  ];
-
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-
-  const handleAskAnalyst = async (customPrompt?: string) => {
-    const promptToSend = customPrompt || aiPrompt;
-    if (!promptToSend.trim()) return;
-    setIsAiLoading(true);
-    setAiAnalysis(null);
-    try {
-      const res = await fetch('/api/analyst', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: promptToSend,
-          context: {
-            departmentBudgets: pieData,
-            vendorVolumes: barData,
-            cashFlowSummary: { Q1_in: 4000, Q2_in: 3000, Q3_in: 2000, Q4_in: 2780 }
-          }
-        })
-      });
-      const data = await res.json();
-      if (data.result) {
-        setAiAnalysis(data.result);
-      } else if (data.error) {
-        setAiAnalysis(`Error: ${data.error}`);
-      }
-    } catch (err: any) {
-      setAiAnalysis(`Request failed: ${err.message}`);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-  return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <div className="flex items-center justify-between shrink-0 mb-2">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">Analytics & Reporting</h2>
-          <p className="text-sm text-[#666] dark:text-[#a1a1aa] mt-1">Multi-dimensional insights across your enterprise data.</p>
-        </div>
-        <Button variant="secondary"><Download className="w-4 h-4 mr-2" /> Export Report</Button>
-      </div>
-
-      {/* AI Enterprise Analyst Panel */}
-      <div className="bg-white dark:bg-[#111] p-6 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-5 h-5 text-[#0070f3] dark:text-[#3291ff]" />
-          <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">Inventora AI Data Analyst</h3>
-        </div>
-        <p className="text-xs text-[#666] dark:text-[#a1a1aa] mb-4">
-          Ask conversational analytical questions about budgeting, vendor concentration, and cash flow projections.
-        </p>
-
-        <div className="flex flex-wrap gap-2 mb-3">
-          {[
-            "Summarize budget and cash flow health",
-            "Analyze vendor concentration risk",
-            "Recommend cost optimization actions"
-          ].map((suggestion, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setAiPrompt(suggestion);
-                handleAskAnalyst(suggestion);
-              }}
-              className="text-xs px-3 py-1 rounded-full bg-[#f4f4f5] dark:bg-[#222] text-[#555] dark:text-[#ccc] hover:bg-[#eaeaea] dark:hover:bg-[#333] transition-colors"
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-
-        <form 
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAskAnalyst();
-          }}
-          className="flex gap-2"
-        >
-          <input
-            type="text"
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="e.g. What percentage of the budget does Engineering hold and how does it compare to marketing?"
-            className="flex-1 bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] outline-none text-sm px-3.5 py-2 rounded-md placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)]"
-          />
-          <Button type="submit" variant="primary" disabled={isAiLoading || !aiPrompt.trim()}>
-            {isAiLoading ? 'Analyzing...' : 'Ask AI'}
-          </Button>
-        </form>
-
-        {aiAnalysis && (
-          <div className="mt-4 p-4 rounded-lg bg-[#fafafa] dark:bg-[#161616] border border-[#eaeaea] dark:border-[#262626]">
-            <div className="text-xs font-semibold uppercase tracking-wider text-[#666] dark:text-[#888] mb-2 flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-[#0070f3]" />
-              Analysis Result
-            </div>
-            <div className="text-sm text-[#171717] dark:text-[#ededed] whitespace-pre-line leading-relaxed">
-              {aiAnalysis}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 shrink-0">
-        <Card>
-          <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">Department Budget Allocation</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">Top Vendors by Volume</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eaeaea" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} />
-                <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
-                <Bar dataKey="volume" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">Cash Flow Forecast</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={[
-                { name: 'Q1', in: 4000, out: 2400 },
-                { name: 'Q2', in: 3000, out: 1398 },
-                { name: 'Q3', in: 2000, out: 9800 },
-                { name: 'Q4', in: 2780, out: 3908 },
-              ]}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eaeaea" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#888' }} />
-                <RechartsTooltip />
-                <Area type="monotone" dataKey="in" stackId="1" stroke="#0070f3" fill="#0070f3" fillOpacity={0.2} />
-                <Area type="monotone" dataKey="out" stackId="1" stroke="#f5a623" fill="#f5a623" fillOpacity={0.2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
-    </section>
-  );
-}
-
-function CommandPalette({ isOpen, onClose, onNavigate, toggleDarkMode }: { isOpen: boolean, onClose: () => void, onNavigate: (menu: string) => void, toggleDarkMode: () => void }) {
+function CommandPalette({ 
+  isOpen, 
+  onClose, 
+  onNavigate, 
+  toggleDarkMode, 
+  lang = 'en', 
+  onLanguageChange 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onNavigate: (menu: string) => void; 
+  toggleDarkMode: () => void; 
+  lang?: Language; 
+  onLanguageChange?: (newLang: Language) => void; 
+}) {
   const [search, setSearch] = useState('');
   
   useEffect(() => {
@@ -1634,14 +871,26 @@ function CommandPalette({ isOpen, onClose, onNavigate, toggleDarkMode }: { isOpe
   if (!isOpen) return null;
 
   const commands = [
-    { id: 'overview', name: 'Go to Overview', icon: LayoutDashboard, action: () => onNavigate('overview') },
-    { id: 'analytics', name: 'View Analytics', icon: BarChart3, action: () => onNavigate('analytics') },
-    { id: 'stok', name: 'Check Inventory', icon: Database, action: () => onNavigate('stok') },
-    { id: 'po', name: 'Manage Procurement (PO)', icon: ShoppingCart, action: () => onNavigate('po') },
-    { id: 'finance', name: 'Go to Finance', icon: FileText, action: () => onNavigate('keuangan') },
-    { id: 'hr', name: 'Manage HR', icon: Users, action: () => onNavigate('sdm') },
-    { id: 'settings', name: 'Open Settings', icon: SettingsIcon, action: () => onNavigate('settings') },
-    { id: 'theme', name: 'Toggle Dark Mode', icon: Moon, action: () => toggleDarkMode() },
+    { id: 'overview', name: lang === 'en' ? 'Go to Command Center Overview' : 'Buka Command Center Overview', icon: LayoutDashboard, action: () => onNavigate('overview') },
+    { id: 'analytics', name: lang === 'en' ? 'View Analytics & Reports' : 'Buka Analytics & Pelaporan', icon: BarChart3, action: () => onNavigate('analytics') },
+    { id: 'stok', name: lang === 'en' ? 'Check Inventory Stock' : 'Periksa Stok Inventaris', icon: Database, action: () => onNavigate('stok') },
+    { id: 'po', name: lang === 'en' ? 'Manage Procurement (PO & Payment Gateway)' : 'Kelola Pengadaan (PO & Gateway Pembayaran)', icon: ShoppingCart, action: () => onNavigate('po') },
+    { id: 'finance', name: lang === 'en' ? 'Go to Finance & Invoices' : 'Buka Keuangan & Invoice', icon: FileText, action: () => onNavigate('keuangan') },
+    { id: 'hr', name: lang === 'en' ? 'Manage HR & Payroll' : 'Kelola SDM & Payroll', icon: Users, action: () => onNavigate('sdm') },
+    { id: 'settings', name: lang === 'en' ? 'Open Workspace & Language Settings' : 'Buka Pengaturan Workspace & Bahasa', icon: SettingsIcon, action: () => onNavigate('settings') },
+    { 
+      id: 'lang-en', 
+      name: 'Switch Language to English (US)', 
+      icon: Globe, 
+      action: () => onLanguageChange && onLanguageChange('en') 
+    },
+    { 
+      id: 'lang-id', 
+      name: 'Ganti Bahasa ke Bahasa Indonesia', 
+      icon: Globe, 
+      action: () => onLanguageChange && onLanguageChange('id') 
+    },
+    { id: 'theme', name: lang === 'en' ? 'Toggle Dark Mode' : 'Ganti Tema Gelap / Terang', icon: Moon, action: () => toggleDarkMode() },
   ];
 
   const filtered = commands.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
@@ -1661,7 +910,7 @@ function CommandPalette({ isOpen, onClose, onNavigate, toggleDarkMode }: { isOpe
           <input 
             autoFocus
             type="text" 
-            placeholder="Type a command or search..." 
+            placeholder={lang === 'en' ? "Type a command or search..." : "Ketik perintah atau cari menu..."} 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-transparent outline-none text-[#171717] dark:text-[#ededed] placeholder-[#999] dark:placeholder-[#666]"
@@ -1685,7 +934,7 @@ function CommandPalette({ isOpen, onClose, onNavigate, toggleDarkMode }: { isOpe
             })
           ) : (
             <div className="py-8 text-center text-sm text-[#666] dark:text-[#a1a1aa]">
-              No results found for "{search}"
+              {lang === 'en' ? `No results found for "${search}"` : `Tidak ada hasil untuk "${search}"`}
             </div>
           )}
         </div>
@@ -1699,6 +948,20 @@ function Dashboard() {
   const [activeMenu, setActiveMenu] = useState('overview');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [language, setLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem('inventora_language');
+    if (saved === 'en' || saved === 'id') return saved;
+    return 'en';
+  });
+
+  const t = translations[language];
+
+  const handleLanguageChange = (newLang: Language) => {
+    setLanguage(newLang);
+    localStorage.setItem('inventora_language', newLang);
+    showToast(newLang === 'en' ? 'Language switched to English' : 'Bahasa dialihkan ke Bahasa Indonesia', 'info');
+  };
+
   const [currentRole, setCurrentRole] = useState<Role>(() => {
     const demo = sessionStorage.getItem('inventora_demo_user');
     if (demo) {
@@ -1714,6 +977,63 @@ function Dashboard() {
     const demo = sessionStorage.getItem('inventora_demo_user');
     return demo ? JSON.parse(demo) : null;
   });
+
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    const saved = localStorage.getItem('inventora_notifications');
+    if (saved) {
+      try { return JSON.parse(saved); } catch {}
+    }
+    return [
+      {
+        id: 'notif-gateway-init',
+        title: 'Payment Gateway Pengadaan Aktif',
+        message: 'Kanal Virtual Account, Corporate Card, RTGS, dan QRIS siap memproses settlement otomatis.',
+        timestamp: new Date().toISOString(),
+        read: false,
+        type: 'system'
+      },
+      {
+        id: 'notif-po-approved',
+        title: 'PO Siap Dibayar',
+        message: 'PO-2026-1041 (Cisco Systems Indonesia) telah disetujui. Silakan selesaikan pembayaran via Payment Gateway.',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        read: false,
+        type: 'approval',
+        metadata: {
+          poId: 'PO-2026-1041',
+          vendor: 'Cisco Systems Indonesia',
+          amount: 850000000
+        }
+      }
+    ];
+  });
+
+  const handleNewNotification = (notifData: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
+    const newNotif: AppNotification = {
+      ...notifData,
+      id: 'notif-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    setNotifications(prev => {
+      const updated = [newNotif, ...prev];
+      try { localStorage.setItem('inventora_notifications', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => {
+      const updated = prev.map(n => ({ ...n, read: true }));
+      try { localStorage.setItem('inventora_notifications', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+
+  const handleClearAllNotifications = () => {
+    setNotifications([]);
+    try { localStorage.removeItem('inventora_notifications'); } catch {}
+  };
 
   useEffect(() => {
     const demo = sessionStorage.getItem('inventora_demo_user');
@@ -1771,15 +1091,15 @@ function Dashboard() {
 
   const getHeaderTitle = () => {
     switch(activeMenu) {
-      case 'overview': return 'Command Center Overview';
-      case 'analytics': return 'Analytics & Reporting';
-      case 'stok': return 'Pusat Kendali Inventaris';
-      case 'po': return 'Manajemen Pengadaan (PO)';
-      case 'keuangan': return 'Keuangan & Invoice';
-      case 'sdm': return 'Sumber Daya Manusia (SDM)';
-      case 'purchase': return 'Buat Purchase Order Baru';
-      case 'settings': return 'Workspace Settings';
-      default: return 'Pusat Kendali Inventaris';
+      case 'overview': return t.headers.overview;
+      case 'analytics': return t.headers.analytics;
+      case 'stok': return t.headers.inventory;
+      case 'po': return t.headers.procurement;
+      case 'keuangan': return t.headers.finance;
+      case 'sdm': return t.headers.hr;
+      case 'purchase': return t.headers.newPo;
+      case 'settings': return t.headers.settings;
+      default: return t.headers.inventory;
     }
   };
 
@@ -1846,37 +1166,37 @@ function Dashboard() {
           {hasAccess('overview') && (
             <div onClick={() => handleMenuClick('overview')} className={getMenuClass('overview')}>
               <LayoutDashboard className="w-4 h-4" />
-              <span className="text-sm">Overview</span>
+              <span className="text-sm">{t.nav.overview}</span>
             </div>
           )}
           {hasAccess('analytics') && (
             <div onClick={() => handleMenuClick('analytics')} className={getMenuClass('analytics')}>
               <BarChart3 className="w-4 h-4" />
-              <span className="text-sm">Analytics</span>
+              <span className="text-sm">{t.nav.analytics}</span>
             </div>
           )}
           {hasAccess('stok') && (
             <div onClick={() => handleMenuClick('stok')} className={getMenuClass('stok')}>
               <Database className="w-4 h-4" />
-              <span className="text-sm">Manajemen Stok</span>
+              <span className="text-sm">{t.nav.inventory}</span>
             </div>
           )}
           {hasAccess('po') && (
             <div onClick={() => handleMenuClick('po')} className={getMenuClass('po')}>
               <ShoppingCart className="w-4 h-4" />
-              <span className="text-sm">Pengadaan (PO)</span>
+              <span className="text-sm">{t.nav.procurement}</span>
             </div>
           )}
           {hasAccess('keuangan') && (
             <div onClick={() => handleMenuClick('keuangan')} className={getMenuClass('keuangan')}>
               <FileText className="w-4 h-4" />
-              <span className="text-sm">Keuangan & Invoice</span>
+              <span className="text-sm">{t.nav.finance}</span>
             </div>
           )}
           {hasAccess('sdm') && (
             <div onClick={() => handleMenuClick('sdm')} className={getMenuClass('sdm')}>
               <Users className="w-4 h-4" />
-              <span className="text-sm">SDM & Payroll</span>
+              <span className="text-sm">{t.nav.hr}</span>
             </div>
           )}
           
@@ -1884,14 +1204,14 @@ function Dashboard() {
             <div className="pt-4 mt-4 border-t border-[#eaeaea] dark:border-[#333]">
               <div onClick={() => handleMenuClick('settings')} className={getMenuClass('settings')}>
                 <SettingsIcon className="w-4 h-4" />
-                <span className="text-sm">Settings</span>
+                <span className="text-sm">{t.nav.settings}</span>
               </div>
             </div>
           )}
         </nav>
         
         <div className="p-6 text-[#666] dark:text-[#a1a1aa] text-xs space-y-4 shadow-[0_-1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.08)]">
-          <p>Active Session:<br/><span className="text-[#171717] dark:text-[#ededed] font-medium text-sm truncate block" title={user?.email}>{user?.email || 'admin@inventora.com'}</span></p>
+          <p>{t.nav.activeSession}:<br/><span className="text-[#171717] dark:text-[#ededed] font-medium text-sm truncate block" title={user?.email}>{user?.email || 'admin@inventora.com'}</span></p>
           <div className="flex gap-2">
             <button onClick={toggleDarkMode} className="flex-1 bg-white dark:bg-[#1a1a1a] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-[#fafafa] dark:hover:bg-[#333] px-3 py-2 rounded-md transition-colors flex items-center justify-center">
               <svg className="hidden dark:block w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -1899,7 +1219,7 @@ function Dashboard() {
             </button>
             <button onClick={handleLogout} className="flex-[4] bg-white dark:bg-[#1a1a1a] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-[#fafafa] dark:hover:bg-[#333] px-3 py-2 rounded-md transition-colors text-xs flex items-center justify-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Logout
+              {t.nav.logout}
             </button>
           </div>
         </div>
@@ -1922,38 +1242,75 @@ function Dashboard() {
               </span>
             </h1>
           </div>
-          <div className="flex items-center gap-4">
-            <select 
-              value={currentRole} 
-              onChange={(e) => {
-                setCurrentRole(e.target.value as Role);
-                setActiveMenu('overview');
-                showToast(`Switched role to ${e.target.value}`, 'info');
+          <div className="flex items-center gap-3">
+            {/* Quick Language Switcher Pill */}
+            <div className="flex items-center rounded-lg border border-[#eaeaea] dark:border-[#333] p-0.5 bg-[#fafafa] dark:bg-[#1a1a1a]">
+              <button
+                type="button"
+                onClick={() => handleLanguageChange('en')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                  language === 'en'
+                    ? 'bg-white dark:bg-[#262626] text-[#0070f3] dark:text-[#3291ff] shadow-sm'
+                    : 'text-[#666] dark:text-[#888] hover:text-[#171717] dark:hover:text-[#ededed]'
+                }`}
+                title="Switch language to English (US)"
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange('id')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                  language === 'id'
+                    ? 'bg-white dark:bg-[#262626] text-[#0070f3] dark:text-[#3291ff] shadow-sm'
+                    : 'text-[#666] dark:text-[#888] hover:text-[#171717] dark:hover:text-[#ededed]'
+                }`}
+                title="Ganti bahasa ke Bahasa Indonesia"
+              >
+                ID
+              </button>
+            </div>
+
+            <NotificationCenter
+              notifications={notifications}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onClearAll={handleClearAllNotifications}
+              onSelectNotification={(n) => {
+                if (n.metadata?.poId) {
+                  setActiveMenu('po');
+                  showToast(language === 'en' ? `Opening PO ${n.metadata.poId}` : `Membuka PO ${n.metadata.poId}`, 'info');
+                }
               }}
-              className="hidden sm:block text-sm bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] text-[#171717] dark:text-[#ededed] rounded-md px-2 py-1 outline-none focus:border-[#0070f3]"
-            >
-              <option value="Super Admin">Super Admin</option>
-              <option value="Warehouse Manager">Warehouse Manager</option>
-              <option value="Finance Manager">Finance Manager</option>
-              <option value="HR Manager">HR Manager</option>
-            </select>
+            />
+
             <div className="w-8 h-8 rounded-full shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] flex items-center justify-center text-[#171717] dark:text-[#ededed] text-xs font-semibold bg-[#fafafa] dark:bg-[#1a1a1a]">
               {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : 'AD'}
             </div>
           </div>
         </header>
 
-        {activeMenu === 'overview' && <OverviewView onNavigate={setActiveMenu} />}
-        {activeMenu === 'analytics' && <AnalyticsView />}
-        {activeMenu === 'settings' && <SettingsView onToast={showToast} />}
-        {activeMenu === 'stok' && <InventoryView onToast={showToast} />}
-        {activeMenu === 'po' && <ProcurementView onNavigate={setActiveMenu} onToast={showToast} />}
-        {activeMenu === 'keuangan' && <FinanceView onToast={showToast} />}
-        {activeMenu === 'sdm' && <HRView onToast={showToast} />}
-        {activeMenu === 'purchase' && <PurchaseUnitView onNavigate={setActiveMenu} />}
+        <Suspense fallback={<div className="p-6 md:p-8"><ViewSkeleton title={getHeaderTitle()} /></div>}>
+          <ErrorBoundary fallbackTitle={getHeaderTitle()} onReset={() => setActiveMenu('overview')}>
+            {activeMenu === 'overview' && <OverviewView onNavigate={setActiveMenu} t={t} lang={language} />}
+            {activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
+            {activeMenu === 'settings' && <SettingsView onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} />}
+            {activeMenu === 'stok' && <InventoryView onToast={showToast} t={t} lang={language} />}
+            {activeMenu === 'po' && <ProcurementView onNavigate={setActiveMenu} onToast={showToast} onNotify={handleNewNotification} t={t} lang={language} />}
+            {activeMenu === 'keuangan' && <FinanceView onToast={showToast} t={t} lang={language} />}
+            {activeMenu === 'sdm' && <HRView onToast={showToast} t={t} lang={language} />}
+            {activeMenu === 'purchase' && <PurchaseUnitView onNavigate={setActiveMenu} t={t} lang={language} />}
+          </ErrorBoundary>
+        </Suspense>
 
         <Toaster toasts={toasts} />
-        <CommandPalette isOpen={isCmdKOpen} onClose={() => setIsCmdKOpen(false)} onNavigate={handleMenuClick} toggleDarkMode={toggleDarkMode} />
+        <CommandPalette 
+          isOpen={isCmdKOpen} 
+          onClose={() => setIsCmdKOpen(false)} 
+          onNavigate={handleMenuClick} 
+          toggleDarkMode={toggleDarkMode}
+          lang={language}
+          onLanguageChange={handleLanguageChange}
+        />
       </main>
     </div>
   );
@@ -1961,9 +1318,44 @@ function Dashboard() {
 
 function Home() {
   const navigate = useNavigate();
+  const [lang, setLang] = useState<Language>(() => {
+    const saved = localStorage.getItem('inventora_language');
+    return (saved === 'en' || saved === 'id') ? saved : 'en';
+  });
+
+  const handleLangToggle = (newLang: Language) => {
+    setLang(newLang);
+    localStorage.setItem('inventora_language', newLang);
+  };
 
   return (
     <div className="relative h-screen w-full bg-gradient-to-br from-[#fafafa] via-[#f4f6f9] to-[#eaedf2] flex flex-col items-center justify-center font-sans overflow-hidden">
+      {/* Language Switcher Top Right */}
+      <div className="absolute top-6 right-6 z-20 flex items-center rounded-lg border border-[#eaeaea] bg-white/80 backdrop-blur-md p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => handleLangToggle('en')}
+          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+            lang === 'en'
+              ? 'bg-[#171717] text-white shadow-sm'
+              : 'text-[#666] hover:text-[#171717]'
+          }`}
+        >
+          EN
+        </button>
+        <button
+          type="button"
+          onClick={() => handleLangToggle('id')}
+          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+            lang === 'id'
+              ? 'bg-[#171717] text-white shadow-sm'
+              : 'text-[#666] hover:text-[#171717]'
+          }`}
+        >
+          ID
+        </button>
+      </div>
+
       {/* Background Aesthetic Gradients */}
       <motion.div 
         animate={{ scale: [1, 1.1, 1], opacity: [0.4, 0.7, 0.4] }}
@@ -2013,9 +1405,9 @@ function Home() {
         >
           <button 
             onClick={() => navigate('/login')}
-            className="bg-[#171717] text-white font-medium px-6 py-2.5 rounded-md text-sm hover:bg-[#383838] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.12)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] active:scale-95"
+            className="bg-[#171717] text-white font-medium px-6 py-2.5 rounded-md text-sm hover:bg-[#383838] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.12)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] active:scale-95 cursor-pointer"
           >
-            Enter Workspace
+            {lang === 'en' ? 'Enter Workspace' : 'Buka Workspace'}
           </button>
         </motion.div>
       </div>
@@ -2025,6 +1417,16 @@ function Home() {
 
 function Login() {
   const navigate = useNavigate();
+  const [lang, setLang] = useState<Language>(() => {
+    const saved = localStorage.getItem('inventora_language');
+    return (saved === 'en' || saved === 'id') ? saved : 'en';
+  });
+
+  const handleLangToggle = (newLang: Language) => {
+    setLang(newLang);
+    localStorage.setItem('inventora_language', newLang);
+  };
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
@@ -2051,7 +1453,7 @@ function Login() {
       if (e?.code === 'auth/unauthorized-domain' || e?.message?.includes('auth/unauthorized-domain')) {
         setUnauthorizedDomain(typeof window !== 'undefined' ? window.location.hostname : 'run.app');
       } else {
-        setErrorMsg(e.message || 'Login failed');
+        setErrorMsg(e.message || (lang === 'en' ? 'Login failed' : 'Gagal masuk'));
       }
     } finally {
       setIsLoading(false);
@@ -2060,6 +1462,32 @@ function Login() {
 
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-br from-[#fafafa] via-[#f4f6f9] to-[#eaedf2] flex flex-col items-center justify-center font-sans px-4 py-8 overflow-hidden">
+      {/* Language Switcher Top Right */}
+      <div className="absolute top-6 right-6 z-20 flex items-center rounded-lg border border-[#eaeaea] bg-white/80 backdrop-blur-md p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => handleLangToggle('en')}
+          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+            lang === 'en'
+              ? 'bg-[#171717] text-white shadow-sm'
+              : 'text-[#666] hover:text-[#171717]'
+          }`}
+        >
+          EN
+        </button>
+        <button
+          type="button"
+          onClick={() => handleLangToggle('id')}
+          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+            lang === 'id'
+              ? 'bg-[#171717] text-white shadow-sm'
+              : 'text-[#666] hover:text-[#171717]'
+          }`}
+        >
+          ID
+        </button>
+      </div>
+
       <motion.div 
         animate={{ scale: [1, 1.1, 1], opacity: [0.4, 0.7, 0.4] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
@@ -2087,8 +1515,12 @@ function Login() {
           <span className="text-2xl font-semibold tracking-tight text-[#171717] leading-none mt-0.5">Inventora</span>
         </div>
         <div className="text-center mb-6">
-          <h1 className="text-lg font-medium tracking-tight text-[#171717]">Sign in to workspace</h1>
-          <p className="text-sm text-[#666] mt-1">Authenticate to access the dashboard and integrations</p>
+          <h1 className="text-lg font-medium tracking-tight text-[#171717]">
+            {lang === 'en' ? 'Sign in to workspace' : 'Masuk ke Workspace'}
+          </h1>
+          <p className="text-sm text-[#666] mt-1">
+            {lang === 'en' ? 'Authenticate to access the dashboard and integrations' : 'Otentikasi untuk mengakses dashboard dan integrasi sistem'}
+          </p>
         </div>
 
         {unauthorizedDomain && (
@@ -2097,10 +1529,12 @@ function Login() {
               <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div className="flex-1 text-xs">
                 <h4 className="font-semibold text-amber-900 text-xs mb-1">
-                  Preview Domain Authorization Required
+                  {lang === 'en' ? 'Preview Domain Authorization Required' : 'Otorisasi Domain Preview Diperlukan'}
                 </h4>
                 <p className="text-amber-800 leading-relaxed mb-2 text-[11px]">
-                  Google Sign-In blocked this request because the preview domain isn&apos;t yet listed in Firebase Authorized Domains.
+                  {lang === 'en' 
+                    ? "Google Sign-In blocked this request because the preview domain isn't yet listed in Firebase Authorized Domains."
+                    : 'Google Sign-In memblokir permintaan ini karena domain preview belum terdaftar di Firebase Authorized Domains.'}
                 </p>
                 <div className="flex items-center justify-between gap-1.5 bg-amber-100/80 px-2 py-1.5 rounded font-mono text-[10px] text-amber-950 mb-2.5 border border-amber-200">
                   <span className="truncate max-w-[190px]">{unauthorizedDomain}</span>
@@ -2114,7 +1548,7 @@ function Login() {
                     className="flex items-center gap-1 text-amber-800 hover:text-amber-950 font-sans font-medium text-[11px] shrink-0 cursor-pointer"
                   >
                     {copied ? <Check className="w-3 h-3 text-green-700" /> : <Copy className="w-3 h-3" />}
-                    {copied ? 'Copied' : 'Copy'}
+                    {copied ? (lang === 'en' ? 'Copied' : 'Tersalin') : (lang === 'en' ? 'Copy' : 'Salin')}
                   </button>
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -2123,7 +1557,7 @@ function Login() {
                     onClick={() => handleDemoLogin('Super Admin')}
                     className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-1.5 px-2.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> Enter Instantly as Demo Admin
+                    <Sparkles className="w-3.5 h-3.5" /> {lang === 'en' ? 'Enter Instantly as Demo Admin' : 'Masuk Langsung sebagai Demo Admin'}
                   </button>
                   <a
                     href="https://console.firebase.google.com/project/gen-lang-client-0135204887/authentication/settings"
@@ -2131,7 +1565,7 @@ function Login() {
                     rel="noopener noreferrer"
                     className="text-amber-800 hover:underline flex items-center justify-center gap-1 text-[11px] pt-0.5"
                   >
-                    <ExternalLink className="w-3 h-3" /> Add domain in Firebase Console
+                    <ExternalLink className="w-3 h-3" /> {lang === 'en' ? 'Add domain in Firebase Console' : 'Tambah domain di Firebase Console'}
                   </a>
                 </div>
               </div>
@@ -2158,40 +1592,25 @@ function Login() {
           ) : (
             <>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-              Sign in with Google
+              {lang === 'en' ? 'Sign in with Google' : 'Masuk dengan Google'}
             </>
           )}
         </button>
 
         <div className="relative my-4 flex items-center justify-center">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#eaeaea]"></div></div>
-          <span className="relative bg-white px-2 text-xs text-[#888]">or</span>
+          <span className="relative bg-white px-2 text-xs text-[#888]">
+            {lang === 'en' ? 'or test with demo' : 'atau uji coba demo'}
+          </span>
         </div>
 
         <button 
           onClick={() => handleDemoLogin('Super Admin')}
-          className="w-full bg-[#171717] text-white font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.12)] active:scale-[0.98] flex items-center justify-center gap-2 h-10 cursor-pointer"
+          className="w-full bg-[#171717] text-white font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.12)] active:scale-[0.98] flex items-center justify-between h-10 cursor-pointer"
         >
-          Explore as Demo Admin
+          <span>{lang === 'en' ? 'Super Admin' : 'Super Admin'}</span>
+          <span className="text-[11px] font-mono text-[#aaa]">({lang === 'en' ? 'All Modules' : 'Semua Modul'})</span>
         </button>
-
-        <div className="mt-5 pt-4 border-t border-[#eaeaea]">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-[#888] block text-center mb-2.5">
-            Quick Role Switcher
-          </span>
-          <div className="grid grid-cols-2 gap-1.5">
-            {(['Super Admin', 'Warehouse Manager', 'Finance Manager', 'HR Manager'] as Role[]).map(role => (
-              <button
-                key={role}
-                type="button"
-                onClick={() => handleDemoLogin(role)}
-                className="text-xs py-1.5 px-2 rounded bg-[#f4f4f5] hover:bg-[#e4e4e7] text-[#444] font-medium transition-colors truncate text-center cursor-pointer"
-              >
-                {role}
-              </button>
-            ))}
-          </div>
-        </div>
       </motion.div>
     </div>
   );
