@@ -38,3 +38,32 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #999;
 }
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+  }
+  aside, header, nav, button, .no-print, [role="alert"], [aria-live="polite"] {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .printable-card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    padding: 16px !important;
+    margin: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}

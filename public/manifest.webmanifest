@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "Inventora Enterprise ERP",
+  "short_name": "Inventora",
+  "description": "Enterprise ERP and Command Center with inventory control, procurement management, and AI data analysis.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0070f3",
+  "background_color": "#0a0a0a",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

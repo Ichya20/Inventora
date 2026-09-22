@@ -3,9 +3,11 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area 
 } from 'recharts';
-import { Sparkles, Download, Activity } from 'lucide-react';
+import { Sparkles, Download, Activity, Check } from 'lucide-react';
 import { Card, Button } from './UI';
 import { translations, Language, Translations } from '../i18n';
+import { CleanAiText } from './CleanAiText';
+import { exportToCsv } from '../lib/exportUtils';
 
 interface AnalyticsViewProps {
   t?: Translations;
@@ -14,6 +16,7 @@ interface AnalyticsViewProps {
 
 export function AnalyticsView({ t, lang = 'en' }: AnalyticsViewProps) {
   const activeT = t || translations[lang] || translations.en;
+  const [isExporting, setIsExporting] = useState(false);
 
   const pieData = [
     { name: lang === 'en' ? 'Engineering' : 'Teknik', value: 45 },
@@ -33,6 +36,24 @@ export function AnalyticsView({ t, lang = 'en' }: AnalyticsViewProps) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const handleExportReport = () => {
+    setIsExporting(true);
+    try {
+      const headers = ['Category', 'Metric / Dimension', 'Value', 'Share (%)'];
+      const rows: (string | number)[][] = [
+        ...pieData.map(d => ['Department Budget Allocation', d.name, d.value, `${d.value}%`]),
+        ...barData.map(d => ['Vendor Procurement Volume', d.name, d.volume, '-']),
+        ['Cash Flow Analysis', 'Q1 Inflow', 4000, '-'],
+        ['Cash Flow Analysis', 'Q2 Inflow', 3000, '-'],
+        ['Cash Flow Analysis', 'Q3 Inflow', 2000, '-'],
+        ['Cash Flow Analysis', 'Q4 Inflow', 2780, '-']
+      ];
+      exportToCsv(`inventora-financial-analytics-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
+  };
 
   const handleAskAnalyst = async (customPrompt?: string) => {
     const promptToSend = customPrompt || aiPrompt;
@@ -82,7 +103,7 @@ export function AnalyticsView({ t, lang = 'en' }: AnalyticsViewProps) {
             {activeT.analytics.subtitle}
           </p>
         </div>
-        <Button variant="secondary">
+        <Button variant="secondary" onClick={handleExportReport} isLoading={isExporting}>
           <Download className="w-4 h-4 mr-2 inline" /> {activeT.analytics.exportReport}
         </Button>
       </div>
@@ -139,8 +160,8 @@ export function AnalyticsView({ t, lang = 'en' }: AnalyticsViewProps) {
               <Activity className="w-3.5 h-3.5 text-[#0070f3]" />
               {activeT.analytics.analysisResult}
             </div>
-            <div className="text-sm text-[#171717] dark:text-[#ededed] whitespace-pre-line leading-relaxed">
-              {aiAnalysis}
+            <div className="text-xs text-[#171717] dark:text-[#ededed] leading-relaxed">
+              <CleanAiText text={aiAnalysis} />
             </div>
           </div>
         )}

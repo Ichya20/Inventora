@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
+import { exportToCsv } from '../lib/exportUtils';
+import { loadStoredData, saveStoredData } from '../lib/storageUtils';
 
 interface HRViewProps {
   onToast: (msg: string, type?: ToastType) => void;
@@ -16,13 +18,21 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 180);
 
-  const [employees] = useState([
+  const defaultEmployees = [
     { id: 'EMP-10024', name: 'Budi Santoso', email: 'budi.s@inventora.com', dept: 'Engineering', role: 'Senior AI Engineer', status: lang === 'en' ? 'Active' : 'Aktif', color: 'green' as const, joined: '12 Jan 2022' },
     { id: 'EMP-10088', name: 'Siti Rahmawati', email: 'siti.r@inventora.com', dept: 'Finance', role: 'Financial Controller', status: lang === 'en' ? 'Annual Leave' : 'Cuti Tahunan', color: 'gray' as const, joined: '04 Mar 2023' },
     { id: 'EMP-10091', name: 'Andi Wijaya', email: 'andi.w@inventora.com', dept: 'Operations', role: 'Ops Manager', status: lang === 'en' ? 'Active' : 'Aktif', color: 'green' as const, joined: '15 Aug 2021' },
     { id: 'EMP-10105', name: 'Rina Kusuma', email: 'rina.k@inventora.com', dept: 'HR', role: 'HR Specialist', status: lang === 'en' ? 'Sick Leave' : 'Sakit', color: 'red' as const, joined: '10 Feb 2024' },
     { id: 'EMP-10112', name: 'Joko Anwar', email: 'joko.a@inventora.com', dept: 'Engineering', role: 'Backend Engineer', status: lang === 'en' ? 'Active' : 'Aktif', color: 'green' as const, joined: '01 Nov 2023' },
-  ]);
+  ];
+
+  const [employees, setEmployees] = useState(() => {
+    return loadStoredData('inventora_hr_employees_v1', defaultEmployees);
+  });
+
+  useEffect(() => {
+    saveStoredData('inventora_hr_employees_v1', employees);
+  }, [employees]);
 
   const [activeProfile, setActiveProfile] = useState<any | null>(null);
 
@@ -62,10 +72,24 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
 
   const handleExport = () => {
     setIsExporting(true);
-    setTimeout(() => {
-      setIsExporting(false);
+    try {
+      const headers = ['Employee ID', 'Full Name', 'Corporate Email', 'Department', 'Job Title / Role', 'Status', 'Date Joined'];
+      const rows = filteredEmployees.map(emp => [
+        emp.id,
+        emp.name,
+        emp.email,
+        emp.dept,
+        emp.role,
+        emp.status,
+        emp.joined
+      ]);
+      exportToCsv(`inventora-employee-directory-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
       onToast(lang === 'en' ? "Employee directory exported as CSV" : "Direktori pegawai berhasil diekspor sebagai CSV", "success");
-    }, 1200);
+    } catch (e) {
+      onToast("Export failed", "error");
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
   };
 
   const handleOnboardToCalendar = async (emp: any) => {

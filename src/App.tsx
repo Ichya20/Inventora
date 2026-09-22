@@ -2,13 +2,20 @@ import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages, Keyboard } from 'lucide-react';
 import { ToastType, ToastItem, Role, PurchaseOrder, PaymentTransaction, AppNotification } from './types';
 import { translations, Language, Translations } from './i18n';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ViewSkeleton } from './components/ViewSkeleton';
 import { useDebounce } from './lib/useDebounce';
+import { NetworkStatusIndicator } from './components/NetworkStatusIndicator';
+import { useNetworkStatus } from './lib/useNetworkStatus';
+import { ShortcutsModal, useGlobalHotkeys } from './components/ShortcutsModal';
+import { AiCopilotDrawer } from './components/AiCopilotDrawer';
+import { RestockForecastCard } from './components/RestockForecastCard';
+import { exportToCsv, exportToJson } from './lib/exportUtils';
+import { loadStoredData, saveStoredData, clearAllInventoraStorage } from './lib/storageUtils';
 
 // Lazy-loaded views for code splitting and instant initial page load
 const ProcurementView = lazy(() => import('./components/ProcurementView').then(m => ({ default: m.ProcurementView })));
@@ -66,40 +73,43 @@ const Button = ({ children, variant = "primary", onClick, type = "button", disab
 
 const TableWrapper = ({ title, placeholder, action, searchValue, onSearchChange, onExport, isExporting, currentPage, totalPages, onPageChange, children }: any) => (
   <div className="flex-1 bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] flex flex-col min-h-0">
-    <div className="px-6 py-4 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex flex-wrap gap-4 items-center justify-between bg-white dark:bg-[#111] rounded-t-xl z-10 shrink-0">
-      <h2 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">{title}</h2>
-      <div className="flex gap-2 items-center w-full sm:w-auto">
+    <div className="px-4 sm:px-6 py-3.5 sm:py-4 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center justify-between bg-white dark:bg-[#111] rounded-t-xl z-10 shrink-0">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold tracking-tight text-sm sm:text-base text-[#171717] dark:text-[#ededed]">{title}</h2>
+        <span className="sm:hidden text-[10px] text-neutral-400 font-mono">Swipe table &rarr;</span>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
         <input 
           type="text" 
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={placeholder} 
-          className="bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] dark:focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.4)] outline-none text-sm px-3 py-1.5 rounded-md w-full sm:w-64 transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" 
+          className="bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] dark:focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.4)] outline-none text-xs sm:text-sm px-3 py-1.5 rounded-md flex-1 sm:w-64 transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" 
         />
         {onExport && (
           <Button variant="secondary" onClick={onExport} isLoading={isExporting}>
-            <Download className="w-4 h-4 mr-2" /> Export
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" /> <span className="text-xs sm:text-sm">Export</span>
           </Button>
         )}
         {action}
       </div>
     </div>
-    <div className="flex-1 overflow-auto">
-      <table className="w-full text-left border-collapse min-w-[800px]">
+    <div className="flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain -webkit-overflow-scrolling-touch">
+      <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-[800px]">
         {children}
       </table>
     </div>
     {(currentPage && totalPages) && (
-      <div className="px-6 py-3 shadow-[0_-1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.08)] bg-[#fafafa] dark:bg-[#111] flex items-center justify-between rounded-b-xl shrink-0">
-        <span className="text-sm text-[#666] dark:text-[#a1a1aa]">
+      <div className="px-4 sm:px-6 py-2.5 sm:py-3 shadow-[0_-1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.08)] bg-[#fafafa] dark:bg-[#111] flex items-center justify-between rounded-b-xl shrink-0">
+        <span className="text-xs sm:text-sm text-[#666] dark:text-[#a1a1aa]">
           Showing page <span className="font-medium text-[#171717] dark:text-[#ededed]">{currentPage}</span> of <span className="font-medium text-[#171717] dark:text-[#ededed]">{totalPages}</span>
         </span>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           <Button variant="secondary" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)}>
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
           <Button variant="secondary" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)}>
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
         </div>
       </div>
@@ -185,10 +195,12 @@ const Toaster = ({ toasts }: { toasts: ToastItem[] }) => {
 
 function InventoryView({ 
   onToast, 
+  onNavigate,
   t, 
   lang = 'en' 
 }: { 
   onToast: (msg: string, type?: ToastType) => void;
+  onNavigate?: (menu: string) => void;
   t?: Translations;
   lang?: Language;
 }) {
@@ -197,7 +209,8 @@ function InventoryView({
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [search, setSearch] = useState('');
-  const [items, setItems] = useState([
+  
+  const defaultItems = [
     { id: 'NV-H100-TC', name: 'NVIDIA H100 Tensor Core GPU', desc: lang === 'en' ? 'AI Engineering Infra' : 'Infrastruktur AI Engineering', stock: 142, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
     { id: 'RS-W1-PRO', name: 'Rack Server Web Infrastructure', desc: lang === 'en' ? 'Server Infra' : 'Infrastruktur Server', stock: 58, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
     { id: 'NV-4090-FE', name: 'NVIDIA RTX 4090 Founders Edition', desc: lang === 'en' ? 'Workstation Graphics' : 'Grafis Workstation', stock: 12, status: lang === 'en' ? 'Monitoring' : 'Pemantauan', color: 'orange' as const },
@@ -210,7 +223,15 @@ function InventoryView({
     { id: 'MON-32-4K', name: '32" 4K Professional Monitor', desc: 'Workstation', stock: 110, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
     { id: 'KBM-WL-PRO', name: 'Wireless Pro Keyboard & Mouse', desc: 'Workstation', stock: 340, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
     { id: 'DS-24B-NAS', name: '24-Bay Enterprise NAS', desc: lang === 'en' ? 'Storage Infra' : 'Infrastruktur Penyimpanan', stock: 5, status: lang === 'en' ? 'Critical' : 'Kritis', color: 'red' as const }
-  ]);
+  ];
+
+  const [items, setItems] = useState(() => {
+    return loadStoredData('inventora_inventory_v1', defaultItems);
+  });
+
+  useEffect(() => {
+    saveStoredData('inventora_inventory_v1', items);
+  }, [items]);
 
   const [page, setPage] = useState(1);
   const itemsPerPage = 5;
@@ -258,18 +279,43 @@ function InventoryView({
 
   const handleExport = () => {
     setIsExporting(true);
-    setTimeout(() => {
-      setIsExporting(false);
-      onToast(lang === 'en' ? "Data exported as CSV" : "Data diekspor sebagai CSV", "success");
-    }, 1500);
+    try {
+      const headers = ['SKU ID', 'Item Name', 'Category / Description', 'Stock Count', 'Health Status'];
+      const rows = filteredItems.map(item => [
+        item.id,
+        item.name,
+        item.desc,
+        item.stock,
+        item.status
+      ]);
+      exportToCsv(`inventora-inventory-stock-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+      onToast(lang === 'en' ? "Inventory data exported as CSV" : "Data inventaris berhasil diekspor sebagai CSV", "success");
+    } catch (e) {
+      onToast("Export failed", "error");
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
   };
 
   const handleGenerateReport = () => {
     setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
+    try {
+      const headers = ['SKU ID', 'Item Name', 'Stock Count', 'Condition', 'Estimated Reorder Threshold', 'Audit Status'];
+      const rows = items.map(item => [
+        item.id,
+        item.name,
+        item.stock,
+        item.status,
+        item.stock < 15 ? 'CRITICAL - REORDER IMMEDIATELY' : item.stock < 30 ? 'MONITOR BUFFER' : 'HEALTHY BUFFER',
+        'AUDITED_VERIFIED'
+      ]);
+      exportToCsv(`inventora-inventory-audit-report-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
       onToast(activeT.inventory.reportSuccess, "success");
-    }, 1200);
+    } catch (e) {
+      onToast("Audit generation failed", "error");
+    } finally {
+      setTimeout(() => setIsGenerating(false), 500);
+    }
   };
 
   const handleDeploy = (id: string) => {
@@ -343,6 +389,18 @@ function InventoryView({
           {activeT.inventory.generateReport}
         </Button>
       </div>
+
+      {/* Gemini AI Predictive Restock & Demand Forecaster */}
+      <RestockForecastCard
+        inventory={items}
+        onGeneratePo={(forecast) => {
+          if (onNavigate) {
+            onNavigate('purchase');
+            onToast(lang === 'en' ? `Drafting restock PO for ${forecast.name}` : `Menyiapkan PO restok untuk ${forecast.name}`, 'info');
+          }
+        }}
+        lang={lang}
+      />
 
       <TableWrapper 
         title={activeT.inventory.tableTitle} 
@@ -639,6 +697,60 @@ function SettingsView({
                       <option value="en">English (US)</option>
                       <option value="id">Bahasa Indonesia</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Data Management & Persistence */}
+                <div className="p-4 rounded-lg bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] space-y-3">
+                  <div>
+                    <h4 className="text-sm font-medium text-[#171717] dark:text-[#ededed] flex items-center gap-1.5">
+                      <Database className="w-4 h-4 text-[#0070f3]" />
+                      <span>{lang === 'en' ? 'Local Storage & Demo State' : 'Penyimpanan Lokal & Data Demo'}</span>
+                    </h4>
+                    <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">
+                      {lang === 'en' 
+                        ? 'All purchase orders, inventory units, and invoice adjustments are stored locally in your browser.' 
+                        : 'Semua pesanan pembelian, unit inventaris, dan penyesuaian faktur disimpan secara lokal di browser Anda.'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allData = {
+                          version: '1.0',
+                          exportedAt: new Date().toISOString(),
+                          inventory: localStorage.getItem('inventora_inventory_v1'),
+                          procurement: localStorage.getItem('inventora_procurement_pos_v1'),
+                          finance: localStorage.getItem('inventora_finance_invoices_v1'),
+                          hr: localStorage.getItem('inventora_hr_employees_v1'),
+                          language: localStorage.getItem('inventora_lang'),
+                          theme: localStorage.getItem('inventora_theme')
+                        };
+                        exportToJson(`inventora-backup-${new Date().toISOString().split('T')[0]}.json`, allData);
+                        onToast(lang === 'en' ? 'Full ERP backup exported as JSON' : 'Cadangan ERP lengkap diekspor sebagai JSON', 'success');
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-[#eaeaea] dark:border-[#444] bg-white dark:bg-[#222] hover:bg-[#f5f5f5] dark:hover:bg-[#333] text-[#171717] dark:text-[#ededed] transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      {lang === 'en' ? 'Export System JSON Backup' : 'Ekspor Cadangan JSON'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(lang === 'en' ? 'Are you sure you want to reset all stored demo data to default?' : 'Apakah Anda yakin ingin mengatur ulang data demo ke awal?')) {
+                          clearAllInventoraStorage();
+                          onToast(lang === 'en' ? 'Demo data reset. Reloading...' : 'Data demo direset. Memuat ulang...', 'info');
+                          setTimeout(() => window.location.reload(), 800);
+                        }
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {lang === 'en' ? 'Reset Demo Data' : 'Reset Data Demo'}
+                    </button>
                   </div>
                 </div>
 
@@ -973,6 +1085,25 @@ function Dashboard() {
     return 'Super Admin';
   });
   const [isCmdKOpen, setIsCmdKOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isAiCopilotOpen, setIsAiCopilotOpen] = useState(false);
+
+  const { isOnline, queue, queuedCount, enqueue, flushQueue } = useNetworkStatus((count) => {
+    showToast(
+      language === 'en'
+        ? `Restored online sync: ${count} queued changes submitted`
+        : `Sinkronisasi online pulih: ${count} perubahan telah terkirim`,
+      'success'
+    );
+  });
+
+  const { pendingSequence } = useGlobalHotkeys({
+    onNavigate: (menu) => handleMenuClick(menu),
+    onNewPo: () => handleMenuClick('purchase'),
+    onOpenHelp: () => setIsShortcutsOpen(true),
+    onToggleCmdK: () => setIsCmdKOpen(prev => !prev),
+    onToggleCopilot: () => setIsAiCopilotOpen(prev => !prev),
+  });
   const [user, setUser] = useState<any>(() => {
     const demo = sessionStorage.getItem('inventora_demo_user');
     return demo ? JSON.parse(demo) : null;
@@ -1243,6 +1374,29 @@ function Dashboard() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            {pendingSequence && (
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono font-bold animate-pulse border border-blue-500/20">
+                Key: {pendingSequence.toUpperCase()}...
+              </span>
+            )}
+
+            <NetworkStatusIndicator
+              isOnline={isOnline}
+              queuedCount={queuedCount}
+              queue={queue}
+              onManualSync={flushQueue}
+              lang={language}
+            />
+
+            <button
+              type="button"
+              onClick={() => setIsShortcutsOpen(true)}
+              className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              title={language === 'en' ? 'Keyboard shortcuts (?)' : 'Pintasan keyboard (?)'}
+            >
+              <Keyboard className="w-4 h-4" />
+            </button>
+
             {/* Quick Language Switcher Pill */}
             <div className="flex items-center rounded-lg border border-[#eaeaea] dark:border-[#333] p-0.5 bg-[#fafafa] dark:bg-[#1a1a1a]">
               <button
@@ -1294,13 +1448,52 @@ function Dashboard() {
             {activeMenu === 'overview' && <OverviewView onNavigate={setActiveMenu} t={t} lang={language} />}
             {activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
             {activeMenu === 'settings' && <SettingsView onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} />}
-            {activeMenu === 'stok' && <InventoryView onToast={showToast} t={t} lang={language} />}
-            {activeMenu === 'po' && <ProcurementView onNavigate={setActiveMenu} onToast={showToast} onNotify={handleNewNotification} t={t} lang={language} />}
+            {activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={setActiveMenu} t={t} lang={language} />}
+            {activeMenu === 'po' && (
+              <ProcurementView 
+                onNavigate={setActiveMenu} 
+                onToast={showToast} 
+                onNotify={handleNewNotification} 
+                t={t} 
+                lang={language}
+                isOnline={isOnline}
+                onQueueOffline={enqueue}
+              />
+            )}
             {activeMenu === 'keuangan' && <FinanceView onToast={showToast} t={t} lang={language} />}
             {activeMenu === 'sdm' && <HRView onToast={showToast} t={t} lang={language} />}
             {activeMenu === 'purchase' && <PurchaseUnitView onNavigate={setActiveMenu} t={t} lang={language} />}
           </ErrorBoundary>
         </Suspense>
+
+        {/* Floating Action Button for AI Copilot */}
+        <button
+          type="button"
+          onClick={() => setIsAiCopilotOpen(true)}
+          className="fixed bottom-6 right-6 z-40 px-3.5 py-2.5 rounded-full bg-linear-to-r from-[#0070f3] to-indigo-600 hover:from-[#0060df] hover:to-indigo-700 text-white shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 text-xs font-semibold cursor-pointer border border-white/20"
+          title="Open Executive AI Copilot (Cmd+J)"
+        >
+          <Sparkles className="w-4 h-4 text-white" />
+          <span className="hidden sm:inline">AI Copilot</span>
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-white/20 rounded font-mono">⌘J</kbd>
+        </button>
+
+        {/* Executive AI Copilot Drawer */}
+        <AiCopilotDrawer
+          isOpen={isAiCopilotOpen}
+          onClose={() => setIsAiCopilotOpen(false)}
+          currentRole={currentRole}
+          lang={language}
+          erpContext={{
+            activeMenu,
+            activePosCount: 45,
+            pendingApprovalsCount: 12,
+            monthlyRevenue: "Rp 12.800.000.000",
+            totalHeadcount: 342,
+            infrastructureUnits: 1104,
+            currency: "IDR"
+          }}
+        />
 
         <Toaster toasts={toasts} />
         <CommandPalette 
@@ -1310,6 +1503,12 @@ function Dashboard() {
           toggleDarkMode={toggleDarkMode}
           lang={language}
           onLanguageChange={handleLanguageChange}
+        />
+
+        <ShortcutsModal
+          isOpen={isShortcutsOpen}
+          onClose={() => setIsShortcutsOpen(false)}
+          lang={language}
         />
       </main>
     </div>

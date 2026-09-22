@@ -51,40 +51,43 @@ export const Button = ({ children, variant = "primary", onClick, type = "button"
 
 export const TableWrapper = ({ title, placeholder, action, searchValue, onSearchChange, onExport, isExporting, currentPage, totalPages, onPageChange, children }: any) => (
   <div className="flex-1 bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] flex flex-col min-h-0">
-    <div className="px-6 py-4 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex flex-wrap gap-4 items-center justify-between bg-white dark:bg-[#111] rounded-t-xl z-10 shrink-0">
-      <h2 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">{title}</h2>
-      <div className="flex gap-2 items-center w-full sm:w-auto">
+    <div className="px-4 sm:px-6 py-3.5 sm:py-4 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center justify-between bg-white dark:bg-[#111] rounded-t-xl z-10 shrink-0">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold tracking-tight text-sm sm:text-base text-[#171717] dark:text-[#ededed]">{title}</h2>
+        <span className="sm:hidden text-[10px] text-neutral-400 font-mono">Swipe table &rarr;</span>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
         <input 
           type="text" 
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={placeholder} 
-          className="bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] dark:focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.4)] outline-none text-sm px-3 py-1.5 rounded-md w-full sm:w-64 transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" 
+          className="bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] dark:focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.4)] outline-none text-xs sm:text-sm px-3 py-1.5 rounded-md flex-1 sm:w-64 transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" 
         />
         {onExport && (
           <Button variant="secondary" onClick={onExport} isLoading={isExporting}>
-            <Download className="w-4 h-4 mr-2" /> Export
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" /> <span className="text-xs sm:text-sm">Export</span>
           </Button>
         )}
         {action}
       </div>
     </div>
-    <div className="flex-1 overflow-auto">
-      <table className="w-full text-left border-collapse min-w-[800px]">
+    <div className="flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain -webkit-overflow-scrolling-touch">
+      <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-[800px]">
         {children}
       </table>
     </div>
     {(currentPage && totalPages) && (
-      <div className="px-6 py-3 shadow-[0_-1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.08)] bg-[#fafafa] dark:bg-[#111] flex items-center justify-between rounded-b-xl shrink-0">
-        <span className="text-sm text-[#666] dark:text-[#a1a1aa]">
+      <div className="px-4 sm:px-6 py-2.5 sm:py-3 shadow-[0_-1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.08)] bg-[#fafafa] dark:bg-[#111] flex items-center justify-between rounded-b-xl shrink-0">
+        <span className="text-xs sm:text-sm text-[#666] dark:text-[#a1a1aa]">
           Page <span className="font-medium text-[#171717] dark:text-[#ededed]">{currentPage}</span> of <span className="font-medium text-[#171717] dark:text-[#ededed]">{totalPages}</span>
         </span>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           <Button variant="secondary" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)}>
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
           <Button variant="secondary" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)}>
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
         </div>
       </div>

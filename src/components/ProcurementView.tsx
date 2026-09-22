@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CreditCard, CheckCircle2, Printer } from 'lucide-react';
+import { CreditCard, CheckCircle2, Printer, History, Layers, FileText, PackageCheck, AlertTriangle } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
-import { ToastType, PaymentTransaction, AppNotification } from '../types';
+import { ToastType, PaymentTransaction, AppNotification, PurchaseOrder, GoodsReceiptNote, ThreeWayMatchStatus } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
+import { AuditTrailDrawer } from './AuditTrailDrawer';
+import { PrintableVoucher } from './PrintableVoucher';
+import { VirtualizedTable, Column } from './VirtualizedTable';
+import { PoRiskCard } from './PoRiskCard';
+import { ThreeWayMatchModal } from './ThreeWayMatchModal';
+import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
 
 const PaymentGatewayModal = lazy(() => import('./PaymentGatewayModal').then(m => ({ default: m.PaymentGatewayModal })));
 
@@ -14,6 +20,8 @@ interface ProcurementViewProps {
   onNotify?: (n: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
   t?: Translations;
   lang?: Language;
+  isOnline?: boolean;
+  onQueueOffline?: (mutation: any) => void;
 }
 
 export function ProcurementView({ 
@@ -21,7 +29,9 @@ export function ProcurementView({
   onToast,
   onNotify,
   t,
-  lang = 'en'
+  lang = 'en',
+  isOnline = true,
+  onQueueOffline
 }: ProcurementViewProps) {
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
@@ -29,6 +39,11 @@ export function ProcurementView({
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'transactions'>('list');
   const [selectedPoForPayment, setSelectedPoForPayment] = useState<any | null>(null);
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [auditPoFilter, setAuditPoFilter] = useState<string | null>(null);
+  const [poForPrint, setPoForPrint] = useState<PurchaseOrder | null>(null);
+  const [isVirtualized, setIsVirtualized] = useState(false);
+  const [threeWayPo, setThreeWayPo] = useState<PurchaseOrder | null>(null);
   
   const [transactions, setTransactions] = useState<PaymentTransaction[]>(() => {
     const saved = localStorage.getItem('inventora_po_transactions');
@@ -70,12 +85,89 @@ export function ProcurementView({
   });
 
   const defaultPOs = [
-    { id: 'PO-2026-1042', vendor: 'NVIDIA Corp Indonesia', desc: lang === 'en' ? 'Primary Supplier' : 'Supplier Utama', date: '22 Aug 2026', total: 2100000000, status: 'Pending Approval', color: 'orange' },
-    { id: 'PO-2026-1041', vendor: 'Cisco Systems Indonesia', desc: lang === 'en' ? 'Networking Vendor' : 'Networking Vendor', date: '18 Aug 2026', total: 850000000, status: 'Disetujui', color: 'green' },
-    { id: 'PO-2026-1040', vendor: 'Dell EMC Indonesia', desc: lang === 'en' ? 'Server Partner' : 'Server Partner', date: '15 Aug 2026', total: 1200000000, status: 'Disetujui', color: 'green' },
-    { id: 'PO-2026-1039', vendor: 'Lenovo Enterprise', desc: lang === 'en' ? 'Hardware Vendor' : 'Hardware Vendor', date: '12 Aug 2026', total: 450000000, status: 'Selesai', color: 'blue' },
-    { id: 'PO-2026-1038', vendor: 'APC by Schneider', desc: lang === 'en' ? 'Power Infra' : 'Power Infra', date: '10 Aug 2026', total: 320000000, status: 'Selesai', color: 'blue' },
-    { id: 'PO-2026-1037', vendor: 'Fortinet Indonesia', desc: lang === 'en' ? 'Security Vendor' : 'Security Vendor', date: '05 Aug 2026', total: 550000000, status: 'Ditolak', color: 'red' },
+    {
+      id: 'PO-2026-1042',
+      vendor: 'NVIDIA Corp Indonesia',
+      desc: lang === 'en' ? 'Primary Supplier - AI Cluster' : 'Supplier Utama - AI Cluster',
+      date: '22 Aug 2026',
+      total: 2100000000,
+      status: 'Pending Approval',
+      color: 'orange',
+      department: 'IT Infrastructure',
+      threeWayMatchStatus: 'PENDING_RECEIPT',
+      lineItems: [
+        { id: 'li-1', sku: 'NV-H100-TC', name: 'NVIDIA H100 Tensor Core GPU 80GB', qty: 4, unitPrice: 450000000, totalPrice: 1800000000 },
+        { id: 'li-2', sku: 'NV-CONNECTX-7', name: 'NVIDIA ConnectX-7 400Gb/s InfiniBand', qty: 4, unitPrice: 75000000, totalPrice: 300000000 }
+      ]
+    },
+    {
+      id: 'PO-2026-1041',
+      vendor: 'Cisco Systems Indonesia',
+      desc: lang === 'en' ? 'Networking Vendor' : 'Networking Vendor',
+      date: '18 Aug 2026',
+      total: 850000000,
+      status: 'Disetujui',
+      color: 'green',
+      department: 'IT Infrastructure',
+      threeWayMatchStatus: 'MATCHED',
+      lineItems: [
+        { id: 'li-3', sku: 'SW-10GBE-L3', name: '10GbE Network L3 Managed Switch', qty: 10, unitPrice: 45000000, totalPrice: 450000000 },
+        { id: 'li-4', sku: 'FW-NGFW-10G', name: 'Next-Gen Firewall 10Gbps Core', qty: 2, unitPrice: 200000000, totalPrice: 400000000 }
+      ]
+    },
+    {
+      id: 'PO-2026-1040',
+      vendor: 'Dell EMC Indonesia',
+      desc: lang === 'en' ? 'Server Partner' : 'Server Partner',
+      date: '15 Aug 2026',
+      total: 1200000000,
+      status: 'Disetujui',
+      color: 'green',
+      department: 'Engineering & R&D',
+      threeWayMatchStatus: 'DISCREPANCY',
+      lineItems: [
+        { id: 'li-5', sku: 'RS-W1-PRO', name: 'Rack Server Web Infrastructure', qty: 10, unitPrice: 120000000, totalPrice: 1200000000 }
+      ]
+    },
+    {
+      id: 'PO-2026-1039',
+      vendor: 'Lenovo Enterprise',
+      desc: lang === 'en' ? 'Hardware Vendor' : 'Hardware Vendor',
+      date: '12 Aug 2026',
+      total: 450000000,
+      status: 'Selesai',
+      color: 'blue',
+      department: 'Operations & Logistics',
+      threeWayMatchStatus: 'MATCHED',
+      lineItems: [
+        { id: 'li-6', sku: 'STR-NVME-8TB', name: '8TB NVMe Enterprise Storage Pod', qty: 25, unitPrice: 18000000, totalPrice: 450000000 }
+      ]
+    },
+    {
+      id: 'PO-2026-1038',
+      vendor: 'APC by Schneider',
+      desc: lang === 'en' ? 'Power Infra' : 'Power Infra',
+      date: '10 Aug 2026',
+      total: 320000000,
+      status: 'Selesai',
+      color: 'blue',
+      department: 'Operations & Logistics',
+      threeWayMatchStatus: 'MATCHED',
+      lineItems: [
+        { id: 'li-7', sku: 'UPS-3KVA-RT', name: '3kVA Rackmount Smart-UPS Online', qty: 10, unitPrice: 32000000, totalPrice: 320000000 }
+      ]
+    },
+    {
+      id: 'PO-2026-1037',
+      vendor: 'Fortinet Indonesia',
+      desc: lang === 'en' ? 'Security Vendor' : 'Security Vendor',
+      date: '05 Aug 2026',
+      total: 550000000,
+      status: 'Ditolak',
+      color: 'red',
+      department: 'IT Infrastructure',
+      threeWayMatchStatus: 'PENDING_RECEIPT'
+    },
   ];
   const [pos, setPos] = useState<any[]>(defaultPOs);
 
@@ -112,6 +204,36 @@ export function ProcurementView({
     } catch (e: any) {
       console.warn("Firestore update skipped or failed:", e);
       onToast(`PO ${id} -> ${statusLabel}`, 'success');
+    }
+  };
+
+  const handleSaveGrn = (poId: string, grn: GoodsReceiptNote, matchStatus: ThreeWayMatchStatus) => {
+    setPos(current => current.map(item => item.id === poId ? {
+      ...item,
+      grn,
+      threeWayMatchStatus: matchStatus
+    } : item));
+
+    const statusText = matchStatus === 'MATCHED'
+      ? (lang === 'en' ? 'Matched 100%' : 'Sesuai 100%')
+      : (lang === 'en' ? 'Discrepancy Detected' : 'Ada Selisih Fisik');
+
+    onToast(
+      lang === 'en'
+        ? `GRN ${grn.grnNumber} recorded for ${poId}: ${statusText}`
+        : `GRN ${grn.grnNumber} dicatat untuk ${poId}: ${statusText}`,
+      matchStatus === 'MATCHED' ? 'success' : 'warning'
+    );
+
+    if (onNotify) {
+      onNotify({
+        title: lang === 'en' ? 'Goods Receipt Note (GRN) Issued' : 'Penerimaan Barang (GRN) Diterbitkan',
+        message: lang === 'en'
+          ? `GRN ${grn.grnNumber} issued by ${grn.receivedBy} for ${poId}. 3-Way Match: ${matchStatus}.`
+          : `GRN ${grn.grnNumber} diterbitkan oleh ${grn.receivedBy} untuk ${poId}. Status 3-Way Match: ${matchStatus}.`,
+        type: 'status_change',
+        metadata: { poId, grnNumber: grn.grnNumber, matchStatus }
+      });
     }
   };
 
@@ -215,47 +337,63 @@ export function ProcurementView({
   }, [filteredPos, page, itemsPerPage]);
 
   const handleExport = async () => {
-    const { getAccessToken } = await import('../firebase');
-    const token = await getAccessToken();
-    if (!token) {
-      onToast(lang === 'en' ? "Please sign in first to export to Google Sheets" : "Silakan login terlebih dahulu untuk ekspor ke Google Sheets", "error");
-      return;
-    }
     setIsExporting(true);
     try {
-      const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ properties: { title: `Purchase Orders - ${new Date().toLocaleDateString()}` } })
-      });
-      const sheet = await res.json();
-      
-      const values = [
-        ['No. PO', 'Vendor', 'Description', 'Date', 'Total', 'Status'],
-        ...pos.map(po => [po.id, po.vendor, po.desc, po.date, po.total, po.status])
-      ];
+      const headers = ['PO Number', 'Vendor', 'Description', 'Date', 'Total (IDR)', 'Status', 'Department', '3-Way Match Status', 'Payment Receipt'];
+      const rows = filteredPos.map(po => [
+        `"${po.id}"`,
+        `"${(po.vendor || '').replace(/"/g, '""')}"`,
+        `"${(po.desc || '').replace(/"/g, '""')}"`,
+        `"${po.date}"`,
+        po.total,
+        `"${po.status}"`,
+        `"${po.department || 'IT Infrastructure'}"`,
+        `"${po.threeWayMatchStatus || 'PENDING_RECEIPT'}"`,
+        `"${po.paymentInfo?.receiptNo || '-'}"`
+      ]);
 
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheet.spreadsheetId}/values/Sheet1!A1:append?valueInputOption=USER_ENTERED`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values })
-      });
+      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `inventora-procurement-batch-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-      onToast(lang === 'en' ? "Exported to Google Sheets successfully!" : "Berhasil diekspor ke Google Sheets!", "success");
+      onToast(lang === 'en' ? "Batch procurement records downloaded as CSV" : "Data batch pengadaan berhasil diunduh sebagai CSV", "success");
     } catch (e: any) {
       onToast(`Export failed: ${e.message}`, "error");
     } finally {
-      setIsExporting(false);
+      setTimeout(() => setIsExporting(false), 500);
     }
   };
 
   const handleApprove = (id: string) => {
     updateStatus(id, 'Disetujui', 'green');
+    if (!isOnline && onQueueOffline) {
+      onQueueOffline({
+        type: 'APPROVE_PO',
+        entityId: id,
+        payload: { status: 'Disetujui' },
+        description: `Approve Purchase Order ${id}`,
+      });
+      onToast(lang === 'en' ? `PO ${id} approved in offline mode (queued)` : `PO ${id} disetujui dalam mode offline (antrean)`, 'warning');
+    }
     setActiveModal(null);
   };
 
   const handleReject = (id: string) => {
     updateStatus(id, 'Ditolak', 'red');
+    if (!isOnline && onQueueOffline) {
+      onQueueOffline({
+        type: 'REJECT_PO',
+        entityId: id,
+        payload: { status: 'Ditolak' },
+        description: `Reject Purchase Order ${id}`,
+      });
+      onToast(lang === 'en' ? `PO ${id} rejected in offline mode (queued)` : `PO ${id} ditolak dalam mode offline (antrean)`, 'warning');
+    }
     setActiveModal(null);
   };
 
@@ -343,10 +481,23 @@ export function ProcurementView({
         </div>
 
         <div className="flex items-center gap-2 text-xs text-[#666] dark:text-[#aaa]">
-          <span className="flex items-center gap-1 font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            {lang === 'en' ? 'Gateway Active (256-bit SSL)' : 'Gateway Aktif (256-bit SSL)'}
-          </span>
+          <button
+            type="button"
+            onClick={() => setIsVirtualized(!isVirtualized)}
+            className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+              isVirtualized
+                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                : 'bg-white dark:bg-[#1a1a1a] border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+            }`}
+            title="Toggle 60 FPS Virtualized Grid"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isVirtualized ? 'Virtualized Grid (60 FPS)' : 'Virtualization Off'}</span>
+          </button>
+          <Button variant="secondary" onClick={() => { setAuditPoFilter(null); setIsAuditOpen(true); }}>
+            <History className="w-3.5 h-3.5" />
+            <span>Audit Trail</span>
+          </Button>
           <Button variant="secondary" onClick={() => onNavigate('new-po')}>
             {activeT.procurement.createPoBtn}
           </Button>
@@ -354,6 +505,30 @@ export function ProcurementView({
       </div>
 
       {viewMode === 'list' && (
+        isVirtualized ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={activeT.procurement.searchPlaceholder}
+                className="w-full max-w-sm px-3.5 py-2 bg-white dark:bg-[#161616] border border-neutral-200 dark:border-neutral-800 rounded-lg text-xs"
+              />
+            </div>
+            <VirtualizedTable<PurchaseOrder>
+              data={filteredPos}
+              columns={[
+                { key: 'id', header: activeT.procurement.poNumber, width: '20%', render: (item) => <span className="font-mono font-semibold text-[#0070f3]">{item.id}</span> },
+                { key: 'vendor', header: activeT.procurement.vendor, width: '25%', render: (item) => <span className="font-medium">{item.vendor}</span> },
+                { key: 'date', header: activeT.procurement.date, width: '15%', render: (item) => <span className="text-neutral-500">{item.date}</span> },
+                { key: 'total', header: activeT.procurement.amount, width: '20%', render: (item) => <span className="font-mono font-medium">Rp {item.total.toLocaleString(numLocale)}</span> },
+                { key: 'status', header: activeT.procurement.status, width: '20%', render: (item) => <Badge color={item.color as any}>{item.status}</Badge> }
+              ]}
+              onRowClick={(item) => setActiveModal({ type: 'detail', data: item })}
+            />
+          </div>
+        ) : (
         <TableWrapper 
           title={activeT.procurement.tableTitle} 
           placeholder={activeT.procurement.searchPlaceholder}
@@ -372,6 +547,7 @@ export function ProcurementView({
               <Th sortable onSort={() => handleSort('date')}>{activeT.procurement.date}</Th>
               <Th sortable onSort={() => handleSort('total')}>{activeT.procurement.amount}</Th>
               <Th sortable onSort={() => handleSort('status')}>{activeT.procurement.status}</Th>
+              <Th>3-Way Match</Th>
               <Th align="right">{activeT.procurement.actions}</Th>
             </tr>
           </thead>
@@ -379,16 +555,53 @@ export function ProcurementView({
             {paginatedPos.length > 0 ? (
               paginatedPos.map((po, idx) => (
                 <Tr key={po.id} index={idx}>
-                  <Td><span className="font-mono text-xs text-[#666] dark:text-[#a1a1aa]">{po.id}</span></Td>
+                  <Td><span className="font-mono text-xs text-[#666] dark:text-[#a1a1aa] font-semibold">{po.id}</span></Td>
                   <Td>
-                    <div className="font-medium tracking-tight">{po.vendor}</div>
-                    <div className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{po.desc}</div>
+                    <div className="font-medium tracking-tight text-neutral-900 dark:text-neutral-100">{po.vendor}</div>
+                    <div className="text-[11px] text-[#666] dark:text-[#a1a1aa] mt-0.5 flex items-center gap-1.5">
+                      <span>{po.desc}</span>
+                      <span className="text-[9px] font-mono px-1 py-0.2 bg-neutral-100 dark:bg-neutral-800 rounded">
+                        {po.department || 'IT Infrastructure'}
+                      </span>
+                    </div>
                   </Td>
-                  <Td><span className="tabular-nums">{po.date}</span></Td>
-                  <Td><span className="tabular-nums font-medium">Rp {po.total.toLocaleString(numLocale)}</span></Td>
+                  <Td><span className="tabular-nums text-xs">{po.date}</span></Td>
+                  <Td><span className="tabular-nums font-mono font-medium text-xs">Rp {po.total.toLocaleString(numLocale)}</span></Td>
                   <Td><Badge color={po.color}>{getStatusBadgeText(po.status)}</Badge></Td>
+                  <Td>
+                    {po.threeWayMatchStatus === 'MATCHED' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-3 h-3" /> Matched
+                      </span>
+                    ) : po.threeWayMatchStatus === 'DISCREPANCY' ? (
+                      <button
+                        type="button"
+                        onClick={() => setThreeWayPo(po)}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 cursor-pointer hover:bg-amber-100 transition-colors"
+                        title="Click to view GRN discrepancy details"
+                      >
+                        <AlertTriangle className="w-3 h-3" /> Discrepancy
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setThreeWayPo(po)}
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-neutral-500 hover:text-[#0070f3] dark:text-neutral-400 dark:hover:text-[#3291ff] cursor-pointer"
+                      >
+                        <PackageCheck className="w-3 h-3" /> Inspect GRN
+                      </button>
+                    )}
+                  </Td>
                   <Td align="right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setThreeWayPo(po)}
+                        className="p-1.5 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                        title={lang === 'en' ? 'Inspect 3-Way Matching & GRN' : 'Periksa 3-Way Match & GRN'}
+                      >
+                        <PackageCheck className="w-3.5 h-3.5" />
+                      </button>
                       {po.status === 'Disetujui' && (
                         <button
                           type="button"
@@ -420,13 +633,14 @@ export function ProcurementView({
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-[#666] dark:text-[#a1a1aa] text-sm">
+                <td colSpan={7} className="px-6 py-12 text-center text-[#666] dark:text-[#a1a1aa] text-sm">
                   {lang === 'en' ? `No Purchase Orders match search "${search}".` : `Tidak ada Purchase Order yang cocok dengan pencarian "${search}".`}
                 </td>
               </tr>
             )}
           </tbody>
         </TableWrapper>
+        )
       )}
 
       {viewMode === 'kanban' && (
@@ -644,6 +858,37 @@ export function ProcurementView({
                 </p>
               </div>
 
+              {/* Department Pre-Approval Budget Ceilings */}
+              {(() => {
+                const bCheck = checkDepartmentBudgetLimit(activeModal.data.department || 'IT Infrastructure', activeModal.data.total);
+                return (
+                  <div className={`col-span-2 p-3.5 rounded-lg border text-xs flex items-center justify-between gap-3 ${
+                    bCheck.isExceeded
+                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                      : bCheck.isNearCap
+                      ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                  }`}>
+                    <div>
+                      <div className="font-semibold flex items-center gap-1.5">
+                        {bCheck.isExceeded ? <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        <span>
+                          {bCheck.isExceeded
+                            ? (lang === 'en' ? 'Budget Cap Exceeded Alert' : 'Peringatan Plafon Anggaran Terlampaui')
+                            : (lang === 'en' ? 'Budget Verification Verified' : 'Verifikasi Anggaran Lolos')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] opacity-85 mt-0.5">
+                        {bCheck.departmentBudget?.name}: Rp {(bCheck.availableBefore / 1000000).toLocaleString(numLocale)} Jt {lang === 'en' ? 'remaining' : 'tersisa'} &bull; {bCheck.projectedPercentage}% {lang === 'en' ? 'projected cap' : 'proyeksi plafon'}
+                      </p>
+                    </div>
+                    <span className="font-mono font-bold text-xs shrink-0">
+                      {bCheck.projectedPercentage}%
+                    </span>
+                  </div>
+                );
+              })()}
+
               {activeModal.data.status === 'Selesai' && (
                 <div className="col-span-2 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-medium">
@@ -653,9 +898,27 @@ export function ProcurementView({
                   <span className="font-mono font-semibold">PAID / SETTLED</span>
                 </div>
               )}
+
+              {/* Gemini AI Risk & Anomaly Assessment */}
+              <div className="col-span-2">
+                <PoRiskCard po={activeModal.data} lang={lang} />
+              </div>
             </div>
 
-            <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333]">
+            <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeModal.data;
+                  setActiveModal(null);
+                  setThreeWayPo(target);
+                }}
+                className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                <PackageCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>3-Way Match (GRN)</span>
+              </button>
+
               {activeModal.type === 'review' && (
                 <>
                   <Button variant="secondary" onClick={() => handleReject(activeModal.data.id)}>
@@ -680,6 +943,27 @@ export function ProcurementView({
                   <span>{activeT.procurement.openGatewayBtn}</span>
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  setPoForPrint(activeModal.data);
+                }}
+                className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                <Printer className="w-3.5 h-3.5 text-neutral-500" />
+                <span>{lang === 'en' ? 'Print Voucher' : 'Cetak Voucher'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuditPoFilter(activeModal.data.id);
+                  setIsAuditOpen(true);
+                }}
+                className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              >
+                <History className="w-3.5 h-3.5 text-neutral-500" />
+                <span>Audit</span>
+              </button>
               {activeModal.type !== 'review' && activeModal.data.status !== 'Disetujui' && (
                 <Button variant="secondary" onClick={() => setActiveModal(null)}>
                   {activeT.common.close}
@@ -689,6 +973,15 @@ export function ProcurementView({
           </div>
         )}
       </Modal>
+
+      {/* 3-Way Match Modal & Goods Receipt Inspector */}
+      <ThreeWayMatchModal
+        isOpen={threeWayPo !== null}
+        onClose={() => setThreeWayPo(null)}
+        po={threeWayPo}
+        onSaveGrn={handleSaveGrn}
+        lang={lang}
+      />
 
       {selectedPoForPayment !== null && (
         <Suspense fallback={null}>
@@ -702,6 +995,21 @@ export function ProcurementView({
           />
         </Suspense>
       )}
+
+      {/* Audit Trail Drawer Modal */}
+      <AuditTrailDrawer
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        entityFilter={auditPoFilter}
+        lang={lang}
+      />
+
+      {/* Official Tax Invoice & Printable Voucher Letterhead */}
+      <PrintableVoucher
+        po={poForPrint}
+        onClose={() => setPoForPrint(null)}
+        lang={lang}
+      />
     </section>
   );
 }

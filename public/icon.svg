@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0070f3"/>
+      <stop offset="100%" stop-color="#0040a8"/>
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="url(#glowGrad)" stroke="#ffffff" stroke-width="2" stroke-opacity="0.2"/>
+  <g fill="#ffffff" transform="translate(106, 106)">
+    <!-- Central ERP Cube & Monogram -->
+    <path d="M150 20 L270 90 L150 160 L30 90 Z" fill="#ffffff" fill-opacity="0.95"/>
+    <path d="M30 110 L140 175 L140 285 L30 220 Z" fill="#ffffff" fill-opacity="0.8"/>
+    <path d="M160 175 L270 110 L270 220 L160 285 Z" fill="#ffffff" fill-opacity="0.65"/>
+  </g>
+</svg>

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
 import { translations, Language, Translations } from '../i18n';
+import { exportToCsv } from '../lib/exportUtils';
+import { loadStoredData, saveStoredData } from '../lib/storageUtils';
 
 interface FinanceViewProps {
   onToast: (msg: string, type?: ToastType) => void;
@@ -15,13 +17,21 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
   const [search, setSearch] = useState('');
-  const [invoices, setInvoices] = useState([
+  const defaultInvoices = [
     { id: 'INV-OUT-889', client: 'Bank Mandiri (Persero)', desc: lang === 'en' ? 'Enterprise Client' : 'Klien Enterprise', date: '30 Aug 2026', total: 1450000000, status: 'Lunas', color: 'green' as const, isOverdue: false },
     { id: 'INV-OUT-890', client: 'PT Telkom Indonesia', desc: lang === 'en' ? 'Enterprise Client' : 'Klien Enterprise', date: '21 Aug 2026', total: 890000000, status: 'Overdue', color: 'red' as const, isOverdue: true },
     { id: 'INV-OUT-891', client: 'Astra International', desc: lang === 'en' ? 'Enterprise Client' : 'Klien Enterprise', date: '15 Aug 2026', total: 2100000000, status: 'Lunas', color: 'green' as const, isOverdue: false },
     { id: 'INV-OUT-892', client: 'BCA Group', desc: lang === 'en' ? 'Financial Sector' : 'Sektor Finansial', date: '10 Aug 2026', total: 600000000, status: 'Pending', color: 'orange' as const, isOverdue: false },
     { id: 'INV-OUT-893', client: 'Gojek Tokopedia', desc: lang === 'en' ? 'Tech Startup' : 'Startup Teknologi', date: '05 Aug 2026', total: 1100000000, status: 'Overdue', color: 'red' as const, isOverdue: true },
-  ]);
+  ];
+
+  const [invoices, setInvoices] = useState(() => {
+    return loadStoredData('inventora_finance_invoices_v1', defaultInvoices);
+  });
+
+  useEffect(() => {
+    saveStoredData('inventora_finance_invoices_v1', invoices);
+  }, [invoices]);
 
   const [activeModal, setActiveModal] = useState<{ type: 'receipt' | 'warning', data: any } | null>(null);
 
@@ -62,10 +72,24 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
 
   const handleExport = () => {
     setIsExporting(true);
-    setTimeout(() => {
-      setIsExporting(false);
-      onToast(lang === 'en' ? "Data exported as PDF successfully" : "Data berhasil diekspor sebagai PDF", "success");
-    }, 1200);
+    try {
+      const headers = ['Invoice ID', 'Client / Organization', 'Sector / Category', 'Due / Issue Date', 'Total Amount (IDR)', 'Payment Status', 'Overdue Flag'];
+      const rows = filteredInvoices.map(inv => [
+        inv.id,
+        inv.client,
+        inv.desc,
+        inv.date,
+        inv.total,
+        inv.status,
+        inv.isOverdue ? 'YES' : 'NO'
+      ]);
+      exportToCsv(`inventora-accounts-receivable-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+      onToast(lang === 'en' ? "Invoices exported as CSV successfully" : "Daftar tagihan berhasil diekspor sebagai CSV", "success");
+    } catch (e) {
+      onToast("Export failed", "error");
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
   };
 
   const handleSendWarning = (id: string, clientName: string) => {
@@ -235,10 +259,21 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
 
             <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333]">
               <Button variant="secondary" onClick={() => {
-                onToast(lang === 'en' ? 'Receipt downloading as PDF...' : 'Tanda terima sedang diunduh format PDF...');
+                const item = activeModal.data;
+                const headers = ['Voucher Reference', 'Billed To Client', 'Payment Date', 'Total Settled (IDR)', 'Status', 'Corporate Entity'];
+                const rows = [[
+                  item.id,
+                  item.client,
+                  item.date,
+                  item.total,
+                  item.status,
+                  'PT INVENTORA TEKNOLOGI NUSANTARA'
+                ]];
+                exportToCsv(`receipt-voucher-${item.id}.csv`, headers, rows);
+                onToast(lang === 'en' ? `Payment receipt for ${item.id} downloaded` : `Tanda terima ${item.id} berhasil diunduh`, 'success');
                 setActiveModal(null);
               }}>
-                {lang === 'en' ? 'Download PDF' : 'Unduh PDF'}
+                {lang === 'en' ? 'Download Receipt Voucher' : 'Unduh Voucher Pembayaran'}
               </Button>
             </div>
           </div>
