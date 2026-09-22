@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Inventora",
+  "description": "Enterprise ERP and Command Center with inventory control, procurement management, and AI data analysis.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
