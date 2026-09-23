@@ -622,14 +622,12 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                 {/* Plan Action Button */}
                 <div className="pt-6 mt-6 border-t border-neutral-200 dark:border-neutral-800">
                   {isCurrent ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed flex items-center justify-center gap-1.5"
+                    <div
+                      className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 select-none flex items-center justify-center gap-1.5 border border-neutral-200 dark:border-neutral-700/60"
                     >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>{lang === 'en' ? 'Active Enterprise Subscription' : 'Langganan Aktif'}</span>
-                    </button>
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>{lang === 'en' ? 'Active Enterprise Subscription' : 'Paket Langganan Aktif'}</span>
+                    </div>
                   ) : (
                     <button
                       type="button"
