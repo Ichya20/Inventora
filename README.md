@@ -46,6 +46,7 @@ Inventora is a modern, production-ready Enterprise Resource Planning (ERP) platf
 - **Procurement & POs:** Kanban-style PO status tracking, Google Sheets export, and vendor management.
 - **Finance & Accounts Receivable:** Invoices, overdue tracking, payment receipt modal, and automated warning email dispatch simulation.
 - **Human Resources:** Team roster, employee profiles, and automated Google Calendar onboarding event creation.
+- **Enterprise Cloud Billing & Subscription:** Live quota meters (seats, PO transaction volume, Gemini AI runs, cloud storage), 3-tier plan switching (Starter, Business, Enterprise AI), annual/monthly discount toggling, corporate payment methods, and 1-click tax-compliant PDF subscription statements.
 
 ### 6. 📄 Direct PDF & Document Generation
 - **Client-Side PDF Engine:** Direct `.pdf` file downloads for commercial tax invoices, official payment settlement receipts, and procurement purchase orders.

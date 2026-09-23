@@ -16,6 +16,7 @@ export function ShortcutsModal({ isOpen, onClose, lang = 'en' }: ShortcutsModalP
     { keys: ['G', 'P'], desc: lang === 'en' ? 'Navigate to Procurement' : 'Buka Pengadaan (Procurement)' },
     { keys: ['G', 'I'], desc: lang === 'en' ? 'Navigate to Inventory' : 'Buka Manajemen Stok (Inventory)' },
     { keys: ['G', 'F'], desc: lang === 'en' ? 'Navigate to Finance' : 'Buka Keuangan (Finance)' },
+    { keys: ['G', 'B'], desc: lang === 'en' ? 'Navigate to Billing & Plans' : 'Buka Langganan & Tagihan (Billing)' },
     { keys: ['G', 'H'], desc: lang === 'en' ? 'Navigate to HR / People' : 'Buka SDM & Karyawan (HR)' },
     { keys: ['G', 'S'], desc: lang === 'en' ? 'Navigate to Settings' : 'Buka Pengaturan (Settings)' },
     { keys: ['N', 'P'], desc: lang === 'en' ? 'Draft New Purchase Order' : 'Buat Purchase Order Baru' },
@@ -125,6 +126,7 @@ export function useGlobalHotkeys({
         if (key === 'p') { e.preventDefault(); onNavigate('po'); return; }
         if (key === 'i') { e.preventDefault(); onNavigate('stok'); return; }
         if (key === 'f') { e.preventDefault(); onNavigate('keuangan'); return; }
+        if (key === 'b') { e.preventDefault(); onNavigate('billing'); return; }
         if (key === 'h') { e.preventDefault(); onNavigate('sdm'); return; }
         if (key === 's') { e.preventDefault(); onNavigate('settings'); return; }
         return;

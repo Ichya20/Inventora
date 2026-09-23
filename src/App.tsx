@@ -23,6 +23,7 @@ const FinanceView = lazy(() => import('./components/FinanceView').then(m => ({ d
 const HRView = lazy(() => import('./components/HRView').then(m => ({ default: m.HRView })));
 const PurchaseUnitView = lazy(() => import('./components/PurchaseUnitView').then(m => ({ default: m.PurchaseUnitView })));
 const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
+const BillingSubscriptionView = lazy(() => import('./components/BillingSubscriptionView').then(m => ({ default: m.BillingSubscriptionView })));
 
 const Card = ({ children }: { children: React.ReactNode }) => (
   <div className="bg-white dark:bg-[#111] p-6 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.2)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_8px_16px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_8px_16px_rgba(0,0,0,0.4)] transition-shadow duration-300">
@@ -46,7 +47,23 @@ const Badge = ({ children, color = "blue" }: { children: React.ReactNode, color?
   );
 };
 
-const Button = ({ children, variant = "primary", onClick, type = "button", disabled = false, isLoading = false }: { children: React.ReactNode, variant?: "primary" | "secondary", onClick?: () => void, type?: "button" | "submit", disabled?: boolean, isLoading?: boolean }) => {
+const Button = ({ 
+  children, 
+  variant = "primary", 
+  onClick, 
+  type = "button", 
+  disabled = false, 
+  isLoading = false,
+  className = ""
+}: { 
+  children: React.ReactNode, 
+  variant?: "primary" | "secondary", 
+  onClick?: () => void, 
+  type?: "button" | "submit", 
+  disabled?: boolean, 
+  isLoading?: boolean,
+  className?: string
+}) => {
   const content = isLoading ? (
     <div className="flex items-center gap-2">
       <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -59,13 +76,23 @@ const Button = ({ children, variant = "primary", onClick, type = "button", disab
 
   if (variant === "primary") {
     return (
-      <button type={type} onClick={onClick} disabled={disabled || isLoading} className="bg-[#171717] dark:bg-[#ededed] text-white dark:text-[#171717] font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] dark:hover:bg-[#ccc] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.12)] disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[36px]">
+      <button 
+        type={type} 
+        onClick={onClick} 
+        disabled={disabled || isLoading} 
+        className={`bg-[#171717] dark:bg-[#ededed] text-white dark:text-[#171717] font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] dark:hover:bg-[#ccc] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.12)] disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[36px] ${className}`}
+      >
         {content}
       </button>
     );
   }
   return (
-    <button type={type} onClick={onClick} disabled={disabled || isLoading} className="bg-white dark:bg-[#111] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2)] hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] px-3 py-1.5 rounded-md transition-shadow text-sm disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[32px]">
+    <button 
+      type={type} 
+      onClick={onClick} 
+      disabled={disabled || isLoading} 
+      className={`bg-white dark:bg-[#111] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2)] hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] px-3 py-1.5 rounded-md transition-shadow text-sm disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[32px] ${className}`}
+    >
       {content}
     </button>
   );
@@ -573,16 +600,40 @@ function SettingsView({
   onToast, 
   lang, 
   onLanguageChange, 
-  t 
+  t,
+  onNavigate
 }: { 
   onToast: (msg: string, type?: ToastType) => void;
   lang: Language;
   onLanguageChange: (newLang: Language) => void;
   t: Translations;
+  onNavigate?: (menu: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<'profile' | 'workspace' | 'language' | 'billing'>('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [selectedLang, setSelectedLang] = useState<Language>(lang);
+  const [userAvatar, setUserAvatar] = useState<string | null>(() => {
+    return localStorage.getItem('inventora_user_avatar') || null;
+  });
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        onToast(lang === 'en' ? 'Avatar image must be under 2MB' : 'Ukuran foto avatar maksimal 2MB', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setUserAvatar(base64);
+        localStorage.setItem('inventora_user_avatar', base64);
+        onToast(lang === 'en' ? 'Profile avatar updated' : 'Foto avatar profil berhasil diperbarui', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     setSelectedLang(lang);
@@ -647,11 +698,24 @@ function SettingsView({
             {activeTab === 'profile' && (
               <div className="space-y-6">
                 <div className="flex items-center gap-6">
-                  <div className="w-20 h-20 rounded-full bg-[#f0f0f0] dark:bg-[#1a1a1a] flex items-center justify-center text-[#999] text-3xl font-semibold shadow-inner">
-                    A
+                  <div className="w-20 h-20 rounded-full bg-[#f0f0f0] dark:bg-[#1a1a1a] flex items-center justify-center text-[#999] text-3xl font-semibold shadow-inner overflow-hidden border border-neutral-200 dark:border-neutral-800">
+                    {userAvatar ? (
+                      <img src={userAvatar} alt="Profile Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      'A'
+                    )}
                   </div>
                   <div>
-                    <Button variant="secondary">{t.settings.changeAvatar}</Button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleAvatarFileChange} 
+                      accept="image/*" 
+                      className="hidden" 
+                    />
+                    <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                      {t.settings.changeAvatar}
+                    </Button>
                     <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-2">{t.settings.avatarHint}</p>
                   </div>
                 </div>
@@ -936,14 +1000,24 @@ function SettingsView({
 
             {activeTab === 'billing' && (
               <div className="space-y-6">
-                <div className="p-4 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg border border-[#eaeaea] dark:border-[#333]">
-                  <h4 className="font-medium text-[#171717] dark:text-[#ededed]">{t.settings.activePlan}</h4>
-                  <p className="text-sm text-[#666] dark:text-[#a1a1aa] mt-1">{t.settings.planDesc}</p>
-                  <div className="mt-4">
-                    <Badge color="green">Active</Badge>
+                <div className="flex items-center justify-between p-4 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 rounded-xl">
+                  <div className="space-y-0.5">
+                    <h4 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-[#0070f3]" />
+                      <span>{t.settings.activePlan}: Enterprise AI & Autonomous Treasury</span>
+                    </h4>
+                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                      {lang === 'en' ? 'Manage operational quotas, user licenses, payment methods, and PDF invoices.' : 'Kelola kuota operasional, lisensi pengguna, metode pembayaran, dan faktur PDF.'}
+                    </p>
                   </div>
+                  {onNavigate && (
+                    <Button variant="primary" onClick={() => onNavigate('billing')} className="text-xs">
+                      {lang === 'en' ? 'Open Full Billing Center' : 'Buka Pusat Billing'}
+                    </Button>
+                  )}
                 </div>
-                <Button variant="secondary">{t.settings.manageStripe}</Button>
+
+                <BillingSubscriptionView onToast={onToast} lang={lang} t={t} />
               </div>
             )}
           </Card>
@@ -989,6 +1063,7 @@ function CommandPalette({
     { id: 'po', name: lang === 'en' ? 'Manage Procurement (PO & Payment Gateway)' : 'Kelola Pengadaan (PO & Gateway Pembayaran)', icon: ShoppingCart, action: () => onNavigate('po') },
     { id: 'finance', name: lang === 'en' ? 'Go to Finance & Invoices' : 'Buka Keuangan & Invoice', icon: FileText, action: () => onNavigate('keuangan') },
     { id: 'hr', name: lang === 'en' ? 'Manage HR & Payroll' : 'Kelola SDM & Payroll', icon: Users, action: () => onNavigate('sdm') },
+    { id: 'billing', name: lang === 'en' ? 'Manage Billing & Cloud Subscription' : 'Kelola Langganan & Tagihan Cloud', icon: CreditCard, action: () => onNavigate('billing') },
     { id: 'settings', name: lang === 'en' ? 'Open Workspace & Language Settings' : 'Buka Pengaturan Workspace & Bahasa', icon: SettingsIcon, action: () => onNavigate('settings') },
     { 
       id: 'lang-en', 
@@ -1228,6 +1303,7 @@ function Dashboard() {
       case 'po': return t.headers.procurement;
       case 'keuangan': return t.headers.finance;
       case 'sdm': return t.headers.hr;
+      case 'billing': return t.headers.billing;
       case 'purchase':
       case 'new-po':
         return t.headers.newPo;
@@ -1239,7 +1315,7 @@ function Dashboard() {
   const hasAccess = (menu: string) => {
     if (currentRole === 'Super Admin') return true;
     if (currentRole === 'Warehouse Manager') return ['overview', 'stok', 'po'].includes(menu);
-    if (currentRole === 'Finance Manager') return ['overview', 'po', 'keuangan', 'analytics'].includes(menu);
+    if (currentRole === 'Finance Manager') return ['overview', 'po', 'keuangan', 'analytics', 'billing'].includes(menu);
     if (currentRole === 'HR Manager') return ['overview', 'sdm'].includes(menu);
     return false;
   };
@@ -1330,6 +1406,12 @@ function Dashboard() {
             <div onClick={() => handleMenuClick('sdm')} className={getMenuClass('sdm')}>
               <Users className="w-4 h-4" />
               <span className="text-sm">{t.nav.hr}</span>
+            </div>
+          )}
+          {hasAccess('billing') && (
+            <div onClick={() => handleMenuClick('billing')} className={getMenuClass('billing')}>
+              <CreditCard className="w-4 h-4" />
+              <span className="text-sm">{t.nav.billing}</span>
             </div>
           )}
           
@@ -1449,7 +1531,8 @@ function Dashboard() {
           <ErrorBoundary fallbackTitle={getHeaderTitle()} onReset={() => setActiveMenu('overview')}>
             {activeMenu === 'overview' && <OverviewView onNavigate={setActiveMenu} t={t} lang={language} />}
             {activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
-            {activeMenu === 'settings' && <SettingsView onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} />}
+            {activeMenu === 'billing' && <BillingSubscriptionView onToast={showToast} t={t} lang={language} />}
+            {activeMenu === 'settings' && <SettingsView onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={setActiveMenu} />}
             {activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={setActiveMenu} t={t} lang={language} />}
             {activeMenu === 'po' && (
               <ProcurementView 

@@ -8,6 +8,7 @@ export interface Translations {
     procurement: string;
     finance: string;
     hr: string;
+    billing: string;
     settings: string;
     newPo: string;
     activeSession: string;
@@ -20,6 +21,7 @@ export interface Translations {
     procurement: string;
     finance: string;
     hr: string;
+    billing: string;
     newPo: string;
     settings: string;
   };
@@ -308,6 +310,7 @@ export const translations: Record<Language, Translations> = {
       procurement: 'Pengadaan (PO)',
       finance: 'Keuangan & Invoice',
       hr: 'SDM & Payroll',
+      billing: 'Langganan & Billing',
       settings: 'Pengaturan',
       newPo: 'Buat PO Baru',
       activeSession: 'Sesi Aktif',
@@ -320,6 +323,7 @@ export const translations: Record<Language, Translations> = {
       procurement: 'Manajemen Pengadaan (PO)',
       finance: 'Keuangan & Invoice',
       hr: 'Sumber Daya Manusia (SDM)',
+      billing: 'Langganan & Billing Cloud',
       newPo: 'Buat Purchase Order Baru',
       settings: 'Pengaturan Workspace'
     },
@@ -606,6 +610,7 @@ export const translations: Record<Language, Translations> = {
       procurement: 'Procurement (PO)',
       finance: 'Finance & Invoices',
       hr: 'HR & Payroll',
+      billing: 'Billing & Plans',
       settings: 'Settings',
       newPo: 'Create New PO',
       activeSession: 'Active Session',
@@ -618,6 +623,7 @@ export const translations: Record<Language, Translations> = {
       procurement: 'Procurement Management (PO)',
       finance: 'Finance & Invoices',
       hr: 'Human Resources (HR)',
+      billing: 'Billing & Cloud Subscription',
       newPo: 'Create Purchase Order',
       settings: 'Workspace Settings'
     },
