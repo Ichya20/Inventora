@@ -1,5 +1,5 @@
-import React from 'react';
-import { Printer, X, Building2, CheckCircle2, ShieldCheck, Download } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Printer, X, Building2, CheckCircle2, ShieldCheck, Download, ArrowLeft } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { downloadPurchaseOrderPdf } from '../lib/pdfGenerator';
 
@@ -10,6 +10,17 @@ interface PrintableVoucherProps {
 }
 
 export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherProps) {
+  useEffect(() => {
+    if (!po) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [po, onClose]);
+
   if (!po) return null;
 
   const handlePrint = () => {
@@ -27,15 +38,31 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-3xl bg-white dark:bg-[#111] rounded-2xl shadow-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 my-8">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
+    >
+      <div className="w-full max-w-3xl bg-white dark:bg-[#111] rounded-2xl shadow-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 my-8 flex flex-col max-h-[92vh]">
         {/* Action Header - Hidden during print */}
-        <div className="no-print p-4 bg-neutral-50 dark:bg-[#181818] border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Printer className="w-4 h-4 text-[#0070f3]" />
-            <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-              {lang === 'en' ? 'Official PO Voucher & Tax Summary' : 'Voucher PO Resmi & Faktur Pajak'}
-            </span>
+        <div className="no-print p-4 bg-neutral-50 dark:bg-[#181818] border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 bg-white dark:bg-[#222] border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-[#2a2a2a] text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              title={lang === 'en' ? 'Back to Procurement' : 'Kembali ke Pengadaan'}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{lang === 'en' ? 'Back' : 'Kembali'}</span>
+            </button>
+            <div className="hidden sm:flex items-center gap-2">
+              <Printer className="w-4 h-4 text-[#0070f3]" />
+              <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                {lang === 'en' ? 'Official PO Voucher & Tax Summary' : 'Voucher PO Resmi & Faktur Pajak'}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -58,7 +85,8 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-lg cursor-pointer"
+              className="p-1.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-800 cursor-pointer"
+              title={lang === 'en' ? 'Close Voucher' : 'Tutup Voucher'}
             >
               <X className="w-4 h-4" />
             </button>
@@ -66,7 +94,7 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
         </div>
 
         {/* Printable Letterhead & Body */}
-        <div className="printable-card p-8 sm:p-12 text-neutral-900 dark:text-neutral-100 bg-white dark:bg-[#111]">
+        <div className="printable-card p-8 sm:p-12 text-neutral-900 dark:text-neutral-100 bg-white dark:bg-[#111] overflow-y-auto flex-1">
           {/* Letterhead */}
           <div className="flex justify-between items-start border-b-2 border-neutral-900 pb-6 mb-6">
             <div>
@@ -187,6 +215,37 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
           {/* Footer note */}
           <div className="mt-12 text-center text-[10px] text-neutral-400 border-t border-neutral-100 pt-4">
             This document is computer-generated and electronically authenticated by Inventora Enterprise ERP System.
+          </div>
+        </div>
+
+        {/* Bottom Action Footer - Hidden during print */}
+        <div className="no-print p-4 bg-neutral-50 dark:bg-[#181818] border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{lang === 'en' ? 'Back to Procurement' : 'Kembali ke Pengadaan'}</span>
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => downloadPurchaseOrderPdf(po, lang)}
+              className="px-4 py-2 bg-[#0070f3] hover:bg-[#0060df] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{lang === 'en' ? 'Download PDF' : 'Unduh PDF'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-4 py-2 bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>{lang === 'en' ? 'Print Document' : 'Cetak Dokumen'}</span>
+            </button>
           </div>
         </div>
       </div>

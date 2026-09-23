@@ -67,6 +67,17 @@ export function PaymentGatewayModal({
     }
   }, [isOpen, po, lang]);
 
+  useEffect(() => {
+    if (!isOpen || isProcessing) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isProcessing, onClose]);
+
   if (!isOpen || !po) return null;
 
   const baseTotal = po.total || 0;

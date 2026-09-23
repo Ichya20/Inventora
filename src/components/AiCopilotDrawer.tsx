@@ -54,6 +54,17 @@ export function AiCopilotDrawer({
     }
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const handleSend = async (textToSend?: string) => {
     const q = (textToSend || input).trim();
     if (!q || isLoading) return;

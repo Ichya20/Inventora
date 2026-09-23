@@ -2,14 +2,30 @@ export type ToastType = 'success' | 'warning' | 'info' | 'error';
 export type Language = 'id' | 'en';
 
 export interface ToastItem {
-  id: number;
+  id: number | string;
   msg: string;
   type: ToastType;
+  title?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  timestamp?: string;
+  duration?: number;
 }
+
+export type ToastFunction = (
+  msg: string, 
+  type?: ToastType, 
+  options?: { 
+    title?: string; 
+    actionLabel?: string; 
+    onAction?: () => void; 
+    duration?: number;
+  }
+) => void;
 
 export type Role = 'Super Admin' | 'Warehouse Manager' | 'Finance Manager' | 'HR Manager';
 
-export type POStatus = 'Pending Approval' | 'Disetujui' | 'Selesai' | 'Ditolak';
+export type POStatus = 'Pending Approval' | 'Disetujui' | 'Barang Diterima' | 'Selisih Penerimaan' | 'Selesai' | 'Ditolak';
 
 export interface POLineItem {
   id: string;

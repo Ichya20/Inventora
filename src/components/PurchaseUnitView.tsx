@@ -10,7 +10,7 @@ import { loadStoredData, saveStoredData } from '../lib/storageUtils';
 
 interface PurchaseUnitViewProps {
   onNavigate: (menu: string) => void;
-  onToast?: (msg: string, type?: ToastType) => void;
+  onToast?: (msg: string, type?: ToastType, options?: { title?: string; actionLabel?: string; onAction?: () => void }) => void;
   onNotify?: (n: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
   t?: Translations;
   lang?: Language;
@@ -241,9 +241,14 @@ export function PurchaseUnitView({
     if (onToast) {
       onToast(
         lang === 'en' 
-          ? `Purchase Order ${newPoId} created successfully!` 
-          : `Purchase Order ${newPoId} berhasil diajukan!`, 
-        'success'
+          ? `Purchase Order ${newPoId} created successfully! Total: Rp ${grandTotal.toLocaleString('en-US')}` 
+          : `Purchase Order ${newPoId} berhasil diajukan! Total: Rp ${grandTotal.toLocaleString('id-ID')}`, 
+        'success',
+        {
+          title: lang === 'en' ? 'New PO Submitted' : 'PO Berhasil Diajukan',
+          actionLabel: lang === 'en' ? 'Track Status' : 'Lacak Status',
+          onAction: () => onNavigate('po')
+        }
       );
     }
 

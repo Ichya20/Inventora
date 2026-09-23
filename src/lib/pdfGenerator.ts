@@ -592,3 +592,208 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrderData, lang: 'id' | 'en
   const fileName = `purchase-order-${po.id}.pdf`;
   doc.save(fileName);
 }
+
+export interface PayslipData {
+  empId: string;
+  empName: string;
+  dept: string;
+  role: string;
+  taxId?: string;
+  period: string;
+  baseSalary: number;
+  positionAllowance: number;
+  transportAllowance: number;
+  bonus: number;
+  bpjsKesehatan: number;
+  bpjsKetenagakerjaan: number;
+  pph21: number;
+  netPay: number;
+  bankName: string;
+  accountNumber: string;
+  disbursementDate?: string;
+}
+
+export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'): void {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  // Top header bar
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, 210, 28, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(255, 255, 255);
+  doc.text('INVENTORA ENTERPRISE ERP', 15, 14);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(148, 163, 184);
+  doc.text(lang === 'en' ? 'CONFIDENTIAL MONTHLY PAYSLIP' : 'SLIP GAJI BULANAN RAHASIA', 15, 21);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text(data.period, 195, 14, { align: 'right' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.text(`Ref: PAY/${data.empId}/${data.period.replace(/\s+/g, '-')}`, 195, 21, { align: 'right' });
+
+  // Employee Identity Card
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(15, 34, 180, 32, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(15, 34, 180, 32, 2, 2, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(30, 41, 59);
+  doc.text(data.empName, 20, 42);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${data.role} - ${data.dept} Department`, 20, 48);
+  doc.text(`Employee ID: ${data.empId}  |  NPWP / Tax ID: ${data.taxId || '31.428.190.2-014.000'}`, 20, 54);
+  doc.text(`Bank Transfer: ${data.bankName} (${data.accountNumber})`, 20, 60);
+
+  // Section Headers: Earnings & Deductions
+  let startY = 74;
+
+  // Earnings Table (Left Column: 15 to 102)
+  doc.setFillColor(241, 245, 249);
+  doc.rect(15, startY, 88, 8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(lang === 'en' ? 'EARNINGS & ALLOWANCES' : 'PENDAPATAN & TUNJANGAN', 18, startY + 5.5);
+
+  // Deductions Table (Right Column: 107 to 195)
+  doc.setFillColor(241, 245, 249);
+  doc.rect(107, startY, 88, 8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(lang === 'en' ? 'DEDUCTIONS & TAX' : 'POTONGAN & PAJAK', 110, startY + 5.5);
+
+  let curY = startY + 14;
+  const earnings = [
+    { label: lang === 'en' ? 'Basic Salary' : 'Gaji Pokok', val: data.baseSalary },
+    { label: lang === 'en' ? 'Position Allowance' : 'Tunjangan Jabatan', val: data.positionAllowance },
+    { label: lang === 'en' ? 'Transport & Comm.' : 'Tunjangan Transportasi', val: data.transportAllowance },
+    { label: lang === 'en' ? 'Performance Bonus' : 'Bonus Kinerja / Lembur', val: data.bonus },
+  ];
+
+  const deductions = [
+    { label: lang === 'en' ? 'Income Tax (PPh 21 TER)' : 'PPh 21 Terutang', val: data.pph21 },
+    { label: lang === 'en' ? 'BPJS Ketenagakerjaan (3%)' : 'BPJS Ketenagakerjaan (3%)', val: data.bpjsKetenagakerjaan },
+    { label: lang === 'en' ? 'BPJS Kesehatan (1%)' : 'BPJS Kesehatan (1%)', val: data.bpjsKesehatan },
+  ];
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+
+  // Print Earnings items
+  earnings.forEach((e) => {
+    doc.setTextColor(71, 85, 105);
+    doc.text(e.label, 18, curY);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCurrency(e.val, lang), 100, curY, { align: 'right' });
+    curY += 7;
+  });
+
+  // Print Deductions items
+  let dY = startY + 14;
+  deductions.forEach((d) => {
+    doc.setTextColor(71, 85, 105);
+    doc.text(d.label, 110, dY);
+    doc.setTextColor(225, 29, 72); // rose-600
+    doc.text(`- ${formatCurrency(d.val, lang)}`, 192, dY, { align: 'right' });
+    dY += 7;
+  });
+
+  const totalEarnings = data.baseSalary + data.positionAllowance + data.transportAllowance + data.bonus;
+  const totalDeductions = data.pph21 + data.bpjsKetenagakerjaan + data.bpjsKesehatan;
+
+  // Earnings Subtotal line
+  doc.setDrawColor(226, 232, 240);
+  doc.line(15, curY + 2, 103, curY + 2);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(lang === 'en' ? 'Gross Earnings:' : 'Total Bruto:', 18, curY + 8);
+  doc.text(formatCurrency(totalEarnings, lang), 100, curY + 8, { align: 'right' });
+
+  // Deductions Subtotal line
+  doc.line(107, curY + 2, 195, curY + 2);
+  doc.text(lang === 'en' ? 'Total Deductions:' : 'Total Potongan:', 110, curY + 8);
+  doc.setTextColor(225, 29, 72);
+  doc.text(`- ${formatCurrency(totalDeductions, lang)}`, 192, curY + 8, { align: 'right' });
+
+  // Net Take-Home Pay Grand Banner
+  const bannerY = curY + 20;
+  doc.setFillColor(16, 185, 129); // emerald-500
+  doc.roundedRect(15, bannerY, 180, 24, 2, 2, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text(lang === 'en' ? 'NET TAKE-HOME PAY' : 'GAJI BERSIH DITERIMA (TAKE-HOME PAY)', 25, bannerY + 10);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(lang === 'en' ? `Disbursed to ${data.bankName}` : `Ditransfer via ${data.bankName}`, 25, bannerY + 17);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(formatCurrency(data.netPay, lang), 185, bannerY + 15, { align: 'right' });
+
+  // Notes
+  const noteY = bannerY + 34;
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    lang === 'en'
+      ? 'Note: This payslip is electronically generated and protected by corporate cryptographic signature.'
+      : 'Catatan: Slip gaji ini dibuat secara elektronik dan dilindungi dengan tanda tangan digital resmi Inventora.',
+    15,
+    noteY
+  );
+
+  // Signatures
+  const sigY = noteY + 16;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text(lang === 'en' ? 'Prepared By (Payroll & Tax Officer):' : 'Dibuat Oleh (Payroll & Tax Specialist):', 25, sigY);
+  doc.text(lang === 'en' ? 'Approved By (VP Human Resources):' : 'Disetujui Oleh (VP Human Resources):', 130, sigY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Rina Kusuma, S.Psi.', 25, sigY + 16);
+  doc.text('Sarah Danubrata, S.H., M.M.', 130, sigY + 16);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('People Operations & Compensation', 25, sigY + 20);
+  doc.text('Head of Corporate People & Culture', 130, sigY + 20);
+
+  // Footer bar
+  doc.setFillColor(241, 245, 249);
+  doc.rect(0, 285, 210, 12, 'F');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Inventora ERP - Workforce & Compensation Management System', 105, 291, { align: 'center' });
+
+  const fileName = `payslip-${data.empId}-${data.period.replace(/\s+/g, '-')}.pdf`;
+  doc.save(fileName);
+}

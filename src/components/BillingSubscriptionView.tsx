@@ -272,7 +272,6 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
             <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-500/10 text-[#0070f3] dark:text-[#3291ff] border border-blue-500/20 uppercase tracking-wider">
               {lang === 'en' ? 'Workspace Billing Center' : 'Pusat Tagihan & Langganan'}
             </span>
-            <span className="text-xs text-neutral-500">Org ID: org_inv_prod_9942</span>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
             {lang === 'en' ? 'Cloud Subscription & Capacity Management' : 'Kelola Paket Langganan & Kuota Cloud'}
@@ -1021,6 +1020,9 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           </div>
 
           <div className="flex gap-2.5 justify-end pt-3 border-t border-neutral-200 dark:border-neutral-800">
+            <Button variant="secondary" onClick={() => setIsAddonModalOpen(false)}>
+              {activeT.common.cancel}
+            </Button>
             <Button variant="primary" onClick={() => {
               setIsAddonModalOpen(false);
               onToast(lang === 'en' ? 'Add-on capacity updated successfully' : 'Kapasitas add-on berhasil diperbarui', 'success');

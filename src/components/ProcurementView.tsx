@@ -12,12 +12,13 @@ import { VirtualizedTable, Column } from './VirtualizedTable';
 import { PoRiskCard } from './PoRiskCard';
 import { ThreeWayMatchModal } from './ThreeWayMatchModal';
 import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
+import { downloadReceiptPdf } from '../lib/pdfGenerator';
 
 const PaymentGatewayModal = lazy(() => import('./PaymentGatewayModal').then(m => ({ default: m.PaymentGatewayModal })));
 
 interface ProcurementViewProps {
   onNavigate: (menu: string) => void;
-  onToast: (msg: string, type?: ToastType) => void;
+  onToast: (msg: string, type?: ToastType, options?: { title?: string; actionLabel?: string; onAction?: () => void; duration?: number }) => void;
   onNotify?: (n: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
   t?: Translations;
   lang?: Language;
@@ -209,46 +210,132 @@ export function ProcurementView({
   }, []);
 
   const updateStatus = async (id: string, status: string, color: string) => {
-    setPos(current => current.map(item => item.id === id ? { ...item, status, color } : item));
+    setPos(current => {
+      const updated = current.map(item => item.id === id ? { ...item, status, color } : item);
+      try { saveStoredData('inventora_procurement_pos_v1', updated); } catch {}
+      return updated;
+    });
+
     const statusLabel = status === 'Disetujui' ? activeT.procurement.approved
+      : status === 'Barang Diterima' ? activeT.procurement.goodsReceived
+      : status === 'Selisih Penerimaan' ? activeT.procurement.grnDiscrepancy
       : status === 'Selesai' ? activeT.procurement.completed
       : status === 'Ditolak' ? activeT.procurement.rejected
       : status;
+    const isApproved = status === 'Disetujui' || status === 'Barang Diterima';
+    const isRejected = status === 'Ditolak';
+
     try {
       const { db } = await import('../firebase');
       const { updateDoc, doc } = await import('firebase/firestore');
       await updateDoc(doc(db, 'purchaseOrders', id), { status, color });
-      onToast(`PO ${id} -> ${statusLabel}`, 'success');
     } catch (e: any) {
       console.warn("Firestore update skipped or failed:", e);
-      onToast(`PO ${id} -> ${statusLabel}`, 'success');
     }
+
+    onToast(
+      lang === 'en' ? `PO ${id} status updated to: ${statusLabel}` : `Status PO ${id} diperbarui menjadi: ${statusLabel}`,
+      isRejected ? 'error' : 'success',
+      {
+        title: isApproved ? (lang === 'en' ? 'PO Status Advanced' : 'Status PO Berlanjut')
+             : isRejected ? (lang === 'en' ? 'PO Rejected' : 'PO Ditolak')
+             : (lang === 'en' ? 'PO Status Changed' : 'Perubahan Status PO'),
+        actionLabel: isApproved ? (lang === 'en' ? 'Pay Now' : 'Bayar Sekarang') : undefined,
+        onAction: isApproved ? () => {
+          const target = pos.find(p => p.id === id);
+          if (target) setSelectedPoForPayment(target);
+        } : undefined
+      }
+    );
   };
 
-  const handleSaveGrn = (poId: string, grn: GoodsReceiptNote, matchStatus: ThreeWayMatchStatus) => {
-    setPos(current => current.map(item => item.id === poId ? {
-      ...item,
-      grn,
-      threeWayMatchStatus: matchStatus
-    } : item));
+  const handleSaveGrn = async (poId: string, grn: GoodsReceiptNote, matchStatus: ThreeWayMatchStatus) => {
+    const newStatus = matchStatus === 'MATCHED' ? 'Barang Diterima' : 'Selisih Penerimaan';
+    const newColor = matchStatus === 'MATCHED' ? 'green' : 'orange';
+
+    setPos(current => {
+      const updated = current.map(item => {
+        if (item.id === poId) {
+          const finalStatus = item.status === 'Selesai' ? 'Selesai' : newStatus;
+          const finalColor = item.status === 'Selesai' ? 'blue' : newColor;
+          return {
+            ...item,
+            status: finalStatus,
+            color: finalColor,
+            grn,
+            threeWayMatchStatus: matchStatus
+          };
+        }
+        return item;
+      });
+      try {
+        saveStoredData('inventora_procurement_pos_v1', updated);
+      } catch (e) {
+        console.warn("Local storage save error:", e);
+      }
+      return updated;
+    });
+
+    // Notify any other listeners of updated PO state
+    window.dispatchEvent(new CustomEvent('inventora_po_created'));
+
+    try {
+      const { db } = await import('../firebase');
+      const { updateDoc, doc } = await import('firebase/firestore');
+      const target = pos.find(p => p.id === poId);
+      const finalStatus = target?.status === 'Selesai' ? 'Selesai' : newStatus;
+      const finalColor = target?.status === 'Selesai' ? 'blue' : newColor;
+      await updateDoc(doc(db, 'purchaseOrders', poId), {
+        status: finalStatus,
+        color: finalColor,
+        grn,
+        threeWayMatchStatus: matchStatus
+      });
+    } catch (e: any) {
+      console.warn("Firestore update skipped or failed:", e);
+    }
 
     const statusText = matchStatus === 'MATCHED'
-      ? (lang === 'en' ? 'Matched 100%' : 'Sesuai 100%')
-      : (lang === 'en' ? 'Discrepancy Detected' : 'Ada Selisih Fisik');
+      ? (lang === 'en' ? 'Goods Received (Ready for Payment)' : 'Barang Diterima (Siap Bayar)')
+      : (lang === 'en' ? 'GRN Discrepancy Flagged' : 'Selisih Penerimaan');
 
     onToast(
       lang === 'en'
-        ? `GRN ${grn.grnNumber} recorded for ${poId}: ${statusText}`
-        : `GRN ${grn.grnNumber} dicatat untuk ${poId}: ${statusText}`,
-      matchStatus === 'MATCHED' ? 'success' : 'warning'
+        ? `GRN ${grn.grnNumber} recorded! PO ${poId} status updated to: ${statusText}`
+        : `GRN ${grn.grnNumber} dicatat! Status PO ${poId} diperbarui menjadi: ${statusText}`,
+      matchStatus === 'MATCHED' ? 'success' : 'warning',
+      {
+        title: matchStatus === 'MATCHED' 
+          ? (lang === 'en' ? '3-Way Match Passed' : '3-Way Match Lolos') 
+          : (lang === 'en' ? 'Discrepancy Detected' : 'Ada Selisih Fisik'),
+        actionLabel: matchStatus === 'MATCHED' 
+          ? (lang === 'en' ? 'Pay via Gateway' : 'Bayar via Gateway') 
+          : (lang === 'en' ? 'View Details' : 'Lihat Detail'),
+        onAction: () => {
+          const target = pos.find(p => p.id === poId);
+          if (matchStatus === 'MATCHED' && target) {
+            setSelectedPoForPayment({
+              ...target,
+              status: 'Barang Diterima',
+              color: 'green',
+              grn,
+              threeWayMatchStatus: matchStatus
+            });
+          } else if (target) {
+            setActiveModal({ type: 'detail', data: { ...target, grn, threeWayMatchStatus: matchStatus } });
+          }
+        }
+      }
     );
 
     if (onNotify) {
       onNotify({
-        title: lang === 'en' ? 'Goods Receipt Note (GRN) Issued' : 'Penerimaan Barang (GRN) Diterbitkan',
+        title: matchStatus === 'MATCHED'
+          ? (lang === 'en' ? 'Goods Receipt Note (GRN) Verified' : 'Penerimaan Barang (GRN) Terverifikasi')
+          : (lang === 'en' ? 'GRN Discrepancy Alert' : 'Peringatan Selisih Penerimaan GRN'),
         message: lang === 'en'
-          ? `GRN ${grn.grnNumber} issued by ${grn.receivedBy} for ${poId}. 3-Way Match: ${matchStatus}.`
-          : `GRN ${grn.grnNumber} diterbitkan oleh ${grn.receivedBy} untuk ${poId}. Status 3-Way Match: ${matchStatus}.`,
+          ? `GRN ${grn.grnNumber} issued by ${grn.receivedBy} for ${poId}. PO status updated to ${newStatus}.`
+          : `GRN ${grn.grnNumber} diterbitkan oleh ${grn.receivedBy} untuk ${poId}. Status PO diperbarui menjadi ${newStatus}.`,
         type: 'status_change',
         metadata: { poId, grnNumber: grn.grnNumber, matchStatus }
       });
@@ -296,7 +383,14 @@ export function ProcurementView({
     const toastMsg = lang === 'en'
       ? `Payment of Rp ${tx.totalPaid.toLocaleString('en-US')} for ${tx.poId} via ${tx.methodLabel} succeeded!`
       : `Pembayaran ${tx.poId} berhasil senilai Rp ${tx.totalPaid.toLocaleString('id-ID')} via ${tx.methodLabel}!`;
-    onToast(toastMsg, 'success');
+    onToast(toastMsg, 'success', {
+      title: lang === 'en' ? 'Payment Settled' : 'Pembayaran Lunas',
+      actionLabel: lang === 'en' ? 'View Details' : 'Lihat Detail',
+      onAction: () => {
+        const targetPo = pos.find(p => p.id === tx.poId);
+        if (targetPo) setActiveModal({ type: 'detail', data: targetPo });
+      }
+    });
 
     if (onNotify) {
       onNotify({
@@ -353,6 +447,26 @@ export function ProcurementView({
   const paginatedPos = useMemo(() => {
     return filteredPos.slice((page - 1) * itemsPerPage, page * itemsPerPage);
   }, [filteredPos, page, itemsPerPage]);
+
+  const [txSearch, setTxSearch] = useState('');
+  const [txPage, setTxPage] = useState(1);
+  const txItemsPerPage = 5;
+  const debouncedTxSearch = useDebounce(txSearch, 180);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(tx => 
+      (tx.id || '').toLowerCase().includes(debouncedTxSearch.toLowerCase()) ||
+      (tx.poId || '').toLowerCase().includes(debouncedTxSearch.toLowerCase()) ||
+      (tx.vendor || '').toLowerCase().includes(debouncedTxSearch.toLowerCase()) ||
+      (tx.receiptNumber || '').toLowerCase().includes(debouncedTxSearch.toLowerCase()) ||
+      (tx.methodLabel || '').toLowerCase().includes(debouncedTxSearch.toLowerCase())
+    );
+  }, [transactions, debouncedTxSearch]);
+
+  const txTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / txItemsPerPage));
+  const paginatedTransactions = useMemo(() => {
+    return filteredTransactions.slice((txPage - 1) * txItemsPerPage, txPage * txItemsPerPage);
+  }, [filteredTransactions, txPage, txItemsPerPage]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -430,12 +544,15 @@ export function ProcurementView({
   const kanbanColumns = [
     { title: activeT.procurement.pendingApproval, status: 'Pending Approval', color: 'orange' as const },
     { title: activeT.procurement.approved, status: 'Disetujui', color: 'green' as const },
+    { title: activeT.procurement.goodsReceived, status: 'Barang Diterima', color: 'green' as const },
     { title: activeT.procurement.completed, status: 'Selesai', color: 'blue' as const },
-    { title: activeT.procurement.rejected, status: 'Ditolak', color: 'red' as const },
+    { title: `${activeT.procurement.rejected} / ${activeT.procurement.grnDiscrepancy}`, status: 'Ditolak', color: 'red' as const },
   ];
 
   const getStatusBadgeText = (st: string) => {
     if (st === 'Disetujui') return activeT.procurement.approved;
+    if (st === 'Barang Diterima') return activeT.procurement.goodsReceived;
+    if (st === 'Selisih Penerimaan') return activeT.procurement.grnDiscrepancy;
     if (st === 'Selesai') return activeT.procurement.completed;
     if (st === 'Ditolak') return activeT.procurement.rejected;
     return activeT.procurement.pendingApproval;
@@ -589,25 +706,34 @@ export function ProcurementView({
                   <Td><Badge color={po.color}>{getStatusBadgeText(po.status)}</Badge></Td>
                   <Td>
                     {po.threeWayMatchStatus === 'MATCHED' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
-                        <CheckCircle2 className="w-3 h-3" /> Matched
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setThreeWayPo(po)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer"
+                        title={po.grn ? `${po.grn.grnNumber} (${po.grn.suratJalanNumber})` : '100% 3-Way Match Verified'}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{po.grn?.grnNumber ? po.grn.grnNumber : 'Matched (GRN)'}</span>
+                      </button>
                     ) : po.threeWayMatchStatus === 'DISCREPANCY' ? (
                       <button
                         type="button"
                         onClick={() => setThreeWayPo(po)}
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 cursor-pointer hover:bg-amber-100 transition-colors"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800 cursor-pointer hover:bg-amber-100 transition-colors"
                         title="Click to view GRN discrepancy details"
                       >
-                        <AlertTriangle className="w-3 h-3" /> Discrepancy
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{po.grn?.grnNumber ? `${po.grn.grnNumber} (Selisih)` : 'Discrepancy'}</span>
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={() => setThreeWayPo(po)}
-                        className="inline-flex items-center gap-1 text-[10px] font-medium text-neutral-500 hover:text-[#0070f3] dark:text-neutral-400 dark:hover:text-[#3291ff] cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-600 hover:text-[#0070f3] dark:text-neutral-400 dark:hover:text-[#3291ff] bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 transition-colors cursor-pointer"
+                        title={lang === 'en' ? 'Inspect and record GRN' : 'Periksa dan catat penerimaan GRN'}
                       >
-                        <PackageCheck className="w-3 h-3" /> Inspect GRN
+                        <PackageCheck className="w-3.5 h-3.5 text-blue-500" />
+                        <span>{lang === 'en' ? 'Inspect GRN' : 'Periksa GRN'}</span>
                       </button>
                     )}
                   </Td>
@@ -619,13 +745,13 @@ export function ProcurementView({
                         className="p-1.5 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                         title={lang === 'en' ? 'Inspect 3-Way Matching & GRN' : 'Periksa 3-Way Match & GRN'}
                       >
-                        <PackageCheck className="w-3.5 h-3.5" />
+                        <PackageCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       </button>
-                      {po.status === 'Disetujui' && (
+                      {(po.status === 'Disetujui' || po.status === 'Barang Diterima') && (
                         <button
                           type="button"
                           onClick={() => setSelectedPoForPayment(po)}
-                          className="bg-[#0070f3] hover:bg-[#0060df] text-white text-xs font-medium px-2.5 py-1.5 rounded-md shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                          className="bg-[#0070f3] hover:bg-[#0060df] text-white text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
                           title={lang === 'en' ? "Pay instantly via Payment Gateway" : "Bayar langsung via Payment Gateway"}
                         >
                           <CreditCard className="w-3.5 h-3.5" />
@@ -664,7 +790,13 @@ export function ProcurementView({
 
       {viewMode === 'kanban' && (
         <div className="flex flex-1 gap-6 overflow-x-auto pb-4">
-          {kanbanColumns.map(col => (
+          {kanbanColumns.map(col => {
+            const columnPos = pos.filter(po => 
+              col.status === 'Ditolak' 
+                ? (po.status === 'Ditolak' || po.status === 'Selisih Penerimaan') 
+                : po.status === col.status
+            );
+            return (
             <div 
               key={col.status} 
               className="flex-shrink-0 w-80 bg-[#eaeaea]/50 dark:bg-[#111] rounded-xl flex flex-col max-h-full border border-[#eaeaea] dark:border-[#333]"
@@ -673,11 +805,11 @@ export function ProcurementView({
             >
               <div className="px-4 py-3 border-b border-[#eaeaea] dark:border-[#333] flex items-center justify-between bg-[#fafafa] dark:bg-[#0a0a0a] rounded-t-xl shrink-0">
                 <span className="font-semibold text-sm tracking-tight text-[#171717] dark:text-[#ededed]">{col.title}</span>
-                <Badge color={col.color}>{pos.filter(po => po.status === col.status).length}</Badge>
+                <Badge color={col.color}>{columnPos.length}</Badge>
               </div>
               <div className="p-3 flex-1 overflow-y-auto space-y-3">
                 <AnimatePresence>
-                  {pos.filter(po => po.status === col.status).map(po => (
+                  {columnPos.map(po => (
                     <motion.div
                       key={po.id}
                       layout
@@ -691,23 +823,40 @@ export function ProcurementView({
                     >
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-mono text-xs font-medium text-[#666] dark:text-[#a1a1aa]">{po.id}</span>
-                        {po.status === 'Selesai' && (
+                        {po.status === 'Selesai' ? (
                           <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
                             {activeT.procurement.paidStatus.toUpperCase()}
                           </span>
-                        )}
+                        ) : po.status === 'Barang Diterima' ? (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
+                            GRN RECEIVED
+                          </span>
+                        ) : null}
                       </div>
                       <div className="font-medium text-sm text-[#171717] dark:text-[#ededed] leading-tight mb-1">{po.vendor}</div>
-                      <div className="text-xs text-[#666] dark:text-[#a1a1aa] mb-3">{po.desc}</div>
+                      <div className="text-xs text-[#666] dark:text-[#a1a1aa] mb-2">{po.desc}</div>
+
+                      {po.threeWayMatchStatus === 'MATCHED' && (
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mb-2">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{po.grn?.grnNumber ? `${po.grn.grnNumber} (Matched)` : '3-Way Match Matched'}</span>
+                        </div>
+                      )}
+                      {po.threeWayMatchStatus === 'DISCREPANCY' && (
+                        <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold mb-2">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>{po.grn?.grnNumber ? `${po.grn.grnNumber} (Selisih)` : 'Selisih Penerimaan'}</span>
+                        </div>
+                      )}
                       
-                      {po.status === 'Disetujui' && (
+                      {(po.status === 'Disetujui' || po.status === 'Barang Diterima') && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedPoForPayment(po);
                           }}
-                          className="w-full my-2 bg-[#0070f3] hover:bg-[#0060df] text-white text-xs font-medium py-1.5 px-2.5 rounded-md flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                          className="w-full my-2 bg-[#0070f3] hover:bg-[#0060df] text-white text-xs font-semibold py-1.5 px-2.5 rounded-md flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                           <span>{activeT.procurement.openGatewayBtn}</span>
@@ -723,14 +872,15 @@ export function ProcurementView({
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {pos.filter(po => po.status === col.status).length === 0 && (
+                {columnPos.length === 0 && (
                   <div className="py-6 px-4 text-center border-2 border-dashed border-[#eaeaea] dark:border-[#333] rounded-lg">
                     <span className="text-xs text-[#999]">{lang === 'en' ? 'Drop cards here' : 'Tarik kartu ke sini'}</span>
                   </div>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -772,11 +922,11 @@ export function ProcurementView({
           <TableWrapper 
             title={activeT.procurement.auditTableTitle} 
             placeholder={lang === 'en' ? "Search transaction ID, PO, or vendor..." : "Cari transaksi ID, PO, atau vendor..."}
-            searchValue=""
-            onSearchChange={() => {}}
-            currentPage={1}
-            totalPages={1}
-            onPageChange={() => {}}
+            searchValue={txSearch}
+            onSearchChange={(v) => { setTxSearch(v); setTxPage(1); }}
+            currentPage={txPage}
+            totalPages={txTotalPages}
+            onPageChange={setTxPage}
           >
             <thead className="sticky top-0 z-10">
               <tr>
@@ -790,8 +940,8 @@ export function ProcurementView({
               </tr>
             </thead>
             <tbody>
-              {transactions.length > 0 ? (
-                transactions.map((tx, idx) => (
+              {paginatedTransactions.length > 0 ? (
+                paginatedTransactions.map((tx, idx) => (
                   <Tr key={tx.id} index={idx}>
                     <Td>
                       <span className="text-xs text-[#666] dark:text-[#a1a1aa]">
@@ -827,13 +977,45 @@ export function ProcurementView({
                       </span>
                     </Td>
                     <Td align="right">
-                      <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="text-xs text-[#0070f3] dark:text-[#3291ff] hover:underline flex items-center gap-1 font-medium cursor-pointer ml-auto"
-                      >
-                        <Printer className="w-3.5 h-3.5" /> {activeT.common.print}
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            downloadReceiptPdf({
+                              id: tx.poId,
+                              client: tx.vendor,
+                              date: new Date(tx.timestamp).toISOString().split('T')[0],
+                              total: tx.totalPaid,
+                              desc: `Settlement for PO ${tx.poId} via ${tx.methodLabel}`,
+                              paymentMethod: tx.methodLabel,
+                              receiptNumber: tx.receiptNumber
+                            }, lang);
+                            onToast(
+                              lang === 'en' ? `Receipt ${tx.receiptNumber}.pdf downloaded` : `Kwitansi ${tx.receiptNumber}.pdf berhasil diunduh`,
+                              'success'
+                            );
+                          }}
+                          className="px-2 py-1 text-xs text-[#0070f3] dark:text-[#3291ff] hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded border border-blue-200 dark:border-blue-900/60 flex items-center gap-1 font-semibold cursor-pointer transition-colors"
+                          title={lang === 'en' ? 'Download PDF receipt' : 'Unduh kwitansi PDF'}
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>{lang === 'en' ? 'Receipt' : 'Kwitansi'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const target = pos.find(p => p.id === tx.poId);
+                            if (target) {
+                              setViewMode('list');
+                              setActiveModal({ type: 'detail', data: target });
+                            }
+                          }}
+                          className="p-1 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                          title={lang === 'en' ? 'View linked PO details' : 'Lihat detail PO terkait'}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </Td>
                   </Tr>
                 ))
@@ -918,6 +1100,44 @@ export function ProcurementView({
                 </div>
               )}
 
+              {/* Goods Receipt Note (GRN) Card */}
+              {activeModal.data.grn && (
+                <div className="col-span-2 p-3.5 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 rounded-lg text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                      <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      {lang === 'en' ? 'Goods Receipt Note (GRN) Verified' : 'Penerimaan Barang (GRN) Terverifikasi'}
+                    </span>
+                    <span className={`font-mono font-bold text-[10px] px-2 py-0.5 rounded ${
+                      activeModal.data.threeWayMatchStatus === 'MATCHED'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                    }`}>
+                      {activeModal.data.grn.grnNumber}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-neutral-600 dark:text-neutral-400 pt-1">
+                    <div>
+                      <span className="text-neutral-400 block">{lang === 'en' ? 'Surat Jalan / Delivery No' : 'No. Surat Jalan'}:</span>
+                      <span className="font-mono font-medium text-neutral-800 dark:text-neutral-200">{activeModal.data.grn.suratJalanNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400 block">{lang === 'en' ? 'Inspector / Receiver' : 'Petugas Penerima'}:</span>
+                      <span className="font-medium text-neutral-800 dark:text-neutral-200">{activeModal.data.grn.receivedBy}</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400 block">{lang === 'en' ? 'Received Date' : 'Tanggal Diterima'}:</span>
+                      <span className="font-mono text-neutral-800 dark:text-neutral-200">{activeModal.data.grn.receivedDate}</span>
+                    </div>
+                  </div>
+                  {activeModal.data.grn.inspectorNotes && (
+                    <p className="text-[11px] text-neutral-500 italic pt-1 border-t border-neutral-200/60 dark:border-neutral-800/60">
+                      "{activeModal.data.grn.inspectorNotes}"
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Gemini AI Risk & Anomaly Assessment */}
               <div className="col-span-2">
                 <PoRiskCard po={activeModal.data} lang={lang} />
@@ -940,6 +1160,9 @@ export function ProcurementView({
 
               {activeModal.type === 'review' && (
                 <>
+                  <Button variant="secondary" onClick={() => setActiveModal(null)}>
+                    {activeT.common.close}
+                  </Button>
                   <Button variant="secondary" onClick={() => handleReject(activeModal.data.id)}>
                     {activeT.procurement.rejectBtn}
                   </Button>
@@ -948,7 +1171,7 @@ export function ProcurementView({
                   </Button>
                 </>
               )}
-              {activeModal.data.status === 'Disetujui' && (
+              {(activeModal.data.status === 'Disetujui' || activeModal.data.status === 'Barang Diterima') && (
                 <button
                   type="button"
                   onClick={() => {
@@ -983,7 +1206,7 @@ export function ProcurementView({
                 <History className="w-3.5 h-3.5 text-neutral-500" />
                 <span>Audit</span>
               </button>
-              {activeModal.type !== 'review' && activeModal.data.status !== 'Disetujui' && (
+              {activeModal.type !== 'review' && (
                 <Button variant="secondary" onClick={() => setActiveModal(null)}>
                   {activeT.common.close}
                 </Button>
@@ -994,13 +1217,15 @@ export function ProcurementView({
       </Modal>
 
       {/* 3-Way Match Modal & Goods Receipt Inspector */}
-      <ThreeWayMatchModal
-        isOpen={threeWayPo !== null}
-        onClose={() => setThreeWayPo(null)}
-        po={threeWayPo}
-        onSaveGrn={handleSaveGrn}
-        lang={lang}
-      />
+      {threeWayPo && (
+        <ThreeWayMatchModal
+          isOpen={threeWayPo !== null}
+          onClose={() => setThreeWayPo(null)}
+          po={threeWayPo}
+          onSaveGrn={handleSaveGrn}
+          lang={lang}
+        />
+      )}
 
       {selectedPoForPayment !== null && (
         <Suspense fallback={null}>
@@ -1024,11 +1249,13 @@ export function ProcurementView({
       />
 
       {/* Official Tax Invoice & Printable Voucher Letterhead */}
-      <PrintableVoucher
-        po={poForPrint}
-        onClose={() => setPoForPrint(null)}
-        lang={lang}
-      />
+      {poForPrint && (
+        <PrintableVoucher
+          po={poForPrint}
+          onClose={() => setPoForPrint(null)}
+          lang={lang}
+        />
+      )}
     </section>
   );
 }

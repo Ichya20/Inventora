@@ -123,6 +123,8 @@ export interface Translations {
     paidStatus: string;
     pendingApproval: string;
     approved: string;
+    goodsReceived: string;
+    grnDiscrepancy: string;
     completed: string;
     rejected: string;
     totalPaidFunds: string;
@@ -425,6 +427,8 @@ export const translations: Record<Language, Translations> = {
       paidStatus: 'Lunas',
       pendingApproval: 'Menunggu Persetujuan',
       approved: 'Disetujui',
+      goodsReceived: 'Barang Diterima (GRN)',
+      grnDiscrepancy: 'Selisih Penerimaan',
       completed: 'Selesai',
       rejected: 'Ditolak',
       totalPaidFunds: 'Total Dana Terbayar',
@@ -725,6 +729,8 @@ export const translations: Record<Language, Translations> = {
       paidStatus: 'Settled',
       pendingApproval: 'Pending Approval',
       approved: 'Approved',
+      goodsReceived: 'Goods Received (GRN)',
+      grnDiscrepancy: 'GRN Discrepancy',
       completed: 'Completed',
       rejected: 'Rejected',
       totalPaidFunds: 'Total Disbursed Funds',

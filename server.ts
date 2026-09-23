@@ -17,6 +17,19 @@ function getGeminiClient(): GoogleGenAI {
   return aiClient;
 }
 
+// Timeout guard to prevent any slow upstream AI requests from hanging the client
+async function withTimeout<T>(promise: Promise<T>, ms = 7500): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
 // In-Memory Sliding Window Rate Limiter for AI endpoint
 interface RateLimitRecord {
   timestamps: number[];
@@ -255,13 +268,13 @@ IMPORTANT FORMATTING RULE: Output clean, neat plain text only. Do NOT use markdo
 
       const finalPrompt = `Dashboard Context Data:\n${JSON.stringify(context, null, 2)}\n\nUser Request: ${prompt}`;
 
-      const response = await ai.models.generateContent({
+      const response = await withTimeout(ai.models.generateContent({
         model: "gemini-3.8-flash",
         contents: finalPrompt,
         config: {
           systemInstruction: systemInstruction,
         }
-      });
+      }), 7500);
 
       return res.json({ result: cleanAiOutput(response.text || "") });
     } catch (error: any) {
@@ -289,13 +302,13 @@ Ground all factual statements on the provided real-time ERP context data.`;
 
       const promptPayload = `Real-Time ERP System Context:\n${JSON.stringify(context || {}, null, 2)}\n\nRecent Conversation History:\n${JSON.stringify(history || [], null, 2)}\n\nUser Message: ${message}`;
 
-      const response = await ai.models.generateContent({
+      const response = await withTimeout(ai.models.generateContent({
         model: "gemini-3.8-flash",
         contents: promptPayload,
         config: {
           systemInstruction: systemInstruction,
         }
-      });
+      }), 7500);
 
       return res.json({ reply: cleanAiOutput(response.text || "") });
     } catch (error: any) {
@@ -326,14 +339,14 @@ Return a strict JSON object with:
 - "recommendation": concrete next step for the approving director (plain text, no asterisks)
 - "budgetVariancePercent": estimated percentage variance from benchmark price (number)`;
 
-      const response = await ai.models.generateContent({
+      const response = await withTimeout(ai.models.generateContent({
         model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
           systemInstruction: "You are an Enterprise Procurement Risk & Anomaly Analyzer for Inventora ERP. Always respond with strict, valid JSON matching the requested schema. Never use asterisks or hashtag symbols in string values."
         }
-      });
+      }), 7500);
 
       const parsed = JSON.parse(response.text || "{}");
       if (parsed.summary) parsed.summary = cleanAiOutput(parsed.summary);
@@ -377,14 +390,14 @@ Return a strict JSON object:
   ]
 }`;
 
-      const response = await ai.models.generateContent({
+      const response = await withTimeout(ai.models.generateContent({
         model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
           systemInstruction: "You are an Inventory Demand & Restock Forecaster for an Enterprise ERP system. Output strict, valid JSON only. Do not use asterisks, hashes, or backticks in text strings."
         }
-      });
+      }), 7500);
 
       const parsed = JSON.parse(response.text || "{}");
       if (parsed.insights) parsed.insights = cleanAiOutput(parsed.insights);
@@ -441,14 +454,14 @@ Return a strict JSON object:
   "notes": string
 }`;
 
-      const response = await ai.models.generateContent({
+      const response = await withTimeout(ai.models.generateContent({
         model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
           systemInstruction: "You are an Intelligent Document & Invoice Parser for Inventora ERP. Extract vendor names, numbers, and line items accurately into valid JSON."
         }
-      });
+      }), 7500);
 
       const parsed = JSON.parse(response.text || "{}");
       if (!parsed.vendor || !parsed.grandTotal) {

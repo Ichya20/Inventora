@@ -104,6 +104,22 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
     );
   };
 
+  const handleMarkAsPaid = (id: string) => {
+    setInvoices(current => current.map(inv => inv.id === id ? {
+      ...inv,
+      status: 'Lunas',
+      color: 'green' as const,
+      isOverdue: false
+    } : inv));
+    setActiveModal(null);
+    onToast(
+      lang === 'en' 
+        ? `Invoice ${id} marked as Paid (Lunas). Official receipt is now available.` 
+        : `Faktur ${id} berhasil ditandai Lunas. Kuitansi resmi sekarang tersedia.`,
+      'success'
+    );
+  };
+
   const getStatusText = (status: string) => {
     if (status === 'Lunas') return activeT.finance.paidBadge;
     if (status === 'Overdue') return activeT.finance.overdueBadge;
@@ -225,9 +241,20 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                         {activeT.finance.receiptBtn}
                       </Button>
                     ) : (
-                      <Button variant="secondary" onClick={() => setActiveModal({ type: 'warning', data: inv })}>
-                        {activeT.finance.sendWarningBtn}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="secondary" onClick={() => setActiveModal({ type: 'warning', data: inv })}>
+                          {activeT.finance.sendWarningBtn}
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkAsPaid(inv.id)}
+                          className="px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded border border-emerald-300 dark:border-emerald-800 transition-colors cursor-pointer flex items-center gap-1"
+                          title={lang === 'en' ? 'Record payment & mark invoice Paid' : 'Catat pembayaran & tandai Lunas'}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{lang === 'en' ? 'Paid' : 'Lunas'}</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </Td>
@@ -313,6 +340,9 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
             </div>
 
             <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] no-print">
+              <Button variant="secondary" onClick={() => setActiveModal(null)}>
+                {lang === 'en' ? 'Back' : 'Kembali'}
+              </Button>
               <Button variant="secondary" onClick={() => {
                 const item = activeModal.data;
                 const headers = ['Voucher Reference', 'Billed To Client', 'Payment Date', 'Total Settled (IDR)', 'Status', 'Corporate Entity'];
@@ -448,7 +478,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
             </div>
 
             {/* Actions - Hidden during print */}
-            <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] no-print">
+            <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] no-print flex-wrap">
               <Button variant="secondary" onClick={() => setActiveModal(null)}>
                 {activeT.common.cancel}
               </Button>
@@ -456,13 +486,19 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 <Printer className="w-3.5 h-3.5 mr-1.5" />
                 {lang === 'en' ? 'Print' : 'Cetak'}
               </Button>
-              <Button variant="primary" onClick={() => {
+              <Button variant="secondary" onClick={() => {
                 downloadInvoicePdf(activeModal.data, lang);
                 onToast(lang === 'en' ? `Downloaded invoice-${activeModal.data.id}.pdf` : `Berhasil mengunduh faktur-${activeModal.data.id}.pdf`, 'success');
               }}>
                 <Download className="w-3.5 h-3.5 mr-1.5" />
                 {lang === 'en' ? 'Download PDF' : 'Unduh PDF'}
               </Button>
+              {activeModal.data.status !== 'Lunas' && (
+                <Button variant="primary" onClick={() => handleMarkAsPaid(activeModal.data.id)}>
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                  {lang === 'en' ? 'Mark as Paid' : 'Tandai Lunas'}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -494,12 +530,16 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
               </p>
             </div>
 
-            <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333]">
+            <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] flex-wrap">
               <Button variant="secondary" onClick={() => setActiveModal(null)}>
                 {activeT.common.cancel}
               </Button>
-              <Button variant="primary" onClick={() => handleSendWarning(activeModal.data.id, activeModal.data.client)}>
+              <Button variant="secondary" onClick={() => handleSendWarning(activeModal.data.id, activeModal.data.client)}>
                 {lang === 'en' ? 'Dispatch Warning' : 'Kirim Peringatan'}
+              </Button>
+              <Button variant="primary" onClick={() => handleMarkAsPaid(activeModal.data.id)}>
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                {lang === 'en' ? 'Mark as Paid' : 'Tandai Lunas'}
               </Button>
             </div>
           </div>

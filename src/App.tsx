@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages, Keyboard } from 'lucide-react';
-import { ToastType, ToastItem, Role, PurchaseOrder, PaymentTransaction, AppNotification } from './types';
+import { ToastType, ToastItem, ToastFunction, Role, PurchaseOrder, PaymentTransaction, AppNotification } from './types';
 import { translations, Language, Translations } from './i18n';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -14,6 +14,8 @@ import { useNetworkStatus } from './lib/useNetworkStatus';
 import { ShortcutsModal, useGlobalHotkeys } from './components/ShortcutsModal';
 import { AiCopilotDrawer } from './components/AiCopilotDrawer';
 import { RestockForecastCard } from './components/RestockForecastCard';
+import { InteractiveToaster, playNotificationChime } from './components/InteractiveToaster';
+import { InventoraLoadingScreen } from './components/InventoraLoadingScreen';
 import { exportToCsv, exportToJson } from './lib/exportUtils';
 import { loadStoredData, saveStoredData, clearAllInventoraStorage } from './lib/storageUtils';
 
@@ -194,39 +196,13 @@ const Modal = ({ isOpen, onClose, title, children }: any) => {
   );
 };
 
-const Toaster = ({ toasts }: { toasts: ToastItem[] }) => {
-  return (
-    <div className="fixed bottom-0 right-0 p-4 md:p-6 z-[100] flex flex-col gap-2 pointer-events-none">
-      <AnimatePresence>
-        {toasts.map((toast) => (
-          <motion.div
-            key={toast.id}
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            layout
-            className="pointer-events-auto bg-white dark:bg-[#1a1a1a] px-4 py-3 rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.1),0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),0_0_0_1px_rgba(255,255,255,0.1)] text-sm font-medium text-[#171717] dark:text-[#ededed] flex items-center gap-3 min-w-[280px]"
-          >
-            {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#10b981] shrink-0" />}
-            {toast.type === 'warning' && <AlertCircle className="w-5 h-5 text-[#f5a623] shrink-0" />}
-            {toast.type === 'error' && <XCircle className="w-5 h-5 text-[#e00] shrink-0" />}
-            {toast.type === 'info' && <Info className="w-5 h-5 text-[#0070f3] shrink-0" />}
-            <span className="flex-1">{toast.msg}</span>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-};
-
 function InventoryView({ 
   onToast, 
   onNavigate,
   t, 
   lang = 'en' 
 }: { 
-  onToast: (msg: string, type?: ToastType) => void;
+  onToast: ToastFunction;
   onNavigate?: (menu: string) => void;
   t?: Translations;
   lang?: Language;
@@ -316,7 +292,11 @@ function InventoryView({
         item.status
       ]);
       exportToCsv(`inventora-inventory-stock-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
-      onToast(lang === 'en' ? "Inventory data exported as CSV" : "Data inventaris berhasil diekspor sebagai CSV", "success");
+      onToast(
+        lang === 'en' ? "Inventory data exported as CSV" : "Data inventaris berhasil diekspor sebagai CSV", 
+        "success",
+        { title: lang === 'en' ? 'CSV Export Completed' : 'Ekspor CSV Berhasil' }
+      );
     } catch (e) {
       onToast("Export failed", "error");
     } finally {
@@ -337,7 +317,11 @@ function InventoryView({
         'AUDITED_VERIFIED'
       ]);
       exportToCsv(`inventora-inventory-audit-report-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
-      onToast(activeT.inventory.reportSuccess, "success");
+      onToast(
+        activeT.inventory.reportSuccess, 
+        "success",
+        { title: lang === 'en' ? 'Audit Report Generated' : 'Laporan Audit Siap' }
+      );
     } catch (e) {
       onToast("Audit generation failed", "error");
     } finally {
@@ -352,7 +336,15 @@ function InventoryView({
       }
       return item;
     }));
-    onToast(lang === 'en' ? `1 unit of ${id} deployed successfully` : `1 unit ${id} berhasil dideploy`, "success");
+    onToast(
+      lang === 'en' ? `1 unit of ${id} dispatched from warehouse` : `1 unit ${id} berhasil dideploy dari gudang`, 
+      "success",
+      {
+        title: lang === 'en' ? 'Stock Dispatched' : 'Stok Berkurang',
+        actionLabel: lang === 'en' ? 'Audit Trail' : 'Buka Audit',
+        onAction: () => onNavigate('po')
+      }
+    );
   };
 
   return (
@@ -603,15 +595,17 @@ function SettingsView({
   t,
   onNavigate
 }: { 
-  onToast: (msg: string, type?: ToastType) => void;
+  onToast: ToastFunction;
   lang: Language;
   onLanguageChange: (newLang: Language) => void;
   t: Translations;
   onNavigate?: (menu: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'profile' | 'workspace' | 'language' | 'billing'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'workspace' | 'language'>('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [selectedLang, setSelectedLang] = useState<Language>(lang);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const resetTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(() => {
     return localStorage.getItem('inventora_user_avatar') || null;
   });
@@ -678,12 +672,6 @@ function SettingsView({
               {lang.toUpperCase()}
             </span>
           </div>
-          <div 
-            onClick={() => setActiveTab('billing')} 
-            className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'billing' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
-          >
-            {t.settings.billingTab}
-          </div>
         </div>
 
         <div className="flex-1">
@@ -692,7 +680,6 @@ function SettingsView({
               {activeTab === 'profile' && t.settings.profileTitle}
               {activeTab === 'workspace' && t.settings.workspaceTitle}
               {activeTab === 'language' && t.settings.languageTitle}
-              {activeTab === 'billing' && t.settings.billingTitle}
             </h2>
 
             {activeTab === 'profile' && (
@@ -804,16 +791,28 @@ function SettingsView({
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm(lang === 'en' ? 'Are you sure you want to reset all stored demo data to default?' : 'Apakah Anda yakin ingin mengatur ulang data demo ke awal?')) {
+                        if (!confirmReset) {
+                          setConfirmReset(true);
+                          if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+                          resetTimerRef.current = setTimeout(() => setConfirmReset(false), 4000);
+                        } else {
+                          if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+                          setConfirmReset(false);
                           clearAllInventoraStorage();
                           onToast(lang === 'en' ? 'Demo data reset. Reloading...' : 'Data demo direset. Memuat ulang...', 'info');
-                          setTimeout(() => window.location.reload(), 800);
+                          setTimeout(() => window.location.reload(), 600);
                         }
                       }}
-                      className="px-3 py-1.5 text-xs font-medium rounded-md border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                        confirmReset
+                          ? 'border-red-600 bg-red-600 text-white font-semibold shadow-sm'
+                          : 'border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400'
+                      }`}
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
-                      {lang === 'en' ? 'Reset Demo Data' : 'Reset Data Demo'}
+                      {confirmReset
+                        ? (lang === 'en' ? 'Confirm Reset (4s)?' : 'Konfirmasi Reset (4d)?')
+                        : (lang === 'en' ? 'Reset Demo Data' : 'Reset Data Demo')}
                     </button>
                   </div>
                 </div>
@@ -995,29 +994,6 @@ function SettingsView({
                     </p>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {activeTab === 'billing' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 rounded-xl">
-                  <div className="space-y-0.5">
-                    <h4 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
-                      <CreditCard className="w-4 h-4 text-[#0070f3]" />
-                      <span>{t.settings.activePlan}: Enterprise AI & Autonomous Treasury</span>
-                    </h4>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {lang === 'en' ? 'Manage operational quotas, user licenses, payment methods, and PDF invoices.' : 'Kelola kuota operasional, lisensi pengguna, metode pembayaran, dan faktur PDF.'}
-                    </p>
-                  </div>
-                  {onNavigate && (
-                    <Button variant="primary" onClick={() => onNavigate('billing')} className="text-xs">
-                      {lang === 'en' ? 'Open Full Billing Center' : 'Buka Pusat Billing'}
-                    </Button>
-                  )}
-                </div>
-
-                <BillingSubscriptionView onToast={onToast} lang={lang} t={t} />
               </div>
             )}
           </Card>
@@ -1276,12 +1252,58 @@ function Dashboard() {
     document.documentElement.classList.toggle('dark');
   };
 
-  const showToast = (msg: string, type: ToastType = 'success') => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, msg, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+  const showToast = (
+    msg: string, 
+    type: ToastType = 'success', 
+    options?: { 
+      title?: string; 
+      actionLabel?: string; 
+      onAction?: () => void; 
+      duration?: number;
+    }
+  ) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    
+    // Auto-detect high-context category title if not explicitly passed
+    let determinedTitle = options?.title;
+    if (!determinedTitle) {
+      const lower = msg.toLowerCase();
+      if (lower.includes('pembayaran') || lower.includes('payment') || lower.includes('lunas') || lower.includes('settled') || lower.includes('receipt')) {
+        determinedTitle = language === 'en' ? 'Payment Confirmed' : 'Pembayaran Lunas';
+      } else if (lower.includes('deploy') || lower.includes('stok') || lower.includes('unit') || lower.includes('dispatched')) {
+        determinedTitle = language === 'en' ? 'Inventory Dispatched' : 'Stok Berkurang';
+      } else if (lower.includes('download') || lower.includes('unduh') || lower.includes('.pdf') || lower.includes('.csv')) {
+        determinedTitle = language === 'en' ? 'Document Export Ready' : 'Dokumen Siap Diunduh';
+      } else if (lower.includes('purchase order') || lower.includes('po-') || lower.includes('pesanan')) {
+        determinedTitle = language === 'en' ? 'Procurement Update' : 'Status Pengadaan PO';
+      } else if (lower.includes('avatar') || lower.includes('profile') || lower.includes('settings') || lower.includes('pengaturan')) {
+        determinedTitle = language === 'en' ? 'Settings Saved' : 'Pengaturan Tersimpan';
+      } else if (lower.includes('language') || lower.includes('bahasa')) {
+        determinedTitle = language === 'en' ? 'Language Changed' : 'Bahasa Diperbarui';
+      } else if (lower.includes('sync') || lower.includes('sinkronisasi')) {
+        determinedTitle = language === 'en' ? 'Cloud Sync Restored' : 'Sinkronisasi Pulih';
+      }
+    }
+
+    const item: ToastItem = {
+      id,
+      msg,
+      type,
+      title: determinedTitle,
+      actionLabel: options?.actionLabel,
+      onAction: options?.onAction,
+      duration: options?.duration ?? (type === 'error' ? 6000 : 4500),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+
+    // Synthesized chime audio cue so the user immediately notices the event
+    playNotificationChime(type);
+
+    setToasts(prev => [item, ...prev.slice(0, 2)]);
+  };
+
+  const handleDismissToast = (id: number | string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
   };
 
   const handleMenuClick = (menuName: string) => {
@@ -1329,7 +1351,9 @@ function Dashboard() {
     navigate('/');
   };
 
-  if (!user) return null;
+  if (!user) {
+    return <InventoraLoadingScreen role={currentRole} lang={language} durationMs={800} />;
+  }
 
   return (
     <div className="flex h-screen w-full bg-[#fafafa] dark:bg-[#000] text-[#171717] dark:text-[#ededed] font-sans overflow-hidden transition-colors duration-200">
@@ -1559,16 +1583,25 @@ function Dashboard() {
           </ErrorBoundary>
         </Suspense>
 
-        {/* Floating Action Button for AI Copilot */}
+        {/* Floating Action Button for AI Copilot (Compact Logo that expands outward on hover) */}
         <button
           type="button"
           onClick={() => setIsAiCopilotOpen(true)}
-          className="fixed bottom-6 right-6 z-40 px-3.5 py-2.5 rounded-full bg-linear-to-r from-[#0070f3] to-indigo-600 hover:from-[#0060df] hover:to-indigo-700 text-white shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 text-xs font-semibold cursor-pointer border border-white/20"
+          className="group fixed bottom-6 right-6 z-40 h-12 w-12 hover:w-auto px-0 hover:px-3.5 rounded-full bg-gradient-to-r from-[#0070f3] to-indigo-600 hover:from-[#0060df] hover:to-indigo-700 text-white shadow-xl hover:shadow-2xl hover:shadow-indigo-500/30 active:scale-95 transition-all duration-300 ease-out flex items-center justify-center cursor-pointer border border-white/25 overflow-hidden origin-right"
           title="Open Executive AI Copilot (Cmd+J)"
+          aria-label="Open AI Copilot"
         >
-          <Sparkles className="w-4 h-4 text-white" />
-          <span className="hidden sm:inline">AI Copilot</span>
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-white/20 rounded font-mono">⌘J</kbd>
+          {/* Logo icon with subtle active spark dot */}
+          <div className="relative flex items-center justify-center w-6 h-6 shrink-0 transition-transform duration-300 group-hover:scale-105">
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-indigo-600 animate-pulse" />
+            <Sparkles className="w-5 h-5 text-white transition-transform duration-300 group-hover:rotate-12" />
+          </div>
+
+          {/* Text & Hotkey badge that expands outward horizontally on cursor hover */}
+          <div className="max-w-0 opacity-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-out group-hover:max-w-[160px] group-hover:opacity-100 group-hover:ml-2.5 flex items-center gap-2">
+            <span className="text-xs font-semibold tracking-tight text-white select-none">AI Copilot</span>
+            <kbd className="px-1.5 py-0.5 text-[10px] bg-white/20 rounded font-mono font-medium text-white/90 select-none">⌘J</kbd>
+          </div>
         </button>
 
         {/* Executive AI Copilot Drawer */}
@@ -1588,7 +1621,7 @@ function Dashboard() {
           }}
         />
 
-        <Toaster toasts={toasts} />
+        <InteractiveToaster toasts={toasts} onDismiss={handleDismissToast} />
         <CommandPalette 
           isOpen={isCmdKOpen} 
           onClose={() => setIsCmdKOpen(false)} 
@@ -1720,6 +1753,7 @@ function Login() {
   };
 
   const [isLoading, setIsLoading] = useState(false);
+  const [demoLoadingRole, setDemoLoadingRole] = useState<Role | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -1730,7 +1764,7 @@ function Login() {
       displayName: `${role} (Preview)`,
       role
     }));
-    navigate('/dashboard');
+    setDemoLoadingRole(role);
   };
 
   const handleGoogleLogin = async () => {
@@ -1769,6 +1803,18 @@ function Login() {
 
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-br from-[#fafafa] via-[#f4f6f9] to-[#eaedf2] flex flex-col items-center justify-center font-sans px-4 py-8 overflow-hidden">
+      {/* Dynamic Inventora Demo Mode Loading Screen */}
+      <AnimatePresence>
+        {demoLoadingRole && (
+          <InventoraLoadingScreen
+            role={demoLoadingRole}
+            lang={lang}
+            durationMs={1300}
+            onFinished={() => navigate('/dashboard')}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Language Switcher Top Right */}
       <div className="absolute top-6 right-6 z-20 flex items-center rounded-lg border border-[#eaeaea] bg-white/80 backdrop-blur-md p-1 shadow-sm">
         <button
@@ -1911,13 +1957,41 @@ function Login() {
           </span>
         </div>
 
-        <button 
-          onClick={() => handleDemoLogin('Super Admin')}
-          className="w-full bg-[#171717] text-white font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.12)] active:scale-[0.98] flex items-center justify-between h-10 cursor-pointer"
-        >
-          <span>{lang === 'en' ? 'Super Admin' : 'Super Admin'}</span>
-          <span className="text-[11px] font-mono text-[#aaa]">({lang === 'en' ? 'All Modules' : 'Semua Modul'})</span>
-        </button>
+        <div className="space-y-2">
+          <p className="text-[11px] text-neutral-500 font-medium uppercase tracking-wider text-center">
+            {lang === 'en' ? 'Select Instant Demo Role' : 'Pilih Peran Uji Coba Cepat'}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button 
+              onClick={() => handleDemoLogin('Super Admin')}
+              className="p-2.5 rounded-lg border border-neutral-200 hover:border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800 transition-all text-left cursor-pointer shadow-xs"
+            >
+              <span className="block text-xs font-semibold">Super Admin</span>
+              <span className="block text-[10px] text-neutral-400">{lang === 'en' ? 'Full System Access' : 'Akses Penuh'}</span>
+            </button>
+            <button 
+              onClick={() => handleDemoLogin('Warehouse Manager')}
+              className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
+            >
+              <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'Warehouse Mgr' : 'Manajer Gudang'}</span>
+              <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Stock & GRN' : 'Stok & GRN'}</span>
+            </button>
+            <button 
+              onClick={() => handleDemoLogin('Finance Manager')}
+              className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
+            >
+              <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'Finance Lead' : 'Manajer Keuangan'}</span>
+              <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Invoices & Payouts' : 'Faktur & Bayar'}</span>
+            </button>
+            <button 
+              onClick={() => handleDemoLogin('HR Manager')}
+              className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
+            >
+              <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'HR Manager' : 'Manajer SDM'}</span>
+              <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Payroll & Staff' : 'Gaji & Karyawan'}</span>
+            </button>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, ArrowUpDown, Download } from 'lucide-react';
 
@@ -24,7 +24,7 @@ export const Badge = ({ children, color = "blue" }: { children: React.ReactNode,
   );
 };
 
-export const Button = ({ children, variant = "primary", onClick, type = "button", disabled = false, isLoading = false, className = "" }: { children: React.ReactNode, variant?: "primary" | "secondary", onClick?: () => void, type?: "button" | "submit", disabled?: boolean, isLoading?: boolean, className?: string }) => {
+export const Button = ({ children, variant = "primary", onClick, type = "button", disabled = false, isLoading = false, className = "", title }: { children: React.ReactNode, variant?: "primary" | "secondary", onClick?: () => void, type?: "button" | "submit", disabled?: boolean, isLoading?: boolean, className?: string, title?: string }) => {
   const content = isLoading ? (
     <div className="flex items-center gap-2">
       <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -37,13 +37,13 @@ export const Button = ({ children, variant = "primary", onClick, type = "button"
 
   if (variant === "primary") {
     return (
-      <button type={type} onClick={onClick} disabled={disabled || isLoading} className={`bg-[#171717] dark:bg-[#ededed] text-white dark:text-[#171717] font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] dark:hover:bg-[#ccc] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.12)] disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[36px] ${className}`}>
+      <button title={title} type={type} onClick={onClick} disabled={disabled || isLoading} className={`bg-[#171717] dark:bg-[#ededed] text-white dark:text-[#171717] font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] dark:hover:bg-[#ccc] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.12)] disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[36px] ${className}`}>
         {content}
       </button>
     );
   }
   return (
-    <button type={type} onClick={onClick} disabled={disabled || isLoading} className={`bg-white dark:bg-[#111] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2)] hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] px-3 py-1.5 rounded-md transition-shadow text-sm disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[32px] ${className}`}>
+    <button title={title} type={type} onClick={onClick} disabled={disabled || isLoading} className={`bg-white dark:bg-[#111] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2)] hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] px-3 py-1.5 rounded-md transition-shadow text-sm disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[32px] ${className}`}>
       {content}
     </button>
   );
@@ -125,14 +125,38 @@ export const Tr = ({ children, index = 0 }: { children: React.ReactNode, index?:
 );
 
 export const Modal = ({ isOpen, onClose, title, children }: any) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
   return (
     <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 dark:bg-black/40 backdrop-blur-sm p-4">
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }} 
+        transition={{ duration: 0.15 }} 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose?.();
+        }}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 dark:bg-black/40 backdrop-blur-sm p-4"
+      >
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} className="bg-white dark:bg-[#111] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
           <div className="px-6 py-4 border-b border-[#eaeaea] dark:border-white/10 flex justify-between items-center bg-[#fafafa] dark:bg-[#0a0a0a]">
             <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">{title}</h3>
-            <button onClick={onClose} className="text-[#999] hover:text-[#171717] dark:hover:text-[#ededed] transition-colors cursor-pointer">
+            <button 
+              onClick={onClose} 
+              title="Close (Esc)"
+              className="text-[#999] hover:text-[#171717] dark:hover:text-[#ededed] transition-colors cursor-pointer p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-800"
+            >
               <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
           </div>
