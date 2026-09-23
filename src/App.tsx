@@ -16,6 +16,7 @@ import { AiCopilotDrawer } from './components/AiCopilotDrawer';
 import { RestockForecastCard } from './components/RestockForecastCard';
 import { InteractiveToaster, playNotificationChime } from './components/InteractiveToaster';
 import { InventoraLoadingScreen } from './components/InventoraLoadingScreen';
+import { OpeningSequence } from './components/OpeningSequence';
 import { exportToCsv, exportToJson } from './lib/exportUtils';
 import { loadStoredData, saveStoredData, clearAllInventoraStorage } from './lib/storageUtils';
 
@@ -1642,7 +1643,6 @@ function Dashboard() {
 }
 
 function Home() {
-  const navigate = useNavigate();
   const [lang, setLang] = useState<Language>(() => {
     const saved = localStorage.getItem('inventora_language');
     return (saved === 'en' || saved === 'id') ? saved : 'en';
@@ -1653,91 +1653,7 @@ function Home() {
     localStorage.setItem('inventora_language', newLang);
   };
 
-  return (
-    <div className="relative h-screen w-full bg-gradient-to-br from-[#fafafa] via-[#f4f6f9] to-[#eaedf2] flex flex-col items-center justify-center font-sans overflow-hidden">
-      {/* Language Switcher Top Right */}
-      <div className="absolute top-6 right-6 z-20 flex items-center rounded-lg border border-[#eaeaea] bg-white/80 backdrop-blur-md p-1 shadow-sm">
-        <button
-          type="button"
-          onClick={() => handleLangToggle('en')}
-          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
-            lang === 'en'
-              ? 'bg-[#171717] text-white shadow-sm'
-              : 'text-[#666] hover:text-[#171717]'
-          }`}
-        >
-          EN
-        </button>
-        <button
-          type="button"
-          onClick={() => handleLangToggle('id')}
-          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
-            lang === 'id'
-              ? 'bg-[#171717] text-white shadow-sm'
-              : 'text-[#666] hover:text-[#171717]'
-          }`}
-        >
-          ID
-        </button>
-      </div>
-
-      {/* Background Aesthetic Gradients */}
-      <motion.div 
-        animate={{ scale: [1, 1.1, 1], opacity: [0.4, 0.7, 0.4] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-gradient-to-br from-[#0070f3]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none" 
-      />
-      <motion.div 
-        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-gradient-to-tl from-[#7928ca]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none" 
-      />
-
-      <div className="relative z-10 flex flex-col items-center gap-8">
-        <div className="flex items-center gap-3">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-shrink-0 flex items-center justify-center"
-          >
-            <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-            >
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <motion.rect initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1, duration: 0.5 }} x="2" y="2" width="8" height="8" rx="1.5" fill="#171717" />
-                <motion.rect initial={{ x: 10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2, duration: 0.5 }} x="14" y="2" width="8" height="8" rx="1.5" fill="#171717" fillOpacity="0.15" />
-                <motion.rect initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3, duration: 0.5 }} x="2" y="14" width="8" height="8" rx="1.5" fill="#171717" fillOpacity="0.15" />
-                <motion.rect initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }} x="14" y="14" width="8" height="8" rx="1.5" fill="#171717" />
-              </svg>
-            </motion.div>
-          </motion.div>
-          <motion.div 
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
-            className="flex flex-col justify-center mt-0.5"
-          >
-            <span className="text-[32px] font-semibold tracking-tight text-[#171717] leading-none">Inventora</span>
-          </motion.div>
-        </div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8, duration: 0.5 }}
-        >
-          <button 
-            onClick={() => navigate('/login')}
-            className="bg-[#171717] text-white font-medium px-6 py-2.5 rounded-md text-sm hover:bg-[#383838] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.12)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] active:scale-95 cursor-pointer"
-          >
-            {lang === 'en' ? 'Enter Workspace' : 'Buka Workspace'}
-          </button>
-        </motion.div>
-      </div>
-    </div>
-  );
+  return <OpeningSequence lang={lang} onLanguageChange={handleLangToggle} />;
 }
 
 function Login() {

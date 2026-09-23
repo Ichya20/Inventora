@@ -75,18 +75,18 @@ export function InventoraLoadingScreen({
       <motion.div
         animate={{
           scale: [1, 1.15, 1],
-          opacity: [0.35, 0.65, 0.35]
+          opacity: [0.3, 0.5, 0.3]
         }}
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute w-[450px] h-[450px] rounded-full bg-gradient-to-br from-blue-500/10 via-indigo-500/10 to-transparent blur-[80px] pointer-events-none"
+        className="absolute w-[450px] h-[450px] rounded-full bg-gradient-to-br from-neutral-400/10 via-neutral-300/5 to-transparent blur-[80px] pointer-events-none"
       />
       <motion.div
         animate={{
           scale: [1, 1.2, 1],
-          opacity: [0.2, 0.45, 0.2]
+          opacity: [0.15, 0.35, 0.15]
         }}
         transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-        className="absolute w-[350px] h-[350px] rounded-full bg-gradient-to-tr from-purple-500/10 via-pink-500/5 to-transparent blur-[70px] pointer-events-none"
+        className="absolute w-[350px] h-[350px] rounded-full bg-gradient-to-tr from-neutral-400/10 via-neutral-300/5 to-transparent blur-[70px] pointer-events-none"
       />
 
       <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6 text-center">
@@ -126,25 +126,25 @@ export function InventoraLoadingScreen({
               />
               <motion.rect
                 initial={{ scale: 0.6, opacity: 0 }}
-                animate={{ scale: 1, opacity: 0.3 }}
+                animate={{ scale: 1, opacity: 0.2 }}
                 transition={{ duration: 0.4, delay: 0.15 }}
                 x="14"
                 y="2"
                 width="8"
                 height="8"
                 rx="1.5"
-                className="fill-[#0070f3] dark:fill-[#3291ff]"
+                className="fill-[#171717] dark:fill-[#ededed]"
               />
               <motion.rect
                 initial={{ scale: 0.6, opacity: 0 }}
-                animate={{ scale: 1, opacity: 0.3 }}
+                animate={{ scale: 1, opacity: 0.2 }}
                 transition={{ duration: 0.4, delay: 0.25 }}
                 x="2"
                 y="14"
                 width="8"
                 height="8"
                 rx="1.5"
-                className="fill-[#0070f3] dark:fill-[#3291ff]"
+                className="fill-[#171717] dark:fill-[#ededed]"
               />
               <motion.rect
                 initial={{ scale: 0.6, opacity: 0 }}
@@ -163,7 +163,7 @@ export function InventoraLoadingScreen({
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-              className="absolute -inset-1 rounded-2xl border border-blue-500/20 pointer-events-none"
+              className="absolute -inset-1 rounded-2xl border border-neutral-300/40 dark:border-neutral-700/40 pointer-events-none"
             />
           </motion.div>
         </div>
@@ -179,7 +179,7 @@ export function InventoraLoadingScreen({
             <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
               Inventora
             </h1>
-            <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+            <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
               ERP
             </span>
           </div>
@@ -196,8 +196,8 @@ export function InventoraLoadingScreen({
           className="inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full bg-white dark:bg-[#161616] border border-neutral-200 dark:border-neutral-800 shadow-xs"
         >
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neutral-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-neutral-600 dark:bg-neutral-300"></span>
           </span>
           <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
             {lang === 'en' ? 'Demo Mode' : 'Mode Demo'}: <strong className="text-neutral-900 dark:text-neutral-100 font-semibold">{role}</strong>
@@ -208,7 +208,7 @@ export function InventoraLoadingScreen({
         <div className="w-full space-y-2 mb-2">
           <div className="w-full h-1.5 bg-neutral-200/80 dark:bg-neutral-800 rounded-full overflow-hidden p-0.5">
             <motion.div
-              className="h-full bg-gradient-to-r from-neutral-900 via-blue-600 to-neutral-900 dark:from-neutral-200 dark:via-blue-400 dark:to-neutral-200 rounded-full transition-all duration-75"
+              className="h-full bg-gradient-to-r from-neutral-900 via-neutral-600 to-neutral-900 dark:from-neutral-100 dark:via-neutral-400 dark:to-neutral-100 rounded-full transition-all duration-75"
               style={{ width: `${progress}%` }}
             />
           </div>
