@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, ShieldCheck, Lock, CreditCard, Building2, QrCode, CheckCircle2, 
-  Copy, Check, Printer, RefreshCw, BadgeCheck, Clock
+  Copy, Check, Printer, RefreshCw, BadgeCheck, Clock, Download
 } from 'lucide-react';
 import { PurchaseOrder, PaymentTransaction } from '../types';
 import { Language, Translations, translations as defaultTranslations } from '../i18n';
+import { downloadReceiptPdf } from '../lib/pdfGenerator';
 
 interface PaymentGatewayModalProps {
   isOpen: boolean;
@@ -544,13 +545,31 @@ export function PaymentGatewayModal({
                       {lang === 'en' ? 'PO Status Updated: ' : 'Status PO Diperbarui: '}
                       <strong>{lang === 'en' ? 'Settled (Paid)' : 'Selesai (Paid)'}</strong>
                     </span>
-                    <button 
-                      type="button" 
-                      onClick={handlePrintReceipt}
-                      className="flex items-center gap-1 text-[#0070f3] dark:text-[#3291ff] hover:underline font-medium cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5" /> {activeT.gateway.printBtn}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          downloadReceiptPdf({
+                            id: po.id,
+                            client: po.vendor,
+                            date: new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID'),
+                            total: completedTx.totalPaid,
+                            paymentMethod: completedTx.methodLabel,
+                            receiptNumber: completedTx.receiptNumber
+                          }, lang);
+                        }}
+                        className="flex items-center gap-1 text-[#0070f3] dark:text-[#3291ff] hover:underline font-semibold cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" /> {lang === 'en' ? 'Download PDF' : 'Unduh PDF'}
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={handlePrintReceipt}
+                        className="flex items-center gap-1 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:underline font-medium cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5" /> {activeT.gateway.printBtn}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

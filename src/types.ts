@@ -53,6 +53,7 @@ export interface PurchaseOrder {
   color: 'orange' | 'green' | 'blue' | 'red' | string;
   department?: 'IT Infrastructure' | 'Operations & Logistics' | 'Engineering & R&D' | 'HR & GA';
   items?: POLineItem[];
+  lineItems?: any[];
   subtotal?: number;
   discountAmount?: number;
   taxAmount?: number;

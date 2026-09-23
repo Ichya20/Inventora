@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import { Printer, FileText, CheckCircle2, ShieldCheck, Building2, Download } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { exportToCsv } from '../lib/exportUtils';
 import { loadStoredData, saveStoredData } from '../lib/storageUtils';
+import { downloadInvoicePdf, downloadReceiptPdf } from '../lib/pdfGenerator';
 
 interface FinanceViewProps {
   onToast: (msg: string, type?: ToastType) => void;
@@ -33,7 +35,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
     saveStoredData('inventora_finance_invoices_v1', invoices);
   }, [invoices]);
 
-  const [activeModal, setActiveModal] = useState<{ type: 'receipt' | 'warning', data: any } | null>(null);
+  const [activeModal, setActiveModal] = useState<{ type: 'receipt' | 'warning' | 'invoice', data: any } | null>(null);
 
   const [page, setPage] = useState(1);
   const itemsPerPage = 3;
@@ -196,15 +198,38 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 <Td><span className="tabular-nums font-medium">Rp {inv.total.toLocaleString(numLocale)}</span></Td>
                 <Td><Badge color={inv.color}>{getStatusText(inv.status)}</Badge></Td>
                 <Td align="right">
-                  {inv.status === 'Lunas' ? (
-                    <Button variant="secondary" onClick={() => setActiveModal({ type: 'receipt', data: inv })}>
-                      {activeT.finance.receiptBtn}
-                    </Button>
-                  ) : (
-                    <Button variant="secondary" onClick={() => setActiveModal({ type: 'warning', data: inv })}>
-                      {activeT.finance.sendWarningBtn}
-                    </Button>
-                  )}
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        downloadInvoicePdf(inv, lang);
+                        onToast(lang === 'en' ? `Downloaded ${inv.id}.pdf` : `Berhasil mengunduh ${inv.id}.pdf`, 'success');
+                      }}
+                      className="p-1.5 text-neutral-500 hover:text-[#0070f3] dark:hover:text-[#3291ff] rounded border border-neutral-200 dark:border-neutral-800 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-[#1a1a1a] transition-all cursor-pointer"
+                      title={lang === 'en' ? `Direct Download ${inv.id}.pdf` : `Unduh Langsung ${inv.id}.pdf`}
+                    >
+                      <Download className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal({ type: 'invoice', data: inv })}
+                      className="px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400 hover:text-[#0070f3] dark:hover:text-[#3291ff] rounded border border-neutral-200 dark:border-neutral-800 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-[#1a1a1a] transition-all flex items-center gap-1 cursor-pointer"
+                      title={lang === 'en' ? 'View & Print Invoice (PDF)' : 'Lihat & Cetak Faktur (PDF)'}
+                    >
+                      <FileText className="w-3 h-3 text-[#0070f3]" />
+                      <span>{lang === 'en' ? 'Invoice' : 'Faktur'}</span>
+                    </button>
+                    {inv.status === 'Lunas' ? (
+                      <Button variant="secondary" onClick={() => setActiveModal({ type: 'receipt', data: inv })}>
+                        <Printer className="w-3.5 h-3.5 mr-1 text-emerald-600 dark:text-emerald-400" />
+                        {activeT.finance.receiptBtn}
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" onClick={() => setActiveModal({ type: 'warning', data: inv })}>
+                        {activeT.finance.sendWarningBtn}
+                      </Button>
+                    )}
+                  </div>
                 </Td>
               </Tr>
             ))
@@ -221,43 +246,73 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
       <Modal 
         isOpen={activeModal !== null} 
         onClose={() => setActiveModal(null)} 
-        title={activeModal?.type === 'receipt' ? (lang === 'en' ? 'Invoice Receipt' : 'Bukti Pembayaran Tagihan') : (lang === 'en' ? 'Send Payment Warning' : 'Kirim Peringatan Pembayaran')}
+        title={
+          activeModal?.type === 'receipt' 
+            ? (lang === 'en' ? 'Official Receipt Voucher' : 'Bukti Pembayaran Tagihan') 
+            : activeModal?.type === 'invoice'
+            ? (lang === 'en' ? 'Commercial Invoice & Tax Assessment' : 'Faktur Penagihan & Rincian Pajak')
+            : (lang === 'en' ? 'Send Payment Warning' : 'Kirim Peringatan Pembayaran')
+        }
       >
         {activeModal && activeModal.type === 'receipt' && (
-          <div className="space-y-6">
+          <div className="space-y-6 printable-card">
             <div className="flex justify-between items-start pb-6 border-b border-[#eaeaea] dark:border-[#333]">
               <div>
-                <h4 className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">INVENTORA CORP</h4>
-                <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{lang === 'en' ? 'Official Payment Receipt' : 'Tanda Terima Pembayaran Resmi'}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 rounded-lg bg-[#0070f3] text-white flex items-center justify-center font-bold text-xs">
+                    INV
+                  </div>
+                  <h4 className="text-lg font-bold tracking-tight text-[#171717] dark:text-[#ededed]">PT INVENTORA NUSANTARA</h4>
+                </div>
+                <p className="text-xs text-[#666] dark:text-[#a1a1aa]">{lang === 'en' ? 'Official Payment Receipt & Tax Voucher' : 'Bukti Pembayaran Resmi & Faktur Pelunasan'}</p>
               </div>
               <div className="text-right">
                 <Badge color="green">{lang === 'en' ? 'Paid in Full' : 'Lunas Penuh'}</Badge>
+                <div className="mt-1 text-[11px] text-[#666] dark:text-[#aaa] font-mono">
+                  {lang === 'en' ? 'Stamp Duty: PAID' : 'Bea Meterai: LUNAS'}
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{activeT.finance.invNumberCol}</p>
-                <p className="font-mono text-[#171717] dark:text-[#ededed]">{activeModal.data.id}</p>
+            <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm">
+              <div className="p-3 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800">
+                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{activeT.finance.invNumberCol}</p>
+                <p className="font-mono font-semibold text-[#171717] dark:text-[#ededed]">{activeModal.data.id}</p>
               </div>
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{lang === 'en' ? 'Payment Date' : 'Tanggal Bayar'}</p>
+              <div className="p-3 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800">
+                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{lang === 'en' ? 'Payment Settlement Date' : 'Tanggal Pelunasan'}</p>
                 <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.date}</p>
               </div>
-              <div className="col-span-2">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{lang === 'en' ? 'Billed To' : 'Ditagihkan Kepada'}</p>
-                <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.client}</p>
+              <div className="col-span-2 p-3 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800">
+                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{lang === 'en' ? 'Billed Entity' : 'Entitas Pembayar'}</p>
+                <p className="font-semibold text-base text-[#171717] dark:text-[#ededed]">{activeModal.data.client}</p>
+                <p className="text-xs text-[#666] dark:text-[#aaa] mt-0.5">{activeModal.data.desc}</p>
               </div>
             </div>
 
-            <div className="p-4 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg shadow-inner dark:shadow-none dark:border dark:border-[#333] flex justify-between items-center">
-              <span className="text-[#666] dark:text-[#a1a1aa] font-medium">{lang === 'en' ? 'Total Settled' : 'Total Terbayar'}</span>
-              <span className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed] tabular-nums">
+            <div className="p-4 bg-[#fafafa] dark:bg-[#181818] rounded-xl border border-neutral-200 dark:border-neutral-800 flex justify-between items-center">
+              <div>
+                <span className="text-[#666] dark:text-[#a1a1aa] text-xs uppercase tracking-wider block font-semibold">
+                  {lang === 'en' ? 'Total Settled Amount' : 'Total Dana Diterima'}
+                </span>
+                <span className="text-xs text-neutral-500">
+                  {lang === 'en' ? 'Includes PPN 11% & WHT Cleared' : 'Termasuk PPN 11% & Bukti Potong PPh'}
+                </span>
+              </div>
+              <span className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
                 Rp {activeModal.data.total.toLocaleString(numLocale)}
               </span>
             </div>
 
-            <div className="flex gap-3 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333]">
+            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 border-t border-dashed border-neutral-200 dark:border-neutral-800 pt-3 flex justify-between items-center">
+              <span>Ref: TRX-REC-{activeModal.data.id}</span>
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {lang === 'en' ? 'Verified Banking Clearing' : 'Kliring Perbankan Terverifikasi'}
+              </span>
+            </div>
+
+            <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] no-print">
               <Button variant="secondary" onClick={() => {
                 const item = activeModal.data;
                 const headers = ['Voucher Reference', 'Billed To Client', 'Payment Date', 'Total Settled (IDR)', 'Status', 'Corporate Entity'];
@@ -271,9 +326,142 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 ]];
                 exportToCsv(`receipt-voucher-${item.id}.csv`, headers, rows);
                 onToast(lang === 'en' ? `Payment receipt for ${item.id} downloaded` : `Tanda terima ${item.id} berhasil diunduh`, 'success');
-                setActiveModal(null);
               }}>
-                {lang === 'en' ? 'Download Receipt Voucher' : 'Unduh Voucher Pembayaran'}
+                {lang === 'en' ? 'Export CSV' : 'Ekspor CSV'}
+              </Button>
+              <Button variant="secondary" onClick={() => window.print()}>
+                <Printer className="w-3.5 h-3.5 mr-1.5" />
+                {lang === 'en' ? 'Print' : 'Cetak'}
+              </Button>
+              <Button variant="primary" onClick={() => {
+                downloadReceiptPdf(activeModal.data, lang);
+                onToast(lang === 'en' ? `Downloaded receipt-${activeModal.data.id}.pdf` : `Berhasil mengunduh tanda terima-${activeModal.data.id}.pdf`, 'success');
+              }}>
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                {lang === 'en' ? 'Download PDF' : 'Unduh PDF'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {activeModal && activeModal.type === 'invoice' && (
+          <div className="space-y-6 printable-card">
+            {/* Invoice Letterhead */}
+            <div className="flex justify-between items-start pb-5 border-b-2 border-neutral-800 dark:border-neutral-200">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-8 h-8 rounded-lg bg-[#0070f3] text-white flex items-center justify-center font-bold text-sm">
+                    INV
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold tracking-tight text-[#171717] dark:text-[#ededed]">PT INVENTORA TEKNOLOGI NUSANTARA</h4>
+                    <p className="text-xs text-neutral-500">NPWP: 01.345.678.9-012.000 | Treasury & Corporate Billing</p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="px-2.5 py-1 text-xs font-semibold rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                  {lang === 'en' ? 'TAX INVOICE' : 'FAKTUR PAJAK & TAGIHAN'}
+                </span>
+                <p className="font-mono font-bold text-sm text-neutral-900 dark:text-neutral-100 mt-1">
+                  {activeModal.data.id}
+                </p>
+              </div>
+            </div>
+
+            {/* Bill To & Invoice Info */}
+            <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm">
+              <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-[#181818] border border-neutral-200 dark:border-neutral-800">
+                <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-1">
+                  {lang === 'en' ? 'Billed Client' : 'Penerima Tagihan'}
+                </p>
+                <p className="font-bold text-neutral-900 dark:text-neutral-100 text-base">{activeModal.data.client}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">{activeModal.data.desc}</p>
+                <p className="text-xs text-neutral-500 mt-1">Payment Term: Net 30 Days</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-[#181818] border border-neutral-200 dark:border-neutral-800 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-xs text-neutral-500">{lang === 'en' ? 'Due Date' : 'Jatuh Tempo'}:</span>
+                  <span className={`font-semibold ${activeModal.data.isOverdue ? 'text-red-600 dark:text-red-400' : 'text-neutral-900 dark:text-neutral-100'}`}>
+                    {activeModal.data.date}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-neutral-500">{lang === 'en' ? 'Status' : 'Status'}:</span>
+                  <Badge color={activeModal.data.color}>{getStatusText(activeModal.data.status)}</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-neutral-500">{lang === 'en' ? 'Currency' : 'Mata Uang'}:</span>
+                  <span className="font-mono font-medium">IDR (Rp)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Itemized Calculation */}
+            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-neutral-100 dark:bg-[#202020] text-neutral-700 dark:text-neutral-300 border-b border-neutral-200 dark:border-neutral-800">
+                  <tr>
+                    <th className="px-3.5 py-2 text-left">{lang === 'en' ? 'Description' : 'Deskripsi Layanan'}</th>
+                    <th className="px-3.5 py-2 text-right">{lang === 'en' ? 'Subtotal' : 'Subtotal'}</th>
+                    <th className="px-3.5 py-2 text-right">{lang === 'en' ? 'PPN (11%)' : 'PPN (11%)'}</th>
+                    <th className="px-3.5 py-2 text-right">{lang === 'en' ? 'Total (IDR)' : 'Total (IDR)'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  <tr>
+                    <td className="px-3.5 py-3">
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100">Enterprise Cloud & Infrastructure Services</p>
+                      <p className="text-[11px] text-neutral-500">Service Period: Current Billing Cycle</p>
+                    </td>
+                    <td className="px-3.5 py-3 text-right tabular-nums">
+                      Rp {Math.round(activeModal.data.total / 1.11).toLocaleString(numLocale)}
+                    </td>
+                    <td className="px-3.5 py-3 text-right tabular-nums">
+                      Rp {Math.round(activeModal.data.total - (activeModal.data.total / 1.11)).toLocaleString(numLocale)}
+                    </td>
+                    <td className="px-3.5 py-3 text-right font-bold text-neutral-900 dark:text-neutral-100 tabular-nums">
+                      Rp {activeModal.data.total.toLocaleString(numLocale)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Payment Wire Instructions */}
+            <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 text-xs">
+              <p className="font-semibold text-blue-900 dark:text-blue-300 mb-1 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {lang === 'en' ? 'Corporate Remittance Instructions' : 'Instruksi Transfer Bank Perusahaan'}
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-300 mt-2">
+                <div>
+                  <span className="text-neutral-500 block">Bank BCA (Virtual Account):</span>
+                  <span className="font-mono font-bold text-neutral-900 dark:text-neutral-100">82739-{activeModal.data.id.replace(/[^0-9]/g, '')}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500 block">Bank Mandiri (Giro Corporate):</span>
+                  <span className="font-mono font-bold text-neutral-900 dark:text-neutral-100">122-00-9831920-1</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions - Hidden during print */}
+            <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] no-print">
+              <Button variant="secondary" onClick={() => setActiveModal(null)}>
+                {activeT.common.cancel}
+              </Button>
+              <Button variant="secondary" onClick={() => window.print()}>
+                <Printer className="w-3.5 h-3.5 mr-1.5" />
+                {lang === 'en' ? 'Print' : 'Cetak'}
+              </Button>
+              <Button variant="primary" onClick={() => {
+                downloadInvoicePdf(activeModal.data, lang);
+                onToast(lang === 'en' ? `Downloaded invoice-${activeModal.data.id}.pdf` : `Berhasil mengunduh faktur-${activeModal.data.id}.pdf`, 'success');
+              }}>
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                {lang === 'en' ? 'Download PDF' : 'Unduh PDF'}
               </Button>
             </div>
           </div>

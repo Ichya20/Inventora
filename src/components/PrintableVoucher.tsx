@@ -1,6 +1,7 @@
 import React from 'react';
-import { Printer, X, Building2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Printer, X, Building2, CheckCircle2, ShieldCheck, Download } from 'lucide-react';
 import { PurchaseOrder } from '../types';
+import { downloadPurchaseOrderPdf } from '../lib/pdfGenerator';
 
 interface PrintableVoucherProps {
   po: PurchaseOrder | null;
@@ -39,11 +40,20 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handlePrint}
+              onClick={() => downloadPurchaseOrderPdf(po, lang)}
               className="px-3.5 py-1.5 bg-[#0070f3] hover:bg-[#0060df] text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              title={lang === 'en' ? 'Directly save PDF file to your device' : 'Unduh langsung berkas PDF ke perangkat'}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{lang === 'en' ? 'Download PDF' : 'Unduh PDF'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3 py-1.5 bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>{lang === 'en' ? 'Print / Export PDF' : 'Cetak / Ekspor PDF'}</span>
+              <span>{lang === 'en' ? 'Print' : 'Cetak'}</span>
             </button>
             <button
               type="button"

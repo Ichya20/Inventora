@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CreditCard, CheckCircle2, Printer, History, Layers, FileText, PackageCheck, AlertTriangle } from 'lucide-react';
+import { CreditCard, CheckCircle2, Printer, History, Layers, FileText, PackageCheck, AlertTriangle, Plus } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType, PaymentTransaction, AppNotification, PurchaseOrder, GoodsReceiptNote, ThreeWayMatchStatus } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
+import { loadStoredData, saveStoredData } from '../lib/storageUtils';
 import { AuditTrailDrawer } from './AuditTrailDrawer';
 import { PrintableVoucher } from './PrintableVoucher';
 import { VirtualizedTable, Column } from './VirtualizedTable';
@@ -169,7 +170,24 @@ export function ProcurementView({
       threeWayMatchStatus: 'PENDING_RECEIPT'
     },
   ];
-  const [pos, setPos] = useState<any[]>(defaultPOs);
+  const [pos, setPos] = useState<any[]>(() => {
+    return loadStoredData('inventora_procurement_pos_v1', defaultPOs);
+  });
+
+  // Save changes locally to retain modifications across browser reloads
+  useEffect(() => {
+    saveStoredData('inventora_procurement_pos_v1', pos);
+  }, [pos]);
+
+  // Synchronize immediately if a new PO is issued in another view or modal
+  useEffect(() => {
+    const handlePoCreated = () => {
+      const refreshed = loadStoredData<any[]>('inventora_procurement_pos_v1', defaultPOs);
+      setPos(refreshed);
+    };
+    window.addEventListener('inventora_po_created', handlePoCreated);
+    return () => window.removeEventListener('inventora_po_created', handlePoCreated);
+  }, []);
 
   useEffect(() => {
     let unsub = () => {};
@@ -498,7 +516,8 @@ export function ProcurementView({
             <History className="w-3.5 h-3.5" />
             <span>Audit Trail</span>
           </Button>
-          <Button variant="secondary" onClick={() => onNavigate('new-po')}>
+          <Button variant="primary" onClick={() => onNavigate('purchase')}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
             {activeT.procurement.createPoBtn}
           </Button>
         </div>

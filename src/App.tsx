@@ -1228,7 +1228,9 @@ function Dashboard() {
       case 'po': return t.headers.procurement;
       case 'keuangan': return t.headers.finance;
       case 'sdm': return t.headers.hr;
-      case 'purchase': return t.headers.newPo;
+      case 'purchase':
+      case 'new-po':
+        return t.headers.newPo;
       case 'settings': return t.headers.settings;
       default: return t.headers.inventory;
     }
@@ -1462,7 +1464,15 @@ function Dashboard() {
             )}
             {activeMenu === 'keuangan' && <FinanceView onToast={showToast} t={t} lang={language} />}
             {activeMenu === 'sdm' && <HRView onToast={showToast} t={t} lang={language} />}
-            {activeMenu === 'purchase' && <PurchaseUnitView onNavigate={setActiveMenu} t={t} lang={language} />}
+            {(activeMenu === 'purchase' || activeMenu === 'new-po') && (
+              <PurchaseUnitView 
+                onNavigate={setActiveMenu} 
+                onToast={showToast}
+                onNotify={handleNewNotification}
+                t={t} 
+                lang={language} 
+              />
+            )}
           </ErrorBoundary>
         </Suspense>
 
@@ -1646,11 +1656,26 @@ function Login() {
     setUnauthorizedDomain(null);
     try {
       const { googleSignIn } = await import('./firebase');
-      await googleSignIn();
-      navigate('/dashboard');
+      const res = await googleSignIn();
+      if (res) {
+        navigate('/dashboard');
+      }
     } catch (e: any) {
       if (e?.code === 'auth/unauthorized-domain' || e?.message?.includes('auth/unauthorized-domain')) {
         setUnauthorizedDomain(typeof window !== 'undefined' ? window.location.hostname : 'run.app');
+      } else if (
+        e?.code === 'auth/popup-closed-by-user' ||
+        e?.code === 'auth/cancelled-popup-request' ||
+        e?.message?.includes('auth/popup-closed-by-user') ||
+        e?.message?.includes('auth/cancelled-popup-request')
+      ) {
+        // User closed or dismissed popup intentionally; no error banner needed
+      } else if (e?.code === 'auth/popup-blocked' || e?.message?.includes('auth/popup-blocked')) {
+        setErrorMsg(
+          lang === 'en'
+            ? 'Sign-in popup was blocked by your browser. Please allow popups or use Demo Login below.'
+            : 'Popup login diblokir oleh browser. Harap izinkan popup atau gunakan Login Demo di bawah.'
+        );
       } else {
         setErrorMsg(e.message || (lang === 'en' ? 'Login failed' : 'Gagal masuk'));
       }

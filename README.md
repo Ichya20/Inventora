@@ -47,7 +47,11 @@ Inventora is a modern, production-ready Enterprise Resource Planning (ERP) platf
 - **Finance & Accounts Receivable:** Invoices, overdue tracking, payment receipt modal, and automated warning email dispatch simulation.
 - **Human Resources:** Team roster, employee profiles, and automated Google Calendar onboarding event creation.
 
-### 6. 🎨 Polished Design System
+### 6. 📄 Direct PDF & Document Generation
+- **Client-Side PDF Engine:** Direct `.pdf` file downloads for commercial tax invoices, official payment settlement receipts, and procurement purchase orders.
+- **Corporate Ready:** Automatically generates letterheads, NPWP tax IDs, PPN 11% tax assessment breakdowns, banking remittance instructions, and digital verification seals without relying solely on print dialogs.
+
+### 7. 🎨 Polished Design System
 - **Responsive Mobile Layouts:** Responsive table containers with horizontal scroll support and mobile swipe guidance.
 - **Dark & Light Mode:** High-contrast, clean theme switching with Tailwind CSS.
 - **Keyboard Shortcuts Modal:** Interactive shortcut modal (`?` or `Cmd+/`) documenting all hotkeys.

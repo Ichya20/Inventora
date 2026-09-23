@@ -45,10 +45,23 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
+    const isCancelled =
+      error?.code === 'auth/popup-closed-by-user' ||
+      error?.code === 'auth/cancelled-popup-request' ||
+      error?.message?.includes('auth/popup-closed-by-user') ||
+      error?.message?.includes('auth/cancelled-popup-request');
+
+    if (isCancelled) {
+      console.info('[Firebase Auth] Sign-in popup was closed by user.');
+      return null;
+    }
+
     if (error?.code === 'auth/unauthorized-domain' || error?.message?.includes('auth/unauthorized-domain')) {
       console.warn(
         `[Firebase Auth] Current domain (${typeof window !== 'undefined' ? window.location.hostname : 'unknown'}) is not in Firebase's Authorized Domains list.`
       );
+    } else if (error?.code === 'auth/popup-blocked' || error?.message?.includes('auth/popup-blocked')) {
+      console.warn('[Firebase Auth] Sign-in popup was blocked by browser.');
     } else {
       console.error('Sign in error:', error);
     }

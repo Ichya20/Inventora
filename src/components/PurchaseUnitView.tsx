@@ -5,10 +5,13 @@ import { Button } from './UI';
 import { translations, Language, Translations } from '../i18n';
 import { SmartInvoiceParserModal, ParsedInvoiceData } from './SmartInvoiceParserModal';
 import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
-import { POLineItem } from '../types';
+import { POLineItem, ToastType, AppNotification, PurchaseOrder } from '../types';
+import { loadStoredData, saveStoredData } from '../lib/storageUtils';
 
 interface PurchaseUnitViewProps {
   onNavigate: (menu: string) => void;
+  onToast?: (msg: string, type?: ToastType) => void;
+  onNotify?: (n: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
   t?: Translations;
   lang?: Language;
 }
@@ -32,7 +35,13 @@ const POPULAR_CATALOG = [
   { sku: 'FW-NGFW-10G', name: 'Next-Gen Firewall 10Gbps', unitPrice: 165000000, vendor: 'cisco' },
 ];
 
-export function PurchaseUnitView({ onNavigate, t, lang = 'en' }: PurchaseUnitViewProps) {
+export function PurchaseUnitView({ 
+  onNavigate, 
+  onToast, 
+  onNotify, 
+  t, 
+  lang = 'en' 
+}: PurchaseUnitViewProps) {
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
@@ -157,7 +166,7 @@ export function PurchaseUnitView({ onNavigate, t, lang = 'en' }: PurchaseUnitVie
     setNotes(noteLines);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
@@ -167,10 +176,96 @@ export function PurchaseUnitView({ onNavigate, t, lang = 'en' }: PurchaseUnitVie
     const newPoId = `PO-2026-${deptPrefix}-${randomSeq}`;
     setCreatedPoNumber(newPoId);
 
+    const vendorName = vendor === 'nvidia' ? 'NVIDIA Corp Indonesia'
+      : vendor === 'cisco' ? 'Cisco Systems Indonesia'
+      : vendor === 'dell' ? 'Dell EMC Indonesia'
+      : vendor;
+
+    const formattedDate = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+
+    const newPo: PurchaseOrder = {
+      id: newPoId,
+      vendor: vendorName,
+      desc: notes ? notes.split('\n')[0] : `${department} Requisition (${items.length} items)`,
+      date: formattedDate,
+      total: grandTotal,
+      subtotal,
+      discountAmount,
+      taxAmount: vatAmount,
+      withholdingTaxAmount: pphAmount,
+      status: 'Pending Approval',
+      color: 'orange',
+      department: department as any,
+      threeWayMatchStatus: 'PENDING_RECEIPT',
+      items: items.map((it, idx) => ({
+        id: `li-${Date.now()}-${idx}`,
+        sku: it.sku,
+        name: it.name,
+        qty: it.qty,
+        unitPrice: it.unitPrice,
+        subtotal: it.total
+      })),
+      lineItems: items.map((it, idx) => ({
+        id: `li-${Date.now()}-${idx}`,
+        sku: it.sku,
+        name: it.name,
+        qty: it.qty,
+        unitPrice: it.unitPrice,
+        totalPrice: it.total
+      }))
+    };
+
+    // 1. Immediately persist to localStorage so ProcurementView and all tables reflect it
+    try {
+      const existing = loadStoredData<PurchaseOrder[]>('inventora_procurement_pos_v1', []);
+      saveStoredData('inventora_procurement_pos_v1', [newPo, ...existing]);
+      window.dispatchEvent(new CustomEvent('inventora_po_created', { detail: newPo }));
+    } catch (err) {
+      console.warn("Local storage write error:", err);
+    }
+
+    // 2. Sync to Firebase Firestore if connected
+    try {
+      const { db } = await import('../firebase');
+      const { setDoc, doc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'purchaseOrders', newPo.id), newPo);
+    } catch (err) {
+      console.warn("Firestore sync skipped:", err);
+    }
+
+    // 3. User feedback toast & notification
+    if (onToast) {
+      onToast(
+        lang === 'en' 
+          ? `Purchase Order ${newPoId} created successfully!` 
+          : `Purchase Order ${newPoId} berhasil diajukan!`, 
+        'success'
+      );
+    }
+
+    if (onNotify) {
+      onNotify({
+        title: lang === 'en' ? 'New Purchase Order Created' : 'Purchase Order Baru Diajukan',
+        message: lang === 'en' 
+          ? `PO ${newPoId} totaling Rp ${grandTotal.toLocaleString('en-US')} for ${vendorName} is pending approval.`
+          : `PO ${newPoId} senilai Rp ${grandTotal.toLocaleString('id-ID')} untuk ${vendorName} menunggu persetujuan.`,
+        type: 'approval',
+        metadata: {
+          poId: newPoId,
+          amount: grandTotal,
+          vendor: vendorName
+        }
+      });
+    }
+
     setTimeout(() => {
       setIsSubmitting(false);
       setStep('success');
-    }, 800);
+    }, 600);
   };
 
   if (step === 'success') {
