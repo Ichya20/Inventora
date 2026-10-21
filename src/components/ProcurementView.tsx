@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CreditCard, CheckCircle2, Printer, History, Layers, FileText, PackageCheck, AlertTriangle, Plus } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
-import { ToastType, PaymentTransaction, AppNotification, PurchaseOrder, GoodsReceiptNote, ThreeWayMatchStatus } from '../types';
+import { Role, ToastType, PaymentTransaction, AppNotification, PurchaseOrder, GoodsReceiptNote, ThreeWayMatchStatus } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
 import { loadStoredData, saveStoredData } from '../lib/storageUtils';
@@ -14,9 +14,18 @@ import { ThreeWayMatchModal } from './ThreeWayMatchModal';
 import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
 import { downloadReceiptPdf } from '../lib/pdfGenerator';
 
+import { assertPoTransition, normalizePurchaseOrder, paymentInfoFromTransaction, paymentTotals, poStorageKey } from '../lib/procurement';
+import { persistPoTransition } from '../lib/purchaseOrderStore';
+import { businessDate } from '../lib/businessDates';
+import { canPerformPoAction } from '../lib/authorization';
+import { collection, onSnapshot } from 'firebase/firestore';
+
 const PaymentGatewayModal = lazy(() => import('./PaymentGatewayModal').then(m => ({ default: m.PaymentGatewayModal })));
 
 interface ProcurementViewProps {
+  role: Role;
+  isDemo: boolean;
+  ownerId: string;
   onNavigate: (menu: string) => void;
   onToast: (msg: string, type?: ToastType, options?: { title?: string; actionLabel?: string; onAction?: () => void; duration?: number }) => void;
   onNotify?: (n: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
@@ -33,8 +42,10 @@ export function ProcurementView({
   t,
   lang = 'en',
   isOnline = true,
-  onQueueOffline
+  onQueueOffline, role, isDemo, ownerId
 }: ProcurementViewProps) {
+  const storageKey = poStorageKey(isDemo, ownerId);
+  const saving = useRef(false);
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
@@ -48,10 +59,11 @@ export function ProcurementView({
   const [threeWayPo, setThreeWayPo] = useState<PurchaseOrder | null>(null);
   
   const [transactions, setTransactions] = useState<PaymentTransaction[]>(() => {
-    const saved = localStorage.getItem('inventora_po_transactions');
+    const saved = localStorage.getItem(isDemo ? 'inventora_po_transactions' : 'inventora_po_transactions:' + ownerId);
     if (saved) {
       try { return JSON.parse(saved); } catch {}
     }
+    if (!isDemo) return [];
     return [
       {
         id: 'TX-INVENTORA-8891',
@@ -86,7 +98,7 @@ export function ProcurementView({
     ];
   });
 
-  const defaultPOs = [
+  const defaultPOs: PurchaseOrder[] = [
     {
       id: 'PO-2026-1042',
       vendor: 'NVIDIA Corp Indonesia',
@@ -172,18 +184,19 @@ export function ProcurementView({
     },
   ];
   const [pos, setPos] = useState<any[]>(() => {
-    return loadStoredData('inventora_procurement_pos_v1', defaultPOs);
+    return loadStoredData<PurchaseOrder[]>(storageKey, isDemo ? defaultPOs : []).map(normalizePurchaseOrder);
   });
 
   // Save changes locally to retain modifications across browser reloads
   useEffect(() => {
-    saveStoredData('inventora_procurement_pos_v1', pos);
+    saveStoredData(storageKey, pos);
   }, [pos]);
 
   // Synchronize immediately if a new PO is issued in another view or modal
   useEffect(() => {
     const handlePoCreated = () => {
-      const refreshed = loadStoredData<any[]>('inventora_procurement_pos_v1', defaultPOs);
+      if (!isDemo) return;
+      const refreshed = loadStoredData<PurchaseOrder[]>(storageKey, isDemo ? defaultPOs : []).map(normalizePurchaseOrder);
       setPos(refreshed);
     };
     window.addEventListener('inventora_po_created', handlePoCreated);
@@ -191,226 +204,82 @@ export function ProcurementView({
   }, []);
 
   useEffect(() => {
-    let unsub = () => {};
+    if (isDemo) return;
+    let cancelled = false;
+    let unsubscribe = () => {};
     import('../firebase').then(({ db }) => {
-      import('firebase/firestore').then(({ collection, onSnapshot, setDoc, doc }) => {
-        unsub = onSnapshot(collection(db, 'purchaseOrders'), (snap) => {
-          if (snap.empty) {
-            defaultPOs.forEach(item => setDoc(doc(db, 'purchaseOrders', item.id), item));
-          } else {
-            const loaded = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-            setPos(loaded);
-          }
-        }, (err) => {
-          console.warn("Firestore snapshot unavailable, using local state:", err.message);
-        });
-      }).catch(err => console.warn("Firestore import error:", err));
-    }).catch(err => console.warn("Firebase import error:", err));
-    return () => unsub();
-  }, []);
+      if (cancelled) return;
+      unsubscribe = onSnapshot(collection(db, 'purchaseOrders'), snapshot => {
+        setPos(snapshot.docs.map(doc => normalizePurchaseOrder({ ...doc.data(), id: doc.id } as PurchaseOrder)));
+      }, error => onToast('Database tidak dapat diakses: ' + error.message, 'error'));
+    }).catch(error => onToast(String(error), 'error'));
+    return () => { cancelled = true; unsubscribe(); };
+  }, [isDemo, ownerId]);
+
+  const saveTransition = async (id: string, patch: Partial<PurchaseOrder>, source: 'approval' | 'receipt' | 'payment') => {
+    if (saving.current) throw new Error('Masih ada perubahan yang sedang disimpan.');
+    const target = pos.find(item => item.id === id);
+    if (!target) throw new Error('PO tidak ditemukan.');
+    assertPoTransition(target, patch.status!, role, source);
+    saving.current = true;
+    try {
+      if (!isDemo) {
+        if (!isOnline) throw new Error('Tindakan ini memerlukan koneksi ke server.');
+        await persistPoTransition(id, patch, source);
+      } else {
+        const updated = pos.map(item => item.id === id ? { ...item, ...patch } : item);
+        saveStoredData(storageKey, updated, true);
+        setPos(updated);
+      }
+    } finally { saving.current = false; }
+  };
 
   const updateStatus = async (id: string, status: string, color: string) => {
-    setPos(current => {
-      const updated = current.map(item => item.id === id ? { ...item, status, color } : item);
-      try { saveStoredData('inventora_procurement_pos_v1', updated); } catch {}
-      return updated;
-    });
-
-    const statusLabel = status === 'Disetujui' ? activeT.procurement.approved
-      : status === 'Barang Diterima' ? activeT.procurement.goodsReceived
-      : status === 'Selisih Penerimaan' ? activeT.procurement.grnDiscrepancy
-      : status === 'Selesai' ? activeT.procurement.completed
-      : status === 'Ditolak' ? activeT.procurement.rejected
-      : status;
-    const isApproved = status === 'Disetujui' || status === 'Barang Diterima';
-    const isRejected = status === 'Ditolak';
-
     try {
-      const { db } = await import('../firebase');
-      const { updateDoc, doc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'purchaseOrders', id), { status, color });
-    } catch (e: any) {
-      console.warn("Firestore update skipped or failed:", e);
-    }
-
-    onToast(
-      lang === 'en' ? `PO ${id} status updated to: ${statusLabel}` : `Status PO ${id} diperbarui menjadi: ${statusLabel}`,
-      isRejected ? 'error' : 'success',
-      {
-        title: isApproved ? (lang === 'en' ? 'PO Status Advanced' : 'Status PO Berlanjut')
-             : isRejected ? (lang === 'en' ? 'PO Rejected' : 'PO Ditolak')
-             : (lang === 'en' ? 'PO Status Changed' : 'Perubahan Status PO'),
-        actionLabel: isApproved ? (lang === 'en' ? 'Pay Now' : 'Bayar Sekarang') : undefined,
-        onAction: isApproved ? () => {
-          const target = pos.find(p => p.id === id);
-          if (target) setSelectedPoForPayment(target);
-        } : undefined
+      const target = pos.find(item => item.id === id);
+      if (!target) throw new Error('PO tidak ditemukan.');
+      assertPoTransition(target, status, role, 'approval');
+      if (!isDemo && !isOnline) {
+        if (!onQueueOffline) throw new Error('Antrean offline tidak tersedia.');
+        onQueueOffline({
+          type: status === 'Disetujui' ? 'APPROVE_PO' : 'REJECT_PO',
+          entityId: id, payload: { status }, description: 'PO ' + id + ': ' + status,
+        });
+        onToast(lang === 'en' ? 'Queued. Status will change after server confirmation.' : 'Masuk antrean. Status berubah setelah dikonfirmasi server.', 'warning');
+      } else {
+        await saveTransition(id, { status, color }, 'approval');
+        onToast('PO ' + id + ': ' + status, 'success');
       }
-    );
+      setActiveModal(null);
+    } catch (error) { onToast(String(error), 'error'); }
   };
 
   const handleSaveGrn = async (poId: string, grn: GoodsReceiptNote, matchStatus: ThreeWayMatchStatus) => {
-    const newStatus = matchStatus === 'MATCHED' ? 'Barang Diterima' : 'Selisih Penerimaan';
-    const newColor = matchStatus === 'MATCHED' ? 'green' : 'orange';
-
-    setPos(current => {
-      const updated = current.map(item => {
-        if (item.id === poId) {
-          const finalStatus = item.status === 'Selesai' ? 'Selesai' : newStatus;
-          const finalColor = item.status === 'Selesai' ? 'blue' : newColor;
-          return {
-            ...item,
-            status: finalStatus,
-            color: finalColor,
-            grn,
-            threeWayMatchStatus: matchStatus
-          };
-        }
-        return item;
-      });
-      try {
-        saveStoredData('inventora_procurement_pos_v1', updated);
-      } catch (e) {
-        console.warn("Local storage save error:", e);
-      }
-      return updated;
-    });
-
-    // Notify any other listeners of updated PO state
-    window.dispatchEvent(new CustomEvent('inventora_po_created'));
-
     try {
-      const { db } = await import('../firebase');
-      const { updateDoc, doc } = await import('firebase/firestore');
-      const target = pos.find(p => p.id === poId);
-      const finalStatus = target?.status === 'Selesai' ? 'Selesai' : newStatus;
-      const finalColor = target?.status === 'Selesai' ? 'blue' : newColor;
-      await updateDoc(doc(db, 'purchaseOrders', poId), {
-        status: finalStatus,
-        color: finalColor,
-        grn,
-        threeWayMatchStatus: matchStatus
-      });
-    } catch (e: any) {
-      console.warn("Firestore update skipped or failed:", e);
-    }
-
-    const statusText = matchStatus === 'MATCHED'
-      ? (lang === 'en' ? 'Goods Received (Ready for Payment)' : 'Barang Diterima (Siap Bayar)')
-      : (lang === 'en' ? 'GRN Discrepancy Flagged' : 'Selisih Penerimaan');
-
-    onToast(
-      lang === 'en'
-        ? `GRN ${grn.grnNumber} recorded! PO ${poId} status updated to: ${statusText}`
-        : `GRN ${grn.grnNumber} dicatat! Status PO ${poId} diperbarui menjadi: ${statusText}`,
-      matchStatus === 'MATCHED' ? 'success' : 'warning',
-      {
-        title: matchStatus === 'MATCHED' 
-          ? (lang === 'en' ? '3-Way Match Passed' : '3-Way Match Lolos') 
-          : (lang === 'en' ? 'Discrepancy Detected' : 'Ada Selisih Fisik'),
-        actionLabel: matchStatus === 'MATCHED' 
-          ? (lang === 'en' ? 'Pay via Gateway' : 'Bayar via Gateway') 
-          : (lang === 'en' ? 'View Details' : 'Lihat Detail'),
-        onAction: () => {
-          const target = pos.find(p => p.id === poId);
-          if (matchStatus === 'MATCHED' && target) {
-            setSelectedPoForPayment({
-              ...target,
-              status: 'Barang Diterima',
-              color: 'green',
-              grn,
-              threeWayMatchStatus: matchStatus
-            });
-          } else if (target) {
-            setActiveModal({ type: 'detail', data: { ...target, grn, threeWayMatchStatus: matchStatus } });
-          }
-        }
-      }
-    );
-
-    if (onNotify) {
-      onNotify({
-        title: matchStatus === 'MATCHED'
-          ? (lang === 'en' ? 'Goods Receipt Note (GRN) Verified' : 'Penerimaan Barang (GRN) Terverifikasi')
-          : (lang === 'en' ? 'GRN Discrepancy Alert' : 'Peringatan Selisih Penerimaan GRN'),
-        message: lang === 'en'
-          ? `GRN ${grn.grnNumber} issued by ${grn.receivedBy} for ${poId}. PO status updated to ${newStatus}.`
-          : `GRN ${grn.grnNumber} diterbitkan oleh ${grn.receivedBy} untuk ${poId}. Status PO diperbarui menjadi ${newStatus}.`,
-        type: 'status_change',
-        metadata: { poId, grnNumber: grn.grnNumber, matchStatus }
-      });
-    }
+      if (!['MATCHED', 'DISCREPANCY'].includes(matchStatus) || grn.poId !== poId || grn.status !== matchStatus) throw new Error('Data penerimaan tidak valid.');
+      const status = matchStatus === 'MATCHED' ? 'Barang Diterima' : 'Selisih Penerimaan';
+      await saveTransition(poId, { status, color: matchStatus === 'MATCHED' ? 'green' : 'orange', grn, threeWayMatchStatus: matchStatus }, 'receipt');
+      setThreeWayPo(null);
+      onToast('GRN ' + grn.grnNumber + ': ' + status, matchStatus === 'MATCHED' ? 'success' : 'warning');
+      onNotify?.({ title: 'Goods Receipt Note', message: poId + ': ' + status, type: 'status_change', metadata: { poId, grnNumber: grn.grnNumber, matchStatus } });
+    } catch (error) { onToast(String(error), 'error'); throw error; }
   };
 
   const handlePaymentSuccess = async (tx: PaymentTransaction) => {
-    setTransactions(prev => {
-      const updated = [tx, ...prev];
-      try { localStorage.setItem('inventora_po_transactions', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-
-    setPos(current => current.map(item => item.id === tx.poId ? {
-      ...item,
-      status: 'Selesai',
-      color: 'blue',
-      paymentInfo: {
-        paidAt: tx.timestamp,
-        method: tx.methodLabel,
-        txId: tx.id,
-        amount: tx.totalPaid,
-        receiptNo: tx.receiptNumber
-      }
-    } : item));
-
     try {
-      const { db } = await import('../firebase');
-      const { updateDoc, doc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'purchaseOrders', tx.poId), {
-        status: 'Selesai',
-        color: 'blue',
-        paymentInfo: {
-          paidAt: tx.timestamp,
-          method: tx.methodLabel,
-          txId: tx.id,
-          totalPaid: tx.totalPaid,
-          receiptNumber: tx.receiptNumber
-        }
+      const target = pos.find(item => item.id === tx.poId);
+      if (!target || tx.totalPaid !== paymentTotals(target).totalPaid || tx.status !== 'SUCCESS') throw new Error('Nominal atau status transaksi tidak sesuai PO.');
+      await saveTransition(tx.poId, { status: 'Selesai', color: 'blue', paymentInfo: paymentInfoFromTransaction(tx) }, 'payment');
+      setTransactions(previous => {
+        const updated = [tx, ...previous.filter(item => item.id !== tx.id)];
+        saveStoredData(isDemo ? 'inventora_po_transactions' : 'inventora_po_transactions:' + ownerId, updated);
+        return updated;
       });
-    } catch (e) {
-      console.warn("Firestore update skipped:", e);
-    }
-
-    const toastMsg = lang === 'en'
-      ? `Payment of Rp ${tx.totalPaid.toLocaleString('en-US')} for ${tx.poId} via ${tx.methodLabel} succeeded!`
-      : `Pembayaran ${tx.poId} berhasil senilai Rp ${tx.totalPaid.toLocaleString('id-ID')} via ${tx.methodLabel}!`;
-    onToast(toastMsg, 'success', {
-      title: lang === 'en' ? 'Payment Settled' : 'Pembayaran Lunas',
-      actionLabel: lang === 'en' ? 'View Details' : 'Lihat Detail',
-      onAction: () => {
-        const targetPo = pos.find(p => p.id === tx.poId);
-        if (targetPo) setActiveModal({ type: 'detail', data: targetPo });
-      }
-    });
-
-    if (onNotify) {
-      onNotify({
-        title: lang === 'en' ? 'PO Payment Transaction Successful' : 'Transaksi Pembayaran PO Berhasil',
-        message: lang === 'en'
-          ? `Payment for ${tx.poId} to ${tx.vendor} totaling Rp ${tx.totalPaid.toLocaleString('en-US')} via ${tx.methodLabel} has been verified successfully. PO Status: Completed.`
-          : `Pembayaran ${tx.poId} ke ${tx.vendor} senilai Rp ${tx.totalPaid.toLocaleString('id-ID')} via ${tx.methodLabel} telah berhasil diverifikasi. Status PO: Selesai.`,
-        type: 'payment',
-        metadata: {
-          poId: tx.poId,
-          amount: tx.totalPaid,
-          vendor: tx.vendor,
-          method: tx.methodLabel,
-          txId: tx.id,
-          receiptNumber: tx.receiptNumber
-        }
-      });
-    }
+      onToast(lang === 'en' ? 'Simulated payment recorded for ' + tx.poId : 'Simulasi pembayaran dicatat untuk ' + tx.poId, 'success');
+      onNotify?.({ title: 'Simulasi pembayaran PO', message: tx.poId + ': Rp ' + tx.totalPaid.toLocaleString(numLocale), type: 'payment',
+        metadata: { poId: tx.poId, amount: tx.totalPaid, vendor: tx.vendor, txId: tx.id, receiptNumber: tx.receiptNumber, method: tx.methodLabel } });
+    } catch (error) { onToast(String(error), 'error'); throw error; }
   };
-
   const [activeModal, setActiveModal] = useState<{ type: 'review' | 'detail', data: any } | null>(null);
   const [page, setPage] = useState(1);
   const itemsPerPage = 4;
@@ -501,34 +370,8 @@ export function ProcurementView({
     }
   };
 
-  const handleApprove = (id: string) => {
-    updateStatus(id, 'Disetujui', 'green');
-    if (!isOnline && onQueueOffline) {
-      onQueueOffline({
-        type: 'APPROVE_PO',
-        entityId: id,
-        payload: { status: 'Disetujui' },
-        description: `Approve Purchase Order ${id}`,
-      });
-      onToast(lang === 'en' ? `PO ${id} approved in offline mode (queued)` : `PO ${id} disetujui dalam mode offline (antrean)`, 'warning');
-    }
-    setActiveModal(null);
-  };
-
-  const handleReject = (id: string) => {
-    updateStatus(id, 'Ditolak', 'red');
-    if (!isOnline && onQueueOffline) {
-      onQueueOffline({
-        type: 'REJECT_PO',
-        entityId: id,
-        payload: { status: 'Ditolak' },
-        description: `Reject Purchase Order ${id}`,
-      });
-      onToast(lang === 'en' ? `PO ${id} rejected in offline mode (queued)` : `PO ${id} ditolak dalam mode offline (antrean)`, 'warning');
-    }
-    setActiveModal(null);
-  };
-
+  const handleApprove = (id: string) => { void updateStatus(id, 'Disetujui', 'green'); };
+  const handleReject = (id: string) => { void updateStatus(id, 'Ditolak', 'red'); };
   const onDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('po_id', id);
   };
@@ -565,9 +408,9 @@ export function ProcurementView({
           <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
             {lang === 'en' ? 'Active Purchase Orders' : 'Total PO Aktif'}
           </p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">45</h3>
+          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">{pos.filter(po => !['Selesai', 'Ditolak'].includes(po.status)).length}</h3>
           <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-            <span className="text-[#0070f3] dark:text-[#3291ff] font-medium">12 PO</span> {lang === 'en' ? 'In Progress' : 'Dalam Proses'}
+            <span className="text-[#0070f3] dark:text-[#3291ff] font-medium">{pos.filter(po => po.status === 'Pending Approval').length} PO</span> {lang === 'en' ? 'In Progress' : 'Dalam Proses'}
           </p>
         </Card>
         <Card>
@@ -575,7 +418,7 @@ export function ProcurementView({
             {lang === 'en' ? 'Committed Value (This Month)' : 'Nilai Pengadaan (Bulan Ini)'}
           </p>
           <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-            {lang === 'en' ? 'Rp 4.25B' : 'Rp 4,25 M'}
+            Rp {pos.filter(po => po.status !== 'Ditolak' && po.date.startsWith(businessDate().slice(0, 7))).reduce((sum, po) => sum + po.total, 0).toLocaleString(numLocale)}
           </h3>
           <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">{activeT.procurement.awaitingReview}</p>
         </Card>
@@ -583,11 +426,11 @@ export function ProcurementView({
           <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
             {activeT.procurement.activeVendors}
           </p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">128</h3>
+          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">{new Set(pos.map(po => po.vendor)).size}</h3>
           <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
             <span className="text-[#10b981] dark:text-[#34d399] font-medium">
-              {lang === 'en' ? '+3 Vendors' : '+3 Vendor'}
-            </span> {lang === 'en' ? 'New this month' : 'Baru'}
+              {lang === 'en' ? 'From recorded POs' : 'Dari PO tercatat'}
+            </span>
           </p>
         </Card>
       </div>
@@ -747,7 +590,7 @@ export function ProcurementView({
                       >
                         <PackageCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       </button>
-                      {(po.status === 'Disetujui' || po.status === 'Barang Diterima') && (
+                      {canPerformPoAction(role, 'pay') && po.status === 'Barang Diterima' && po.threeWayMatchStatus === 'MATCHED' && !po.paymentInfo && (
                         <button
                           type="button"
                           onClick={() => setSelectedPoForPayment(po)}
@@ -763,7 +606,7 @@ export function ProcurementView({
                           <CheckCircle2 className="w-3 h-3" /> {activeT.procurement.paidStatus}
                         </span>
                       )}
-                      {po.status === 'Pending Approval' ? (
+                      {po.status === 'Pending Approval' && canPerformPoAction(role, 'approve') ? (
                         <Button variant="secondary" onClick={() => setActiveModal({ type: 'review', data: po })}>
                           {activeT.procurement.reviewBtn}
                         </Button>
@@ -849,7 +692,7 @@ export function ProcurementView({
                         </div>
                       )}
                       
-                      {(po.status === 'Disetujui' || po.status === 'Barang Diterima') && (
+                      {canPerformPoAction(role, 'pay') && po.status === 'Barang Diterima' && po.threeWayMatchStatus === 'MATCHED' && !po.paymentInfo && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1046,6 +889,7 @@ export function ProcurementView({
               <div>
                 <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{activeT.procurement.date}</p>
                 <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.date}</p>
+                {activeModal.data.deliveryDate && <p className="text-xs mt-1">{lang === 'en' ? 'Target delivery' : 'Target kirim'}: {activeModal.data.deliveryDate}</p>}
               </div>
               <div className="col-span-2">
                 <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{activeT.procurement.vendor}</p>
@@ -1158,7 +1002,7 @@ export function ProcurementView({
                 <span>3-Way Match (GRN)</span>
               </button>
 
-              {activeModal.type === 'review' && (
+              {activeModal.type === 'review' && canPerformPoAction(role, 'approve') && (
                 <>
                   <Button variant="secondary" onClick={() => setActiveModal(null)}>
                     {activeT.common.close}
@@ -1171,7 +1015,7 @@ export function ProcurementView({
                   </Button>
                 </>
               )}
-              {(activeModal.data.status === 'Disetujui' || activeModal.data.status === 'Barang Diterima') && (
+              {canPerformPoAction(role, 'pay') && activeModal.data.status === 'Barang Diterima' && activeModal.data.threeWayMatchStatus === 'MATCHED' && !activeModal.data.paymentInfo && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1223,6 +1067,7 @@ export function ProcurementView({
           onClose={() => setThreeWayPo(null)}
           po={threeWayPo}
           onSaveGrn={handleSaveGrn}
+          canEdit={canPerformPoAction(role, 'receive') && ['Disetujui', 'Selisih Penerimaan'].includes(threeWayPo.status)}
           lang={lang}
         />
       )}

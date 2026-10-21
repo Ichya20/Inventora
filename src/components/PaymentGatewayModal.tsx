@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, ShieldCheck, Lock, CreditCard, Building2, QrCode, CheckCircle2, 
@@ -7,12 +7,13 @@ import {
 import { PurchaseOrder, PaymentTransaction } from '../types';
 import { Language, Translations, translations as defaultTranslations } from '../i18n';
 import { downloadReceiptPdf } from '../lib/pdfGenerator';
+import { paymentTotals } from '../lib/procurement';
 
 interface PaymentGatewayModalProps {
   isOpen: boolean;
   onClose: () => void;
   po: PurchaseOrder | null;
-  onPaymentSuccess: (transaction: PaymentTransaction) => void;
+  onPaymentSuccess: (transaction: PaymentTransaction) => Promise<void>;
   lang?: Language;
   t?: Translations;
 }
@@ -45,7 +46,10 @@ export function PaymentGatewayModal({
   const [processStep, setProcessStep] = useState(0);
   const [completedTx, setCompletedTx] = useState<PaymentTransaction | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [includeTax, setIncludeTax] = useState(true);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const processing = useRef(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
 
   const activeT = t || defaultTranslations[lang] || defaultTranslations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
@@ -57,6 +61,7 @@ export function PaymentGatewayModal({
       setProcessStep(0);
       setCompletedTx(null);
       setCopiedText(null);
+      setPaymentError(null);
       if (po) {
         setTransferNotes(
           lang === 'en' 
@@ -80,10 +85,7 @@ export function PaymentGatewayModal({
 
   if (!isOpen || !po) return null;
 
-  const baseTotal = po.total || 0;
-  // If include tax (11% PPN)
-  const taxAmount = includeTax ? Math.round(baseTotal * 0.11) : 0;
-  const grandTotal = baseTotal + taxAmount;
+  const { amount: baseTotal, taxAmount, withholdingTaxAmount, totalPaid: grandTotal } = paymentTotals(po);
 
   const getVANumber = () => {
     switch (selectedBank) {
@@ -101,18 +103,21 @@ export function PaymentGatewayModal({
   };
 
   const handleProcessPayment = () => {
+    if (processing.current) return;
+    processing.current = true;
+    setPaymentError(null);
     setIsProcessing(true);
     setProcessStep(1);
 
-    setTimeout(() => {
+    timers.current.push(setTimeout(() => {
       setProcessStep(2);
-    }, 700);
+    }, 700));
 
-    setTimeout(() => {
+    timers.current.push(setTimeout(() => {
       setProcessStep(3);
-    }, 1400);
+    }, 1400));
 
-    setTimeout(() => {
+    timers.current.push(setTimeout(async () => {
       const txId = 'TX-' + Date.now().toString(36).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
       const receiptNumber = 'INV/PAY/' + new Date().getFullYear() + '/' + Math.floor(100000 + Math.random() * 900000);
       
@@ -138,6 +143,7 @@ export function PaymentGatewayModal({
         vendor: po.vendor,
         amount: baseTotal,
         taxAmount: taxAmount,
+        withholdingTaxAmount,
         totalPaid: grandTotal,
         method: selectedMethod,
         methodLabel,
@@ -148,10 +154,13 @@ export function PaymentGatewayModal({
         notes: transferNotes || `Payment for ${po.id}`
       };
 
-      setCompletedTx(tx);
-      setIsProcessing(false);
-      onPaymentSuccess(tx);
-    }, 2200);
+      try {
+        await onPaymentSuccess(tx);
+        setCompletedTx(tx);
+      } catch (error) {
+        setPaymentError(String(error));
+      } finally { setIsProcessing(false); processing.current = false; }
+    }, 2200));
   };
 
   const handlePrintReceipt = () => {
@@ -187,10 +196,10 @@ export function PaymentGatewayModal({
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-semibold tracking-tight text-white">{activeT.gateway.modalTitle}</h2>
                   <span className="text-[10px] font-mono uppercase bg-emerald-950 text-emerald-300 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                    256-bit SSL
+                    {lang === 'en' ? 'Simulation' : 'Simulasi'}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-400">{activeT.gateway.secureSubtitle}</p>
+                <p className="text-xs text-neutral-400">{lang === 'en' ? 'Records a simulated payment; no funds are transferred.' : 'Mencatat simulasi pembayaran; tidak mentransfer dana.'}</p>
               </div>
             </div>
 
@@ -206,6 +215,7 @@ export function PaymentGatewayModal({
           </div>
 
           <div className="p-6 overflow-y-auto flex-1 space-y-6">
+            {paymentError && <p role="alert" className="text-sm text-red-600">{paymentError}</p>}
             {!completedTx ? (
               <>
                 {/* PO Summary Card */}
@@ -243,17 +253,10 @@ export function PaymentGatewayModal({
                       <span className="font-mono">Rp {baseTotal.toLocaleString(numLocale)}</span>
                     </div>
                     <div className="flex items-center justify-between text-[#666] dark:text-[#aaa]">
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={includeTax} 
-                          onChange={(e) => setIncludeTax(e.target.checked)}
-                          className="rounded text-[#0070f3] focus:ring-0 w-3.5 h-3.5"
-                        />
-                        <span>{activeT.gateway.vatTax}:</span>
-                      </label>
+                      <span>{lang === 'en' ? 'VAT from PO' : 'PPN sesuai PO'}:</span>
                       <span className="font-mono">Rp {taxAmount.toLocaleString(numLocale)}</span>
                     </div>
+                    {withholdingTaxAmount > 0 && <div className="flex justify-between"><span>PPh:</span><span>- Rp {withholdingTaxAmount.toLocaleString(numLocale)}</span></div>}
                     <div className="flex justify-between items-center text-sm font-semibold text-[#171717] dark:text-[#ededed] pt-2 border-t border-[#eaeaea] dark:border-[#333]">
                       <span>{activeT.gateway.grandTotal}:</span>
                       <span className="text-base text-[#0070f3] dark:text-[#3291ff] font-mono">
@@ -347,7 +350,7 @@ export function PaymentGatewayModal({
                         </div>
                         <div className="mt-2 pt-2 border-t border-[#f0f0f0] dark:border-[#2a2a2a] text-[11px] text-[#666] dark:text-[#999] flex items-center justify-between">
                           <span>{activeT.gateway.accountHolder}: <strong>PT {po.vendor.toUpperCase()}</strong></span>
-                          <span>Auto-Settlement 24/7</span>
+                          <span>Simulation only</span>
                         </div>
                       </div>
                     </div>
@@ -433,8 +436,8 @@ export function PaymentGatewayModal({
                         <Lock className="w-3.5 h-3.5 shrink-0 text-[#0070f3]" />
                         <span>
                           {lang === 'en' 
-                            ? 'Disbursement executed automatically with corporate multi-signature authorization.' 
-                            : 'Disbursement dijalankan secara otomatis dengan validasi multi-signature korporat.'}
+                            ? 'Records a local wire-transfer simulation. No bank connection is made.'
+                            : 'Mencatat simulasi transfer lokal. Tidak ada koneksi ke bank.'}
                         </span>
                       </div>
                     </div>
@@ -471,7 +474,7 @@ export function PaymentGatewayModal({
                 <div className="flex items-center justify-between text-[11px] text-[#666] dark:text-[#888] px-1">
                   <span className="flex items-center gap-1">
                     <Lock className="w-3 h-3 text-emerald-600" /> 
-                    {lang === 'en' ? 'Protected by encrypted interbank handshake' : 'Transaksi dilindungi verifikasi perbankan terenkripsi'}
+                    {lang === 'en' ? 'Local simulation; no bank authorization' : 'Simulasi lokal; tanpa otorisasi bank'}
                   </span>
                   <span>{lang === 'en' ? 'Authorization' : 'Otorisasi'}: {po.status}</span>
                 </div>
@@ -486,9 +489,9 @@ export function PaymentGatewayModal({
                   <h3 className="text-lg font-bold text-[#171717] dark:text-[#ededed]">{activeT.gateway.successTitle}</h3>
                   <p className="text-xs text-[#666] dark:text-[#aaa]">
                     {lang === 'en' ? (
-                      <>Procurement funds of <strong className="text-[#171717] dark:text-white font-mono">Rp {completedTx.totalPaid.toLocaleString(numLocale)}</strong> have been settled to vendor.</>
+                      <>Simulated payment of <strong className="text-[#171717] dark:text-white font-mono">Rp {completedTx.totalPaid.toLocaleString(numLocale)}</strong> has been recorded; no funds were transferred.</>
                     ) : (
-                      <>Dana pengadaan sebesar <strong className="text-[#171717] dark:text-white font-mono">Rp {completedTx.totalPaid.toLocaleString(numLocale)}</strong> telah disalurkan ke vendor.</>
+                      <>Simulasi pembayaran sebesar <strong className="text-[#171717] dark:text-white font-mono">Rp {completedTx.totalPaid.toLocaleString(numLocale)}</strong> tercatat; tidak ada dana ditransfer.</>
                     )}
                   </p>
                 </div>
@@ -500,10 +503,10 @@ export function PaymentGatewayModal({
                       <div className="w-6 h-6 rounded bg-[#171717] text-white flex items-center justify-center text-xs font-bold">
                         I
                       </div>
-                      <span className="font-bold text-sm text-[#171717] dark:text-[#ededed]">Inventora Enterprise Settlement</span>
+                      <span className="font-bold text-sm text-[#171717] dark:text-[#ededed]">Inventora Payment Simulation</span>
                     </div>
                     <span className="text-[10px] font-mono bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-semibold border border-emerald-200 dark:border-emerald-900">
-                      SETTLED
+                      SIMULATED
                     </span>
                   </div>
 
@@ -540,11 +543,12 @@ export function PaymentGatewayModal({
                       <span className="font-mono">Rp {completedTx.amount.toLocaleString(numLocale)}</span>
                     </div>
                     <div className="flex justify-between text-[#666] dark:text-[#aaa]">
-                      <span>PPN 11%:</span>
+                      <span>PPN:</span>
                       <span className="font-mono">Rp {completedTx.taxAmount.toLocaleString(numLocale)}</span>
                     </div>
+                    {!!completedTx.withholdingTaxAmount && <div className="flex justify-between"><span>PPh:</span><span>- Rp {completedTx.withholdingTaxAmount.toLocaleString(numLocale)}</span></div>}
                     <div className="flex justify-between font-bold text-sm text-[#171717] dark:text-white pt-1.5 border-t border-[#eaeaea] dark:border-[#333]">
-                      <span>{lang === 'en' ? 'Total Settled:' : 'Total Telah Dibayar:'}</span>
+                      <span>{lang === 'en' ? 'Total Recorded:' : 'Total Simulasi Tercatat:'}</span>
                       <span className="font-mono text-emerald-600 dark:text-emerald-400">
                         Rp {completedTx.totalPaid.toLocaleString(numLocale)}
                       </span>
@@ -554,7 +558,7 @@ export function PaymentGatewayModal({
                   <div className="flex items-center justify-between text-[11px] text-[#888] pt-1">
                     <span>
                       {lang === 'en' ? 'PO Status Updated: ' : 'Status PO Diperbarui: '}
-                      <strong>{lang === 'en' ? 'Settled (Paid)' : 'Selesai (Paid)'}</strong>
+                      <strong>{lang === 'en' ? 'Completed (simulation)' : 'Selesai (simulasi)'}</strong>
                     </span>
                     <div className="flex items-center gap-3">
                       <button 
@@ -588,12 +592,12 @@ export function PaymentGatewayModal({
                   <BadgeCheck className="w-4 h-4 text-[#0070f3] shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold block">
-                      {lang === 'en' ? 'Transaction Notification Broadcasted' : 'Notifikasi Transaksi Terkirim'}
+                      {lang === 'en' ? 'Local Notification Recorded' : 'Notifikasi Lokal Tercatat'}
                     </span>
                     <span>
                       {lang === 'en' 
-                        ? 'Real-time notification automatically dispatched to Notification Center and finance audit log.' 
-                        : 'Notifikasi real-time otomatis disiarkan ke Pusat Notifikasi dan email divisi akuntansi.'}
+                        ? 'Recorded in the local Notification Center and transaction list.'
+                        : 'Tercatat di Pusat Notifikasi dan daftar transaksi lokal.'}
                     </span>
                   </div>
                 </div>
@@ -634,9 +638,9 @@ export function PaymentGatewayModal({
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                         <span>
-                          {processStep === 1 && (lang === 'en' ? 'Connecting to Bank...' : 'Menghubungi Bank...')}
-                          {processStep === 2 && (lang === 'en' ? 'Validating Signature...' : 'Memvalidasi Signature...')}
-                          {processStep === 3 && (lang === 'en' ? 'Confirming Settlement...' : 'Mengonfirmasi Settlement...')}
+                          {processStep === 1 && (lang === 'en' ? 'Preparing simulation...' : 'Menyiapkan simulasi...')}
+                          {processStep === 2 && (lang === 'en' ? 'Checking PO...' : 'Memeriksa PO...')}
+                          {processStep === 3 && (lang === 'en' ? 'Saving simulation...' : 'Menyimpan simulasi...')}
                         </span>
                       </>
                     ) : (

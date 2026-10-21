@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Sparkles, FileText, Plus, Trash2, CheckCircle2, Calculator, Percent, ArrowLeft, Building2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Button } from './UI';
 import { translations, Language, Translations } from '../i18n';
 import { SmartInvoiceParserModal, ParsedInvoiceData } from './SmartInvoiceParserModal';
 import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
-import { POLineItem, ToastType, AppNotification, PurchaseOrder } from '../types';
+import { Role, POLineItem, ToastType, AppNotification, PurchaseOrder } from '../types';
+import { canPerformPoAction } from '../lib/authorization';
+import { poStorageKey } from '../lib/procurement';
 import { loadStoredData, saveStoredData } from '../lib/storageUtils';
 
 interface PurchaseUnitViewProps {
+  role: Role;
+  isDemo: boolean;
+  ownerId: string;
   onNavigate: (menu: string) => void;
   onToast?: (msg: string, type?: ToastType, options?: { title?: string; actionLabel?: string; onAction?: () => void }) => void;
   onNotify?: (n: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
@@ -40,12 +45,14 @@ export function PurchaseUnitView({
   onToast, 
   onNotify, 
   t, 
-  lang = 'en' 
+  lang = 'en', role, isDemo, ownerId
 }: PurchaseUnitViewProps) {
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
   const [step, setStep] = useState<'form' | 'success'>('form');
+  const submitting = useRef(false);
+  const storageKey = poStorageKey(isDemo, ownerId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiParserOpen, setIsAiParserOpen] = useState(false);
   const [createdPoNumber, setCreatedPoNumber] = useState('');
@@ -53,7 +60,7 @@ export function PurchaseUnitView({
   // Form states
   const [department, setDepartment] = useState('IT Infrastructure');
   const [vendor, setVendor] = useState('nvidia');
-  const [deliveryDate, setDeliveryDate] = useState('2026-09-15');
+  const [deliveryDate, setDeliveryDate] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [notes, setNotes] = useState('');
 
   // Multi-line items
@@ -70,6 +77,7 @@ export function PurchaseUnitView({
 
   // Tax and discount toggles
   const [applyVat, setApplyVat] = useState(true); // PPN 11%
+  const [importedTaxAmount, setImportedTaxAmount] = useState<number | null>(null);
   const [applyPph, setApplyPph] = useState(false); // PPh 22 (1.5%)
   const [discountPercent, setDiscountPercent] = useState<number>(0);
 
@@ -77,7 +85,7 @@ export function PurchaseUnitView({
   const subtotal = items.reduce((acc, it) => acc + (it.qty * it.unitPrice), 0);
   const discountAmount = Math.round((subtotal * discountPercent) / 100);
   const netSubtotal = Math.max(0, subtotal - discountAmount);
-  const vatAmount = applyVat ? Math.round(netSubtotal * 0.11) : 0;
+  const vatAmount = applyVat ? importedTaxAmount ?? Math.round(netSubtotal * 0.11) : 0;
   const pphAmount = applyPph ? Math.round(netSubtotal * 0.015) : 0;
   const grandTotal = netSubtotal + vatAmount - pphAmount;
 
@@ -85,6 +93,7 @@ export function PurchaseUnitView({
   const budgetCheck = checkDepartmentBudgetLimit(department, grandTotal);
 
   const handleAddItem = () => {
+    setImportedTaxAmount(null);
     const newItem: RequisitionItem = {
       id: `item-${Date.now()}`,
       sku: '',
@@ -97,11 +106,13 @@ export function PurchaseUnitView({
   };
 
   const handleRemoveItem = (id: string) => {
+    setImportedTaxAmount(null);
     if (items.length <= 1) return;
     setItems(prev => prev.filter(i => i.id !== id));
   };
 
   const handleItemChange = (id: string, field: keyof RequisitionItem, value: any) => {
+    if (field === 'qty' || field === 'unitPrice') setImportedTaxAmount(null);
     setItems(prev => prev.map(item => {
       if (item.id !== id) return item;
       const updated = { ...item, [field]: value };
@@ -115,6 +126,7 @@ export function PurchaseUnitView({
   };
 
   const handleSelectCatalogItem = (rowId: string, sku: string) => {
+    setImportedTaxAmount(null);
     const cat = POPULAR_CATALOG.find(c => c.sku === sku);
     if (!cat) return;
     setItems(prev => prev.map(item => {
@@ -134,11 +146,7 @@ export function PurchaseUnitView({
 
   const handleApplyAiInvoice = (data: ParsedInvoiceData) => {
     if (data.vendor) {
-      const vLower = data.vendor.toLowerCase();
-      if (vLower.includes('cisco')) setVendor('cisco');
-      else if (vLower.includes('dell')) setVendor('dell');
-      else if (vLower.includes('nvidia')) setVendor('nvidia');
-      else setVendor('nvidia');
+      setVendor(data.vendor.trim());
     }
 
     if (data.items && data.items.length > 0) {
@@ -153,9 +161,10 @@ export function PurchaseUnitView({
       setItems(mapped);
     }
 
-    if (data.taxAmount && data.taxAmount > 0) {
-      setApplyVat(true);
-    }
+    setApplyVat(data.taxAmount > 0);
+    setImportedTaxAmount(data.taxAmount);
+    setApplyPph(false);
+    setDiscountPercent(0);
 
     const noteLines = [
       data.notes || '',
@@ -168,18 +177,25 @@ export function PurchaseUnitView({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting.current) return;
+    if (!canPerformPoAction(role, 'create') || !vendor.trim() || !deliveryDate || !Number.isFinite(grandTotal) || grandTotal <= 0 || discountPercent < 0 || discountPercent > 100 ||
+      items.some(item => !item.name.trim() || !Number.isInteger(Number(item.qty)) || item.qty <= 0 || !Number.isFinite(Number(item.unitPrice)) || item.unitPrice < 0)) {
+      onToast?.(lang === 'en' ? 'Check access, vendor, delivery date and positive item amounts.' : 'Periksa hak akses, vendor, tanggal kirim, serta jumlah dan harga barang.', 'error');
+      return;
+    }
+    submitting.current = true;
     setIsSubmitting(true);
     
     // Generate department code prefix
     const deptPrefix = department.includes('IT') ? 'IT' : department.includes('Operations') ? 'OPS' : department.includes('Engineering') ? 'RND' : 'GA';
-    const randomSeq = Math.floor(1000 + Math.random() * 9000);
-    const newPoId = `PO-2026-${deptPrefix}-${randomSeq}`;
+    const newPoId = `PO-${new Date().getFullYear()}-${deptPrefix}-${crypto.randomUUID().slice(0, 12)}`;
     setCreatedPoNumber(newPoId);
 
     const vendorName = vendor === 'nvidia' ? 'NVIDIA Corp Indonesia'
       : vendor === 'cisco' ? 'Cisco Systems Indonesia'
       : vendor === 'dell' ? 'Dell EMC Indonesia'
-      : vendor;
+      : vendor === 'lenovo' ? 'Lenovo Enterprise Solution'
+      : vendor === 'apc' ? 'APC by Schneider Electric' : vendor;
 
     const formattedDate = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID', {
       day: '2-digit',
@@ -192,6 +208,7 @@ export function PurchaseUnitView({
       vendor: vendorName,
       desc: notes ? notes.split('\n')[0] : `${department} Requisition (${items.length} items)`,
       date: formattedDate,
+      deliveryDate,
       total: grandTotal,
       subtotal,
       discountAmount,
@@ -219,24 +236,25 @@ export function PurchaseUnitView({
       }))
     };
 
-    // 1. Immediately persist to localStorage so ProcurementView and all tables reflect it
     try {
-      const existing = loadStoredData<PurchaseOrder[]>('inventora_procurement_pos_v1', []);
-      saveStoredData('inventora_procurement_pos_v1', [newPo, ...existing]);
+      if (!isDemo) {
+        if (!navigator.onLine) throw new Error('Pembuatan PO memerlukan koneksi server. Formulir tetap tersedia untuk dicoba kembali.');
+        const { db } = await import('../firebase');
+        const { doc, runTransaction } = await import('firebase/firestore');
+        await runTransaction(db, async transaction => {
+          const ref = doc(db, 'purchaseOrders', newPo.id);
+          if ((await transaction.get(ref)).exists()) throw new Error('Nomor PO sudah digunakan. Coba kembali.');
+          transaction.set(ref, newPo);
+        });
+      }
+      const existing = loadStoredData<PurchaseOrder[]>(storageKey, []);
+      saveStoredData(storageKey, [newPo, ...existing], isDemo);
       window.dispatchEvent(new CustomEvent('inventora_po_created', { detail: newPo }));
-    } catch (err) {
-      console.warn("Local storage write error:", err);
+    } catch (error) {
+      onToast?.(String(error), 'error');
+      setIsSubmitting(false); submitting.current = false;
+      return;
     }
-
-    // 2. Sync to Firebase Firestore if connected
-    try {
-      const { db } = await import('../firebase');
-      const { setDoc, doc } = await import('firebase/firestore');
-      await setDoc(doc(db, 'purchaseOrders', newPo.id), newPo);
-    } catch (err) {
-      console.warn("Firestore sync skipped:", err);
-    }
-
     // 3. User feedback toast & notification
     if (onToast) {
       onToast(
@@ -268,7 +286,7 @@ export function PurchaseUnitView({
     }
 
     setTimeout(() => {
-      setIsSubmitting(false);
+      setIsSubmitting(false); submitting.current = false;
       setStep('success');
     }, 600);
   };
@@ -440,6 +458,7 @@ export function PurchaseUnitView({
                   <option value="dell">Dell EMC Indonesia (Server & Storage)</option>
                   <option value="lenovo">Lenovo Enterprise Solution</option>
                   <option value="apc">APC by Schneider Electric</option>
+                  {!['nvidia', 'cisco', 'dell', 'lenovo', 'apc'].includes(vendor) && <option value={vendor}>{vendor}</option>}
                 </select>
               </div>
 
@@ -580,11 +599,11 @@ export function PurchaseUnitView({
                     <input
                       type="checkbox"
                       checked={applyVat}
-                      onChange={(e) => setApplyVat(e.target.checked)}
+                      onChange={(e) => { setApplyVat(e.target.checked); setImportedTaxAmount(null); }}
                       className="rounded text-[#0070f3] focus:ring-[#0070f3]"
                     />
                     <span className="text-neutral-700 dark:text-neutral-300">
-                      {lang === 'en' ? 'PPN 11% (Indonesian Value Added Tax)' : 'PPN 11% (Pajak Pertambahan Nilai)'}
+                      {importedTaxAmount !== null ? (lang === 'en' ? 'VAT from invoice' : 'PPN sesuai invoice') : (lang === 'en' ? 'PPN 11% (Indonesian Value Added Tax)' : 'PPN 11% (Pajak Pertambahan Nilai)')}
                     </span>
                   </label>
                   <label className="flex items-center gap-2.5 text-xs cursor-pointer">
@@ -607,7 +626,7 @@ export function PurchaseUnitView({
                       min="0"
                       max="50"
                       value={discountPercent}
-                      onChange={(e) => setDiscountPercent(Number(e.target.value) || 0)}
+                      onChange={(e) => { setDiscountPercent(Number(e.target.value) || 0); setImportedTaxAmount(null); }}
                       className="w-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-0.5 text-xs font-mono"
                     />
                   </div>
@@ -627,7 +646,7 @@ export function PurchaseUnitView({
                 )}
                 {applyVat && (
                   <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
-                    <span>PPN 11%:</span>
+                    <span>{importedTaxAmount !== null ? 'PPN (invoice)' : 'PPN 11%'}:</span>
                     <span className="font-mono">+ Rp {vatAmount.toLocaleString(numLocale)}</span>
                   </div>
                 )}

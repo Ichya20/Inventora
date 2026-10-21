@@ -2,23 +2,8 @@ import React, { useState } from 'react';
 import { Sparkles, FileText, CheckCircle2, RefreshCw, ArrowRight, CornerDownLeft, AlertCircle } from 'lucide-react';
 import { Modal } from './UI';
 
-interface ParsedInvoiceItem {
-  name: string;
-  qty: number;
-  unitPrice: number;
-  subtotal: number;
-}
-
-export interface ParsedInvoiceData {
-  vendor: string;
-  invoiceNo?: string;
-  date?: string;
-  items: ParsedInvoiceItem[];
-  subtotal: number;
-  taxAmount: number;
-  grandTotal: number;
-  notes?: string;
-}
+import { validateParsedInvoice, type ParsedInvoiceData } from '../lib/invoiceValidation';
+export type { ParsedInvoiceData } from '../lib/invoiceValidation';
 
 interface SmartInvoiceParserModalProps {
   isOpen: boolean;
@@ -61,31 +46,19 @@ export function SmartInvoiceParserModal({
     if (!rawText.trim()) return;
     setIsLoading(true);
     setError(null);
+    setParsed(null);
     try {
       const res = await fetch('/api/ai/parse-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: rawText })
       });
-      if (!res.ok) throw new Error('Failed to parse invoice text');
       const data = await res.json();
-      setParsed(data);
+      if (!res.ok) throw new Error(data.error || 'Failed to parse invoice text');
+      setParsed(validateParsedInvoice(data));
     } catch (e: any) {
-      console.warn('Notice: Local document parser fallback active:', e);
-      setParsed({
-        vendor: "PT Citra Mandiri Solusindo",
-        invoiceNo: "CMS-2026-" + Math.floor(1000 + Math.random() * 9000),
-        date: new Date().toISOString().split("T")[0],
-        items: [
-          { name: "Cisco Catalyst Core Switch 48-Port PoE+", qty: 4, unitPrice: 45000000, subtotal: 180000000 },
-          { name: "SFP+ 10G Optical Transceiver Modules", qty: 16, unitPrice: 2500000, subtotal: 40000000 },
-          { name: "24U Server Rack Enclosure with PDU", qty: 2, unitPrice: 12500000, subtotal: 25000000 }
-        ],
-        subtotal: 245000000,
-        taxAmount: 26950000,
-        grandTotal: 271950000,
-        notes: "Parsed and structured via Inventora Document Extraction Pipeline."
-      });
+      setParsed(null);
+      setError(e.message || 'Ekstraksi gagal. Periksa koneksi dan isi formulir secara manual.');
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +90,7 @@ export function SmartInvoiceParserModal({
           </label>
           <textarea
             value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
+            onChange={(e) => { setRawText(e.target.value); setParsed(null); }}
             rows={6}
             placeholder={lang === 'en' ? 'Paste quotation or invoice text here...' : 'Tempel teks penawaran atau faktur di sini...'}
             className="w-full p-3 font-mono text-xs bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0070f3] text-neutral-800 dark:text-neutral-200"
@@ -127,7 +100,7 @@ export function SmartInvoiceParserModal({
         <div className="flex justify-between items-center">
           <button
             type="button"
-            onClick={() => setRawText(SAMPLE_RAW_QUOTE)}
+            onClick={() => { setRawText(SAMPLE_RAW_QUOTE); setParsed(null); }}
             className="text-[11px] text-[#0070f3] hover:underline cursor-pointer"
           >
             {lang === 'en' ? 'Reset with sample quote' : 'Gunakan contoh penawaran'}

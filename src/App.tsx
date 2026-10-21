@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages, Keyboard } from 'lucide-react';
 import { ToastType, ToastItem, ToastFunction, Role, PurchaseOrder, PaymentTransaction, AppNotification } from './types';
 import { translations, Language, Translations } from './i18n';
@@ -13,12 +12,16 @@ import { NetworkStatusIndicator } from './components/NetworkStatusIndicator';
 import { useNetworkStatus } from './lib/useNetworkStatus';
 import { ShortcutsModal, useGlobalHotkeys } from './components/ShortcutsModal';
 import { AiCopilotDrawer } from './components/AiCopilotDrawer';
-import { RestockForecastCard } from './components/RestockForecastCard';
 import { InteractiveToaster, playNotificationChime } from './components/InteractiveToaster';
 import { InventoraLoadingScreen } from './components/InventoraLoadingScreen';
 import { OpeningSequence } from './components/OpeningSequence';
 import { exportToCsv, exportToJson } from './lib/exportUtils';
-import { loadStoredData, saveStoredData, clearAllInventoraStorage } from './lib/storageUtils';
+import { loadStoredData, saveStoredData, clearAllInventoraStorage, createInventoraBackup } from './lib/storageUtils';
+import { canAccessMenu, isRole } from './lib/authorization';
+import { readDemoUser } from './lib/demoSession';
+import { useWorkspaceSummary } from './lib/useWorkspaceSummary';
+
+const InventoryView = lazy(() => import('./components/InventoryView').then(m => ({ default: m.InventoryView })));
 
 // Lazy-loaded views for code splitting and instant initial page load
 const ProcurementView = lazy(() => import('./components/ProcurementView').then(m => ({ default: m.ProcurementView })));
@@ -197,394 +200,47 @@ const Modal = ({ isOpen, onClose, title, children }: any) => {
   );
 };
 
-function InventoryView({ 
-  onToast, 
-  onNavigate,
-  t, 
-  lang = 'en' 
-}: { 
-  onToast: ToastFunction;
-  onNavigate?: (menu: string) => void;
-  t?: Translations;
-  lang?: Language;
+function OverviewView({ onNavigate, t, lang, summary, role, isDemo, notifications }: {
+  onNavigate: (menu: string) => void; t: Translations; lang: Language;
+  summary: ReturnType<typeof useWorkspaceSummary>; role: Role | null; isDemo: boolean; notifications: AppNotification[];
 }) {
-  const activeT = t || translations[lang] || translations.en;
-  const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
-
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [search, setSearch] = useState('');
-  
-  const defaultItems = [
-    { id: 'NV-H100-TC', name: 'NVIDIA H100 Tensor Core GPU', desc: lang === 'en' ? 'AI Engineering Infra' : 'Infrastruktur AI Engineering', stock: 142, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
-    { id: 'RS-W1-PRO', name: 'Rack Server Web Infrastructure', desc: lang === 'en' ? 'Server Infra' : 'Infrastruktur Server', stock: 58, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
-    { id: 'NV-4090-FE', name: 'NVIDIA RTX 4090 Founders Edition', desc: lang === 'en' ? 'Workstation Graphics' : 'Grafis Workstation', stock: 12, status: lang === 'en' ? 'Monitoring' : 'Pemantauan', color: 'orange' as const },
-    { id: 'SW-10GBE-L3', name: '10GbE Network L3 Managed Switch', desc: lang === 'en' ? 'Networking' : 'Jaringan', stock: 86, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
-    { id: 'AP-WIFI-6E', name: 'Enterprise WiFi 6E Access Point', desc: lang === 'en' ? 'Networking' : 'Jaringan', stock: 24, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
-    { id: 'STR-NVME-8TB', name: '8TB NVMe Enterprise Storage', desc: lang === 'en' ? 'Storage Infra' : 'Infrastruktur Penyimpanan', stock: 8, status: lang === 'en' ? 'Critical' : 'Kritis', color: 'red' as const },
-    { id: 'UPS-3KVA-RT', name: '3kVA Rackmount UPS', desc: lang === 'en' ? 'Power Infra' : 'Infrastruktur Daya', stock: 45, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
-    { id: 'FW-NGFW-10G', name: 'Next-Gen Firewall 10Gbps', desc: lang === 'en' ? 'Security' : 'Keamanan', stock: 15, status: lang === 'en' ? 'Monitoring' : 'Pemantauan', color: 'orange' as const },
-    { id: 'LB-L4-PRO', name: 'Hardware Load Balancer L4/L7', desc: lang === 'en' ? 'Networking' : 'Jaringan', stock: 22, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
-    { id: 'MON-32-4K', name: '32" 4K Professional Monitor', desc: 'Workstation', stock: 110, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
-    { id: 'KBM-WL-PRO', name: 'Wireless Pro Keyboard & Mouse', desc: 'Workstation', stock: 340, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
-    { id: 'DS-24B-NAS', name: '24-Bay Enterprise NAS', desc: lang === 'en' ? 'Storage Infra' : 'Infrastruktur Penyimpanan', stock: 5, status: lang === 'en' ? 'Critical' : 'Kritis', color: 'red' as const }
-  ];
-
-  const [items, setItems] = useState(() => {
-    return loadStoredData('inventora_inventory_v1', defaultItems);
-  });
-
-  useEffect(() => {
-    saveStoredData('inventora_inventory_v1', items);
-  }, [items]);
-
-  const [page, setPage] = useState(1);
-  const itemsPerPage = 5;
-  const [sortConfig, setSortConfig] = useState<{ key: keyof typeof items[0], direction: 'asc' | 'desc' } | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-  const debouncedSearch = useDebounce(search, 180);
-
-  const chartData = [
-    { name: 'Jan', stock: 900 },
-    { name: 'Feb', stock: 950 },
-    { name: 'Mar', stock: 1020 },
-    { name: 'Apr', stock: 1000 },
-    { name: 'May', stock: 1080 },
-    { name: 'Jun', stock: 1104 }
-  ];
-
-  const handleSort = (key: keyof typeof items[0]) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => {
-      if (!sortConfig) return 0;
-      if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [items, sortConfig]);
-
-  const filteredItems = useMemo(() => {
-    return sortedItems.filter(item => 
-      item.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
-      item.id.toLowerCase().includes(debouncedSearch.toLowerCase())
-    );
-  }, [sortedItems, debouncedSearch]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
-  const paginatedItems = useMemo(() => {
-    return filteredItems.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-  }, [filteredItems, page, itemsPerPage]);
-
-  const handleExport = () => {
-    setIsExporting(true);
-    try {
-      const headers = ['SKU ID', 'Item Name', 'Category / Description', 'Stock Count', 'Health Status'];
-      const rows = filteredItems.map(item => [
-        item.id,
-        item.name,
-        item.desc,
-        item.stock,
-        item.status
-      ]);
-      exportToCsv(`inventora-inventory-stock-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
-      onToast(
-        lang === 'en' ? "Inventory data exported as CSV" : "Data inventaris berhasil diekspor sebagai CSV", 
-        "success",
-        { title: lang === 'en' ? 'CSV Export Completed' : 'Ekspor CSV Berhasil' }
-      );
-    } catch (e) {
-      onToast("Export failed", "error");
-    } finally {
-      setTimeout(() => setIsExporting(false), 500);
-    }
-  };
-
-  const handleGenerateReport = () => {
-    setIsGenerating(true);
-    try {
-      const headers = ['SKU ID', 'Item Name', 'Stock Count', 'Condition', 'Estimated Reorder Threshold', 'Audit Status'];
-      const rows = items.map(item => [
-        item.id,
-        item.name,
-        item.stock,
-        item.status,
-        item.stock < 15 ? 'CRITICAL - REORDER IMMEDIATELY' : item.stock < 30 ? 'MONITOR BUFFER' : 'HEALTHY BUFFER',
-        'AUDITED_VERIFIED'
-      ]);
-      exportToCsv(`inventora-inventory-audit-report-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
-      onToast(
-        activeT.inventory.reportSuccess, 
-        "success",
-        { title: lang === 'en' ? 'Audit Report Generated' : 'Laporan Audit Siap' }
-      );
-    } catch (e) {
-      onToast("Audit generation failed", "error");
-    } finally {
-      setTimeout(() => setIsGenerating(false), 500);
-    }
-  };
-
-  const handleDeploy = (id: string) => {
-    setItems(currentItems => currentItems.map(item => {
-      if (item.id === id && item.stock > 0) {
-        return { ...item, stock: item.stock - 1 };
-      }
-      return item;
-    }));
-    onToast(
-      lang === 'en' ? `1 unit of ${id} dispatched from warehouse` : `1 unit ${id} berhasil dideploy dari gudang`, 
-      "success",
-      {
-        title: lang === 'en' ? 'Stock Dispatched' : 'Stok Berkurang',
-        actionLabel: lang === 'en' ? 'Audit Trail' : 'Buka Audit',
-        onAction: () => onNavigate('po')
-      }
-    );
-  };
-
+  const count = (value: number | null) => value === null ? '—' : value.toLocaleString(lang === 'en' ? 'en-US' : 'id-ID');
+  const missing = lang === 'en' ? 'Open an authorized module to load its data.' : 'Buka modul yang diizinkan untuk memuat datanya.';
+  const cards = [
+    { label: lang === 'en' ? 'Recorded PO Value' : 'Nilai PO Tercatat', value: summary.poValue === null ? '—' : `Rp ${count(summary.poValue)}`, note: lang === 'en' ? 'Excludes rejected orders; includes completed orders.' : 'Tidak termasuk PO ditolak; mencakup PO selesai.', menu: 'po' },
+    { label: t.overview.activePos, value: count(summary.activePosCount), note: summary.pendingApprovalsCount === null ? missing : `${count(summary.pendingApprovalsCount)} ${lang === 'en' ? 'pending approvals' : 'menunggu persetujuan'}`, menu: 'po' },
+    { label: t.overview.lowStockAlerts, value: count(summary.lowStockCount), note: lang === 'en' ? 'Items marked critical or monitoring in local inventory.' : 'Item berstatus kritis atau pemantauan di inventori lokal.', menu: 'stok' },
+    { label: lang === 'en' ? 'Employee Directory' : 'Direktori Karyawan', value: count(summary.totalHeadcount), note: lang === 'en' ? 'Personnel recorded in this browser.' : 'Personel yang tersimpan di browser ini.', menu: 'sdm' },
+  ].filter(card => canAccessMenu(role, card.menu));
+  const actions = [
+    { menu: 'purchase', label: t.overview.createPo }, { menu: 'keuangan', label: t.overview.generateInvoice },
+    { menu: 'sdm', label: t.overview.onboardEmployee }, { menu: 'analytics', label: t.overview.viewAnalytics },
+  ].filter(action => canAccessMenu(role, action.menu));
+  const activities = notifications.filter(item => !['notif-gateway-init', 'notif-po-approved'].includes(item.id)).slice(0, 5);
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
-        <Card>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.totalUnits}</p>
-              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-                {items.reduce((acc, item) => acc + item.stock, 1104).toLocaleString(numLocale)}
-              </h3>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-                <span className="text-[#0070f3] dark:text-[#3291ff] font-medium">+12.5%</span> {activeT.inventory.fromLastMonth}
-              </p>
-            </div>
-            <div className="w-24 h-16">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorStock" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0070f3" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#0070f3" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="stock" stroke="#0070f3" fillOpacity={1} fill="url(#colorStock)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.assetValuation}</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-            {lang === 'en' ? '$1.4M / Rp 21.03B' : 'Rp 21,03 Miliar'}
-          </h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">{activeT.inventory.valuationHint}</p>
-        </Card>
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.outboundRequests}</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">24</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-            <span className="text-[#f5a623] font-medium">8</span> {activeT.inventory.processedToday}
-          </p>
-        </Card>
+      <p className="text-sm text-neutral-500">{isDemo
+        ? (lang === 'en' ? 'Demo workspace · totals follow local records. A dash means data has not loaded.' : 'Workspace demo · total mengikuti data lokal. Tanda — berarti data belum dimuat.')
+        : (lang === 'en' ? 'PO totals use Firestore. Inventory and HR use this browser’s local records. A dash means data is unavailable.' : 'Total PO memakai Firestore. Inventori dan SDM memakai arsip lokal browser. Tanda — berarti data belum tersedia.')}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {cards.map(card => <Card key={card.label}>
+          <p className="text-sm font-medium text-neutral-500">{card.label}</p>
+          <h3 className="text-2xl font-semibold tracking-tight mt-2 break-words tabular-nums">{card.value}</h3>
+          <p className="text-xs text-neutral-500 mt-2 min-h-10">{card.value === '—' ? missing : card.note}</p>
+          <div className="mt-4"><Button variant="secondary" onClick={() => onNavigate(card.menu)}>{lang === 'en' ? 'Open module' : 'Buka modul'}</Button></div>
+        </Card>)}
       </div>
-
-      <div className="bg-[#fafafa] dark:bg-[#111] px-6 py-4 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] flex flex-wrap gap-4 items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="p-2 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] bg-white dark:bg-[#1a1a1a] rounded-full">
-            <svg className="w-5 h-5 text-[#0070f3] dark:text-[#3291ff]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-          </div>
-          <div>
-            <h4 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">{activeT.inventory.statusOptimal}</h4>
-            <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{activeT.inventory.statusOptimalDesc}</p>
-          </div>
-        </div>
-        <Button variant="primary" onClick={handleGenerateReport} isLoading={isGenerating}>
-          {activeT.inventory.generateReport}
-        </Button>
-      </div>
-
-      {/* Gemini AI Predictive Restock & Demand Forecaster */}
-      <RestockForecastCard
-        inventory={items}
-        onGeneratePo={(forecast) => {
-          if (onNavigate) {
-            onNavigate('purchase');
-            onToast(lang === 'en' ? `Drafting restock PO for ${forecast.name}` : `Menyiapkan PO restok untuk ${forecast.name}`, 'info');
-          }
-        }}
-        lang={lang}
-      />
-
-      <TableWrapper 
-        title={activeT.inventory.tableTitle} 
-        placeholder={activeT.inventory.searchPlaceholder}
-        searchValue={search}
-        onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
-        onExport={handleExport}
-        isExporting={isExporting}
-        currentPage={page}
-        totalPages={totalPages || 1}
-        onPageChange={setPage}
-      >
-        <thead className="sticky top-0 z-10">
-          <tr>
-            <Th sortable onSort={() => handleSort('id')}>{activeT.inventory.skuCol}</Th>
-            <Th sortable onSort={() => handleSort('name')}>{activeT.inventory.deviceNameCol}</Th>
-            <Th sortable onSort={() => handleSort('stock')}>{activeT.inventory.stockCol}</Th>
-            <Th sortable onSort={() => handleSort('status')}>{activeT.inventory.conditionCol}</Th>
-            <Th align="right">{activeT.inventory.quickActionCol}</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {paginatedItems.length > 0 ? (
-            paginatedItems.map((item, idx) => (
-              <Tr key={item.id} index={idx}>
-                <Td><span className="font-mono text-xs text-[#666] dark:text-[#a1a1aa]">{item.id}</span></Td>
-                <Td>
-                  <div className="font-medium tracking-tight">{item.name}</div>
-                  <div className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{item.desc}</div>
-                </Td>
-                <Td><span className="tabular-nums">{item.stock} Units</span></Td>
-                <Td><Badge color={item.color}>{item.status}</Badge></Td>
-                <Td align="right">
-                  <Button variant="secondary" onClick={() => handleDeploy(item.id)} disabled={item.stock === 0}>
-                    {activeT.inventory.deployBtn}
-                  </Button>
-                </Td>
-              </Tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={5} className="px-6 py-12 text-center text-[#666] dark:text-[#a1a1aa] text-sm">
-                {activeT.inventory.noItems}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </TableWrapper>
-    </section>
-  );
-}
-
-function OverviewView({ onNavigate, t, lang }: { onNavigate: (menu: string) => void, t: Translations, lang: Language }) {
-  const chartData = [
-    { name: 'Jan', revenue: 4000 },
-    { name: 'Feb', revenue: 3000 },
-    { name: 'Mar', revenue: 5000 },
-    { name: 'Apr', revenue: 8000 },
-    { name: 'May', revenue: 11000 },
-    { name: 'Jun', revenue: 12800 },
-  ];
-
-  const activities = [
-    { id: 1, time: '10:42 AM', user: 'Admin', action: lang === 'en' ? 'approved PO-2026-1042' : 'menyetujui PO-2026-1042', icon: CheckCircle2, color: 'text-[#10b981]' },
-    { id: 2, time: '09:15 AM', user: 'System', action: lang === 'en' ? 'flagged STR-NVME-8TB as low stock' : 'menandai STR-NVME-8TB stok kritis', icon: AlertCircle, color: 'text-[#e00]' },
-    { id: 3, time: 'Yesterday', user: 'Finance', action: lang === 'en' ? 'generated invoice INV-OUT-893' : 'menerbitkan invoice INV-OUT-893', icon: FileText, color: 'text-[#0070f3]' },
-    { id: 4, time: 'Yesterday', user: 'HR', action: lang === 'en' ? 'onboarded new employee EMP-10113' : 'menyelesaikan onboarding EMP-10113', icon: UserCircle, color: 'text-[#f5a623]' },
-    { id: 5, time: 'Aug 24', user: 'System', action: lang === 'en' ? 'completed weekly payroll run' : 'menyelesaikan siklus payroll mingguan', icon: Activity, color: 'text-[#10b981]' },
-  ];
-
-  return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
-        <Card>
-          <div className="flex flex-col justify-between h-full">
-            <div>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.totalRevenue}</p>
-              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-                {lang === 'en' ? '$850K / Rp 12.8M' : 'Rp 12,8 Miliar'}
-              </h3>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+18%</span> {t.overview.vsLastMonth}</p>
-            </div>
-            <div className="w-full h-16 mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorRevOverview" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={1} fill="url(#colorRevOverview)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </Card>
-        
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.activePos}</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">45</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#0070f3] dark:text-[#3291ff] font-medium">12</span> {t.overview.pendingApprovals}</p>
-          <div className="mt-6">
-            <Button variant="secondary" onClick={() => onNavigate('po')}>{lang === 'en' ? 'Review POs' : 'Tinjau PO'}</Button>
-          </div>
-        </Card>
-
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.lowStockAlerts}</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#e00] dark:text-[#ff3333] tabular-nums">4</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">{t.overview.belowSafety}</p>
-          <div className="mt-6">
-            <Button variant="secondary" onClick={() => onNavigate('stok')}>{lang === 'en' ? 'Check Inventory' : 'Periksa Stok'}</Button>
-          </div>
-        </Card>
-
-        <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{t.overview.employeeHeadcount}</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">342</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2"><span className="text-[#10b981] dark:text-[#34d399] font-medium">+15</span> {t.overview.newThisMonth}</p>
-          <div className="mt-6">
-            <Button variant="secondary" onClick={() => onNavigate('sdm')}>{lang === 'en' ? 'Manage HR' : 'Kelola SDM'}</Button>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          <div className="bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] p-6">
-            <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-4">{t.overview.quickActions}</h3>
-            <div className="flex flex-wrap gap-4">
-              <Button variant="secondary" onClick={() => onNavigate('purchase')}>{t.overview.createPo}</Button>
-              <Button variant="secondary" onClick={() => onNavigate('keuangan')}>{t.overview.generateInvoice}</Button>
-              <Button variant="secondary" onClick={() => onNavigate('sdm')}>{t.overview.onboardEmployee}</Button>
-              <Button variant="secondary" onClick={() => onNavigate('analytics')}>{t.overview.viewAnalytics}</Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] p-6 h-full">
-            <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">{t.overview.activityStream}</h3>
-            <div className="space-y-6">
-              {activities.map((act, index) => {
-                const Icon = act.icon;
-                return (
-                  <div key={act.id} className="flex gap-4 relative">
-                    {index !== activities.length - 1 && (
-                      <div className="absolute top-6 left-2 bottom-[-1.5rem] w-px bg-[#eaeaea] dark:bg-[#333]"></div>
-                    )}
-                    <div className="relative z-10 w-4 h-4 mt-1 bg-white dark:bg-[#111] rounded-full flex items-center justify-center">
-                      <Icon className={`w-4 h-4 ${act.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-sm text-[#171717] dark:text-[#ededed]"><span className="font-medium">{act.user}</span> {act.action}</p>
-                      <p className="text-xs text-[#999] dark:text-[#666] mt-0.5">{act.time}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
+      <Card>
+        <h3 className="font-semibold mb-4">{t.overview.quickActions}</h3>
+        <div className="flex flex-wrap gap-3">{actions.map(action => <Button key={action.menu} variant="secondary" onClick={() => onNavigate(action.menu)}>{action.label}</Button>)}</div>
+      </Card>
+      <Card>
+        <h3 className="font-semibold mb-4">{t.overview.activityStream}</h3>
+        {activities.length ? <div className="space-y-4">{activities.map(item => <div key={item.id}>
+          <p className="text-sm font-medium">{item.title}</p><p className="text-sm text-neutral-500">{item.message}</p>
+          <time className="text-xs text-neutral-500">{new Date(item.timestamp).toLocaleString(lang === 'en' ? 'en-US' : 'id-ID')}</time>
+        </div>)}</div> : <p className="text-sm text-neutral-500">{lang === 'en' ? 'No recorded activity yet. Open a module to get started.' : 'Belum ada aktivitas tercatat. Buka modul untuk mulai bekerja.'}</p>}
+      </Card>
     </section>
   );
 }
@@ -770,18 +426,9 @@ function SettingsView({
                     <button
                       type="button"
                       onClick={() => {
-                        const allData = {
-                          version: '1.0',
-                          exportedAt: new Date().toISOString(),
-                          inventory: localStorage.getItem('inventora_inventory_v1'),
-                          procurement: localStorage.getItem('inventora_procurement_pos_v1'),
-                          finance: localStorage.getItem('inventora_finance_invoices_v1'),
-                          hr: localStorage.getItem('inventora_hr_employees_v1'),
-                          language: localStorage.getItem('inventora_lang'),
-                          theme: localStorage.getItem('inventora_theme')
-                        };
+                        const allData = createInventoraBackup();
                         exportToJson(`inventora-backup-${new Date().toISOString().split('T')[0]}.json`, allData);
-                        onToast(lang === 'en' ? 'Full ERP backup exported as JSON' : 'Cadangan ERP lengkap diekspor sebagai JSON', 'success');
+                        onToast(lang === 'en' ? 'Local browser data exported as JSON' : 'Data lokal browser diekspor sebagai JSON', 'success');
                       }}
                       className="px-3 py-1.5 text-xs font-medium rounded-md border border-[#eaeaea] dark:border-[#444] bg-white dark:bg-[#222] hover:bg-[#f5f5f5] dark:hover:bg-[#333] text-[#171717] dark:text-[#ededed] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                     >
@@ -1126,27 +773,21 @@ function Dashboard() {
     showToast(newLang === 'en' ? 'Language switched to English' : 'Bahasa dialihkan ke Bahasa Indonesia', 'info');
   };
 
-  const [currentRole, setCurrentRole] = useState<Role>(() => {
-    const demo = sessionStorage.getItem('inventora_demo_user');
-    if (demo) {
-      try {
-        const parsed = JSON.parse(demo);
-        if (parsed.role) return parsed.role as Role;
-      } catch {}
-    }
-    return 'Super Admin';
-  });
+  const [demoUser] = useState(readDemoUser);
+  const isDemo = !!demoUser;
+  const [user, setUser] = useState<any>(demoUser);
+  const [currentRole, setCurrentRole] = useState<Role | null>(demoUser?.role ?? null);
+  const [authReady, setAuthReady] = useState(isDemo);
+  const summary = useWorkspaceSummary(isDemo, user?.uid ?? 'demo', currentRole);
   const [isCmdKOpen, setIsCmdKOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAiCopilotOpen, setIsAiCopilotOpen] = useState(false);
 
-  const { isOnline, queue, queuedCount, enqueue, flushQueue } = useNetworkStatus((count) => {
-    showToast(
-      language === 'en'
-        ? `Restored online sync: ${count} queued changes submitted`
-        : `Sinkronisasi online pulih: ${count} perubahan telah terkirim`,
-      'success'
-    );
+  const { isOnline, queue, queuedCount, enqueue, flushQueue } = useNetworkStatus({
+    ownerId: !isDemo && currentRole ? user?.uid ?? null : null,
+    execute: async item => { const { replayPoMutation } = await import('./lib/purchaseOrderStore'); await replayPoMutation(item); },
+    onSynced: count => showToast(language === 'en' ? `${count} queued changes synchronized` : `${count} perubahan tersinkronkan`, 'success'),
+    onError: error => showToast((language === 'en' ? 'Sync failed; queued data is retained. ' : 'Sinkronisasi gagal; antrean tetap disimpan. ') + String(error), 'error'),
   });
 
   const { pendingSequence } = useGlobalHotkeys({
@@ -1156,39 +797,13 @@ function Dashboard() {
     onToggleCmdK: () => setIsCmdKOpen(prev => !prev),
     onToggleCopilot: () => setIsAiCopilotOpen(prev => !prev),
   });
-  const [user, setUser] = useState<any>(() => {
-    const demo = sessionStorage.getItem('inventora_demo_user');
-    return demo ? JSON.parse(demo) : null;
-  });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     const saved = localStorage.getItem('inventora_notifications');
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try { return JSON.parse(saved).filter((item: AppNotification) => !['notif-gateway-init', 'notif-po-approved'].includes(item.id)); } catch {}
     }
-    return [
-      {
-        id: 'notif-gateway-init',
-        title: 'Payment Gateway Pengadaan Aktif',
-        message: 'Kanal Virtual Account, Corporate Card, RTGS, dan QRIS siap memproses settlement otomatis.',
-        timestamp: new Date().toISOString(),
-        read: false,
-        type: 'system'
-      },
-      {
-        id: 'notif-po-approved',
-        title: 'PO Siap Dibayar',
-        message: 'PO-2026-1041 (Cisco Systems Indonesia) telah disetujui. Silakan selesaikan pembayaran via Payment Gateway.',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        read: false,
-        type: 'approval',
-        metadata: {
-          poId: 'PO-2026-1041',
-          vendor: 'Cisco Systems Indonesia',
-          amount: 850000000
-        }
-      }
-    ];
+    return [];
   });
 
   const handleNewNotification = (notifData: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
@@ -1219,24 +834,29 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    const demo = sessionStorage.getItem('inventora_demo_user');
-    if (demo) {
-      try {
-        setUser(JSON.parse(demo));
-        return;
-      } catch {}
-    }
+    if (demoUser) return;
+    let disposed = false;
     let unsub = () => {};
     import('./firebase').then(({ auth }) => {
-      unsub = auth.onAuthStateChanged(u => {
-        if (!u && !sessionStorage.getItem('inventora_demo_user')) navigate('/login');
-        else if (u) setUser(u);
+      if (disposed) return;
+      unsub = auth.onIdTokenChanged(async u => {
+        setAuthReady(false);
+        setCurrentRole(null);
+        setUser(u);
+        if (!u) { navigate('/login'); return; }
+        try {
+          const { claims } = await u.getIdTokenResult();
+          if (!disposed && auth.currentUser?.uid === u.uid) setCurrentRole(isRole(claims.role) ? claims.role : null);
+        } catch (error) {
+          console.error('Unable to verify account role', error);
+        } finally { if (!disposed) setAuthReady(true); }
       });
     }).catch(err => {
       console.warn("Auth initialization error:", err);
+      if (!disposed) setAuthReady(true);
     });
-    return () => unsub();
-  }, [navigate]);
+    return () => { disposed = true; unsub(); };
+  }, [navigate, demoUser]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1308,6 +928,10 @@ function Dashboard() {
   };
 
   const handleMenuClick = (menuName: string) => {
+    if (!canAccessMenu(currentRole, menuName)) {
+      showToast(language === 'en' ? 'You do not have access to this module.' : 'Anda tidak memiliki akses ke modul ini.', 'error');
+      return;
+    }
     setActiveMenu(menuName);
     setIsSidebarOpen(false); // Close mobile sidebar on navigation
   };
@@ -1335,25 +959,27 @@ function Dashboard() {
     }
   };
 
-  const hasAccess = (menu: string) => {
-    if (currentRole === 'Super Admin') return true;
-    if (currentRole === 'Warehouse Manager') return ['overview', 'stok', 'po'].includes(menu);
-    if (currentRole === 'Finance Manager') return ['overview', 'po', 'keuangan', 'analytics', 'billing'].includes(menu);
-    if (currentRole === 'HR Manager') return ['overview', 'sdm'].includes(menu);
-    return false;
-  };
+  const hasAccess = (menu: string) => canAccessMenu(currentRole, menu);
 
   const handleLogout = async () => {
     sessionStorage.removeItem('inventora_demo_user');
     try {
-      const { auth } = await import('./firebase');
-      await auth.signOut();
+      const { logout } = await import('./firebase');
+      await logout();
     } catch {}
     navigate('/');
   };
 
-  if (!user) {
-    return <InventoraLoadingScreen role={currentRole} lang={language} durationMs={800} />;
+  if (!user || !authReady) {
+    return <InventoraLoadingScreen role={currentRole ?? 'Unassigned'} lang={language} durationMs={800} />;
+  }
+
+  if (!currentRole) {
+    return <div className="min-h-screen flex items-center justify-center p-8"><div className="max-w-md space-y-4">
+      <h1 className="text-xl font-semibold">{language === 'en' ? 'Account access has not been assigned' : 'Akses akun belum ditetapkan'}</h1>
+      <p>{language === 'en' ? 'Ask your administrator to assign a verified account role, then sign in again.' : 'Minta administrator menetapkan peran akun terverifikasi, lalu masuk kembali.'}</p>
+      <button className="underline" onClick={handleLogout}>{language === 'en' ? 'Sign out' : 'Keluar'}</button>
+    </div></div>;
   }
 
   return (
@@ -1467,22 +1093,23 @@ function Dashboard() {
 
 
       <main className="flex-1 flex flex-col min-w-0 bg-[#fafafa] dark:bg-[#000]">
-        <header className="h-14 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex items-center justify-between px-4 md:px-8 bg-white dark:bg-[#111] shrink-0 z-10">
-          <div className="flex items-center gap-3">
+        <header className="h-14 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex items-center justify-between gap-2 px-4 md:px-8 bg-white dark:bg-[#111] shrink-0 z-10">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden text-[#171717] dark:text-[#ededed] p-1 -ml-1 rounded hover:bg-[#fafafa] dark:hover:bg-[#333]"
+              aria-label={language === 'en' ? 'Open navigation' : 'Buka navigasi'}
+              className="md:hidden shrink-0 text-[#171717] dark:text-[#ededed] p-1 -ml-1 rounded hover:bg-[#fafafa] dark:hover:bg-[#333]"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="text-base font-medium tracking-tight text-[#171717] dark:text-[#ededed] flex items-center gap-3">
-              {getHeaderTitle()}
+            <h1 className="min-w-0 text-base font-medium tracking-tight text-[#171717] dark:text-[#ededed] flex items-center gap-3">
+              <span className="truncate" title={getHeaderTitle()}>{getHeaderTitle()}</span>
               <span className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] text-xs text-[#999] font-mono cursor-pointer hover:border-[#ccc] dark:hover:border-[#555] transition-colors" onClick={() => setIsCmdKOpen(true)}>
                 <Command className="w-3 h-3" /> K
               </span>
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
             {pendingSequence && (
               <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono font-bold animate-pulse border border-blue-500/20">
                 Key: {pendingSequence.toUpperCase()}...
@@ -1500,7 +1127,7 @@ function Dashboard() {
             <button
               type="button"
               onClick={() => setIsShortcutsOpen(true)}
-              className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              className="hidden sm:block p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
               title={language === 'en' ? 'Keyboard shortcuts (?)' : 'Pintasan keyboard (?)'}
             >
               <Keyboard className="w-4 h-4" />
@@ -1540,7 +1167,7 @@ function Dashboard() {
               onClearAll={handleClearAllNotifications}
               onSelectNotification={(n) => {
                 if (n.metadata?.poId) {
-                  setActiveMenu('po');
+                  handleMenuClick('po');
                   showToast(language === 'en' ? `Opening PO ${n.metadata.poId}` : `Membuka PO ${n.metadata.poId}`, 'info');
                 }
               }}
@@ -1554,27 +1181,30 @@ function Dashboard() {
 
         <Suspense fallback={<div className="p-6 md:p-8"><ViewSkeleton title={getHeaderTitle()} /></div>}>
           <ErrorBoundary fallbackTitle={getHeaderTitle()} onReset={() => setActiveMenu('overview')}>
-            {activeMenu === 'overview' && <OverviewView onNavigate={setActiveMenu} t={t} lang={language} />}
-            {activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
-            {activeMenu === 'billing' && <BillingSubscriptionView onToast={showToast} t={t} lang={language} />}
-            {activeMenu === 'settings' && <SettingsView onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={setActiveMenu} />}
-            {activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={setActiveMenu} t={t} lang={language} />}
-            {activeMenu === 'po' && (
+            {hasAccess('overview') && activeMenu === 'overview' && <OverviewView onNavigate={handleMenuClick} t={t} lang={language} summary={summary} role={currentRole} isDemo={isDemo} notifications={notifications} />}
+            {hasAccess('analytics') && activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
+            {hasAccess('billing') && activeMenu === 'billing' && <BillingSubscriptionView onToast={showToast} t={t} lang={language} />}
+            {hasAccess('settings') && activeMenu === 'settings' && <SettingsView onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={handleMenuClick} />}
+            {hasAccess('stok') && activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={handleMenuClick} t={t} lang={language} />}
+            {hasAccess('po') && activeMenu === 'po' && (
               <ProcurementView 
-                onNavigate={setActiveMenu} 
+                onNavigate={handleMenuClick}
                 onToast={showToast} 
                 onNotify={handleNewNotification} 
                 t={t} 
                 lang={language}
                 isOnline={isOnline}
                 onQueueOffline={enqueue}
+                role={currentRole}
+                isDemo={isDemo}
+                ownerId={user.uid ?? "demo"}
               />
             )}
-            {activeMenu === 'keuangan' && <FinanceView onToast={showToast} t={t} lang={language} />}
-            {activeMenu === 'sdm' && <HRView onToast={showToast} t={t} lang={language} />}
-            {(activeMenu === 'purchase' || activeMenu === 'new-po') && (
-              <PurchaseUnitView 
-                onNavigate={setActiveMenu} 
+            {hasAccess('keuangan') && activeMenu === 'keuangan' && <FinanceView onToast={showToast} t={t} lang={language} />}
+            {hasAccess('sdm') && activeMenu === 'sdm' && <HRView onToast={showToast} t={t} lang={language} />}
+            {hasAccess(activeMenu) && (activeMenu === 'purchase' || activeMenu === 'new-po') && (
+              <PurchaseUnitView role={currentRole} isDemo={isDemo} ownerId={user.uid ?? "demo"}
+                onNavigate={handleMenuClick}
                 onToast={showToast}
                 onNotify={handleNewNotification}
                 t={t} 
@@ -1613,11 +1243,11 @@ function Dashboard() {
           lang={language}
           erpContext={{
             activeMenu,
-            activePosCount: 45,
-            pendingApprovalsCount: 12,
-            monthlyRevenue: "Rp 12.800.000.000",
-            totalHeadcount: 342,
-            infrastructureUnits: 1104,
+            activePosCount: summary.activePosCount,
+            pendingApprovalsCount: summary.pendingApprovalsCount,
+            recordedPoValue: summary.poValue,
+            totalHeadcount: summary.totalHeadcount,
+            infrastructureUnits: summary.infrastructureUnits,
             currency: "IDR"
           }}
         />

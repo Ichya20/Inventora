@@ -4,7 +4,7 @@ import { Role } from '../types';
 import { Language } from '../i18n';
 
 interface InventoraLoadingScreenProps {
-  role?: Role;
+  role?: Role | 'Unassigned';
   lang?: Language;
   onFinished?: () => void;
   durationMs?: number;

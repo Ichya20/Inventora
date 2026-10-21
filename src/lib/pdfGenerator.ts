@@ -26,6 +26,7 @@ interface PurchaseOrderData {
   vendor: string;
   desc?: string;
   date: string;
+  deliveryDate?: string;
   total: number;
   status: string;
   department?: string;
@@ -90,14 +91,14 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184); // Slate 400
-  doc.text('Treasury & Corporate Billing Division | NPWP: 01.345.678.9-012.000', 32, 19);
-  doc.text('Cyber 2 Tower, Fl. 28, HR Rasuna Said, Jakarta Selatan 12950', 32, 24);
+  doc.text(lang === 'en' ? 'Example company details - tax identity not verified' : 'Data perusahaan contoh - identitas pajak belum diverifikasi', 32, 19);
+  doc.text('Inventora - local invoice simulation', 32, 24);
 
   // Invoice Title Right
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
-  doc.text(lang === 'en' ? 'TAX INVOICE' : 'FAKTUR PAJAK', 195, 14, { align: 'right' });
+  doc.text(lang === 'en' ? 'SAMPLE INVOICE' : 'INVOICE CONTOH', 195, 14, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
@@ -121,16 +122,16 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
 
   doc.setFontSize(11);
   doc.setTextColor(15, 23, 42);
-  doc.text(invoice.client, 20, 59);
+  doc.text(doc.splitTextToSize(invoice.client, 75), 20, 59);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text(invoice.desc || (lang === 'en' ? 'Enterprise Cloud Infrastructure Services' : 'Layanan Infrastruktur Cloud Enterprise'), 20, 65);
-  doc.text('Payment Terms: Net 30 Days', 20, 70);
-  doc.text('Tax ID (NPWP): 02.998.441.2-054.000', 20, 75);
+  doc.text(lang === 'en' ? 'Local invoice record' : 'Catatan invoice lokal', 20, 70);
+  doc.text(lang === 'en' ? 'Tax details below are illustrative' : 'Rincian pajak di bawah adalah contoh', 20, 75);
 
   // Right: Invoice Summary
+  doc.setFillColor(248, 250, 252);
   doc.roundedRect(110, 45, 85, 36, 2, 2, 'FD');
 
   doc.setFont('helvetica', 'bold');
@@ -155,8 +156,8 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
   doc.text(`${lang === 'en' ? 'Currency' : 'Mata Uang'}:`, 115, 71);
   doc.text('IDR (Indonesian Rupiah)', 160, 71);
 
-  doc.text(`${lang === 'en' ? 'Settlement Ref' : 'Referensi Kliring'}:`, 115, 77);
-  doc.text(`TRX-${invoice.id.replace(/[^0-9]/g, '') || '8291'}`, 160, 77);
+  doc.text(`${lang === 'en' ? 'Record type' : 'Jenis catatan'}:`, 115, 77);
+  doc.text(lang === 'en' ? 'Local simulation' : 'Simulasi lokal', 160, 77);
 
   // --- Table Header ---
   doc.setFillColor(241, 245, 249); // Slate 100
@@ -177,23 +178,25 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(15, 23, 42);
-  doc.text('Enterprise Cloud, Server Hosting & SLA Infrastructure', 20, 103);
+  doc.text(lang === 'en' ? 'Recorded invoice item' : 'Item catatan invoice', 20, 103);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text('Dedicated High Availability Cluster - Monthly Enterprise Subscription', 20, 108);
+  const descriptionLines = doc.splitTextToSize(invoice.desc || (lang === 'en' ? 'Sample subscription invoice' : 'Contoh invoice langganan'), 82);
+  doc.text(descriptionLines, 20, 109);
 
   doc.setTextColor(15, 23, 42);
   doc.text('1 Cycle', 115, 105, { align: 'center' });
   doc.text('11%', 140, 105, { align: 'right' });
   doc.text(formatCurrency(subtotal, lang), 190, 105, { align: 'right' });
 
-  doc.line(15, 115, 195, 115);
+  const tableBottom = Math.max(119, 113 + descriptionLines.length * 4);
+  doc.line(15, tableBottom, 195, tableBottom);
 
   // --- Calculation Breakdown ---
   const calcX = 120;
-  let calcY = 123;
+  let calcY = tableBottom + 8;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -218,7 +221,7 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
   doc.text(formatCurrency(invoice.total, lang), 190, calcY + 3, { align: 'right' });
 
   // --- Payment Remittance Bank Box ---
-  const bankBoxY = 148;
+  const bankBoxY = calcY + 13;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(203, 213, 225);
   doc.roundedRect(15, bankBoxY, 180, 36, 2, 2, 'FD');
@@ -226,37 +229,37 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(30, 41, 59);
-  doc.text(lang === 'en' ? 'CORPORATE REMITTANCE INSTRUCTIONS' : 'PETUNJUK TRANSFER PEMBAYARAN PERUSAHAAN', 20, bankBoxY + 7);
+  doc.text(lang === 'en' ? 'SIMULATION INFORMATION' : 'INFORMASI SIMULASI', 20, bankBoxY + 7);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(71, 85, 105);
 
-  doc.text('1. Bank Central Asia (BCA) Virtual Account:', 20, bankBoxY + 14);
+  doc.text('1. Contoh kanal Virtual Account (simulasi):', 20, bankBoxY + 14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 112, 243);
-  doc.text(`82739-${invoice.id.replace(/[^0-9]/g, '') || '90123'} (PT INVENTORA NUSANTARA)`, 20, bankBoxY + 19);
+  doc.text('Tidak ada nomor pembayaran aktif', 20, bankBoxY + 19);
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
-  doc.text('2. Bank Mandiri (Giro Corporate):', 110, bankBoxY + 14);
+  doc.text('2. Contoh rekening perusahaan:', 110, bankBoxY + 14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text('122-00-9831920-1 (A/N PT INVENTORA)', 110, bankBoxY + 19);
+  doc.text('Tidak untuk transfer dana', 110, bankBoxY + 19);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(148, 163, 184);
-  doc.text('* Cantumkan nomor faktur pada berita transfer. Bukti potong PPh 23 wajib diunggah ke portal Inventora.', 20, bankBoxY + 28);
-  doc.text('* Sistem akan melakukan rekonsiliasi otomatis 24/7 seketika dana diterima oleh sistem perbankan.', 20, bankBoxY + 32);
+  doc.text('* Contoh dokumen untuk meninjau data invoice lokal. Jangan gunakan untuk pembayaran.', 20, bankBoxY + 28);
+  doc.text('* Rekonsiliasi bank dan penerbitan faktur pajak belum terintegrasi.', 20, bankBoxY + 32);
 
   // --- Legal Signatures & Stamp ---
-  const sigY = 195;
+  const sigY = bankBoxY + 47;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(71, 85, 105);
   doc.text('Jakarta, ' + invoice.date, 150, sigY);
-  doc.text('PT INVENTORA NUSANTARA TEKNOLOGI', 150, sigY + 4);
+  doc.text('Inventora - local simulation', 150, sigY + 4);
 
   // Digital Stamp Box
   doc.setDrawColor(0, 112, 243);
@@ -265,21 +268,21 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(0, 112, 243);
-  doc.text('DIGITALLY SIGNED & VERIFIED', 170.5, sigY + 14, { align: 'center' });
+  doc.text('LOCAL SIMULATION', 170.5, sigY + 14, { align: 'center' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('INVENTORA ENTERPRISE TRUST', 170.5, sigY + 18, { align: 'center' });
+  doc.text('NO DIGITAL SIGNATURE', 170.5, sigY + 18, { align: 'center' });
   doc.text(invoice.id, 170.5, sigY + 22, { align: 'center' });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(15, 23, 42);
-  doc.text('Farhan Pratama, SE, Ak., CA', 150, sigY + 32);
+  doc.text('Finance Officer (example)', 150, sigY + 32);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Chief Financial Officer / Head of Treasury', 150, sigY + 36);
+  doc.text('Sample approval placeholder', 150, sigY + 36);
 
   // Footer bar
   doc.setFillColor(241, 245, 249);
@@ -287,7 +290,7 @@ export function downloadInvoicePdf(invoice: InvoiceData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Dokumen ini sah secara elektronik sesuai ketentuan UU ITE No. 11/2008 & PMK RI No. 136/PMK.03/2012.', 105, 291, { align: 'center' });
+  doc.text('SIMULASI - Arsip lokal, bukan faktur pajak resmi atau bukti pembayaran bank.', 105, 291, { align: 'center' });
 
   // Save/Download directly as .pdf file
   const fileName = `invoice-${invoice.id}.pdf`;
@@ -313,13 +316,13 @@ export function downloadReceiptPdf(receipt: ReceiptData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
-  doc.text(lang === 'en' ? 'OFFICIAL PAYMENT RECEIPT' : 'BUKTI PEMBAYARAN RESMI', 15, 16);
+  doc.text(lang === 'en' ? 'PAYMENT SIMULATION RECORD' : 'CATATAN SIMULASI BAYAR', 15, 16);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(209, 250, 229); // Emerald 100
-  doc.text('PT INVENTORA NUSANTARA TEKNOLOGI | Corporate Treasury Clearance', 15, 22);
-  doc.text('Status: PAID IN FULL / SETTLED & VERIFIED', 15, 27);
+  doc.text('Inventora | Local payment simulation', 15, 22);
+  doc.text('Status: SIMULATION RECORDED / SIMULASI TERCATAT', 15, 27);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
@@ -342,7 +345,7 @@ export function downloadReceiptPdf(receipt: ReceiptData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(100, 116, 139);
-  doc.text(lang === 'en' ? 'RECEIVED FROM / BILLED CLIENT:' : 'TELAH DITERIMA DARI:', leftX, curY);
+  doc.text(lang === 'en' ? 'PARTY IN SIMULATED RECORD:' : 'PIHAK DALAM CATATAN SIMULASI:', leftX, curY);
   doc.setFontSize(12);
   doc.setTextColor(15, 23, 42);
   doc.text(receipt.client, leftX, curY + 6);
@@ -363,7 +366,7 @@ export function downloadReceiptPdf(receipt: ReceiptData, lang: 'id' | 'en' = 'en
   doc.text(lang === 'en' ? 'PAYMENT CHANNEL / METHOD:' : 'METODE PEMBAYARAN:', leftX, curY);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text(receipt.paymentMethod || 'Bank Transfer (BCA Virtual Account)', leftX, curY + 5);
+  doc.text(receipt.paymentMethod || (lang === 'en' ? 'Not specified' : 'Tidak dicantumkan'), leftX, curY + 5);
 
   curY += 15;
   // Settlement Amount Highlight Box
@@ -374,7 +377,7 @@ export function downloadReceiptPdf(receipt: ReceiptData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(6, 95, 70); // Emerald 800
-  doc.text(lang === 'en' ? 'TOTAL SETTLED AMOUNT:' : 'JUMLAH UANG TERBAYAR:', leftX + 5, curY + 10);
+  doc.text(lang === 'en' ? 'TOTAL SIMULATED AMOUNT:' : 'TOTAL NOMINAL SIMULASI:', leftX + 5, curY + 10);
 
   doc.setFontSize(13);
   doc.setTextColor(5, 150, 105);
@@ -386,11 +389,11 @@ export function downloadReceiptPdf(receipt: ReceiptData, lang: 'id' | 'en' = 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  doc.text('VERIFIKASI & LEGALITAS BEA METERAI (PMK 134/2021)', 22, 145);
+  doc.text(lang === 'en' ? 'LOCAL SIMULATION RECORD' : 'CATATAN SIMULASI LOKAL', 22, 145);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Pelunasan telah terverifikasi melalui gerbang kliring antar bank. Bea Meterai LUNAS secara elektronik.', 22, 150);
+  doc.text('Catatan simulasi lokal. Tidak ada verifikasi bank, transfer dana, atau meterai elektronik.', 22, 150);
   doc.text(`Kuitansi ini diterbitkan secara otomatis oleh sistem Inventora ERP pada ${new Date().toLocaleDateString('id-ID')}.`, 22, 155);
 
   // Digital Signatures
@@ -398,16 +401,16 @@ export function downloadReceiptPdf(receipt: ReceiptData, lang: 'id' | 'en' = 'en
   doc.setFontSize(8);
   doc.setTextColor(71, 85, 105);
   doc.text('Jakarta, ' + receipt.date, 150, 175);
-  doc.text('PT INVENTORA NUSANTARA TEKNOLOGI', 150, 180);
+  doc.text('Inventora - local simulation', 150, 180);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(15, 23, 42);
-  doc.text('Farhan Pratama, SE, Ak., CA', 150, 205);
+  doc.text('Finance Officer (example)', 150, 205);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Finance & Treasury Clearance', 150, 210);
+  doc.text('Sample approval placeholder', 150, 210);
 
   // Footer bar
   doc.setFillColor(241, 245, 249);
@@ -459,6 +462,7 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrderData, lang: 'id' | 'en
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
   doc.text(`PO Date: ${po.date}`, 195, 21, { align: 'right' });
+  if (po.deliveryDate) doc.text(`${lang === 'en' ? 'Delivery' : 'Tanggal Kirim'}: ${po.deliveryDate}`, 195, 31, { align: 'right' });
   doc.text(`Status: ${po.status.toUpperCase()}`, 195, 26, { align: 'right' });
 
   // Vendor & Delivery Details
@@ -476,7 +480,7 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrderData, lang: 'id' | 'en
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text('Verified Corporate Supplier Partner', 20, 63);
+  doc.text('Supplier listed in this purchase order', 20, 63);
 
   // Delivery & Billing Box
   doc.roundedRect(110, 43, 85, 30, 2, 2, 'FD');
@@ -572,8 +576,8 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrderData, lang: 'id' | 'en
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text('Dimas Saputra, S.T.', 25, tableY);
-  doc.text('Hendra Wijaya, M.M.', 140, tableY);
+  doc.text('Procurement Officer (example)', 25, tableY);
+  doc.text('Budget Approver (example)', 140, tableY);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
@@ -587,7 +591,7 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrderData, lang: 'id' | 'en
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Inventora ERP - Enterprise Procurement Management System', 105, 291, { align: 'center' });
+  doc.text('Inventora ERP - Procurement simulation / Simulasi pengadaan', 105, 291, { align: 'center' });
 
   const fileName = `purchase-order-${po.id}.pdf`;
   doc.save(fileName);
@@ -603,6 +607,8 @@ export interface PayslipData {
   baseSalary: number;
   positionAllowance: number;
   transportAllowance: number;
+  allowancesTotal?: number;
+  bpjsTotal?: number;
   bonus: number;
   bpjsKesehatan: number;
   bpjsKetenagakerjaan: number;
@@ -611,6 +617,7 @@ export interface PayslipData {
   bankName: string;
   accountNumber: string;
   disbursementDate?: string;
+  draft?: boolean;
 }
 
 export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'): void {
@@ -632,7 +639,7 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(148, 163, 184);
-  doc.text(lang === 'en' ? 'CONFIDENTIAL MONTHLY PAYSLIP' : 'SLIP GAJI BULANAN RAHASIA', 15, 21);
+  doc.text(lang === 'en' ? (data.draft ? 'DRAFT PAYSLIP - NOT RECORDED' : 'SIMULATED MONTHLY PAYSLIP') : (data.draft ? 'DRAF SLIP - BELUM DICATAT' : 'SLIP GAJI SIMULASI'), 15, 21);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
@@ -659,8 +666,8 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
   doc.text(`${data.role} - ${data.dept} Department`, 20, 48);
-  doc.text(`Employee ID: ${data.empId}  |  NPWP / Tax ID: ${data.taxId || '31.428.190.2-014.000'}`, 20, 54);
-  doc.text(`Bank Transfer: ${data.bankName} (${data.accountNumber})`, 20, 60);
+  doc.text(`Employee ID: ${data.empId}  |  NPWP / Tax ID: ${data.taxId || '-'}`, 20, 54);
+  doc.text(`${lang === 'en' ? 'Account reference' : 'Referensi rekening'}: ${data.bankName} (${data.accountNumber})`, 20, 60);
 
   // Section Headers: Earnings & Deductions
   let startY = 74;
@@ -684,15 +691,19 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
   let curY = startY + 14;
   const earnings = [
     { label: lang === 'en' ? 'Basic Salary' : 'Gaji Pokok', val: data.baseSalary },
-    { label: lang === 'en' ? 'Position Allowance' : 'Tunjangan Jabatan', val: data.positionAllowance },
-    { label: lang === 'en' ? 'Transport & Comm.' : 'Tunjangan Transportasi', val: data.transportAllowance },
+    ...(data.allowancesTotal !== undefined
+      ? [{ label: lang === 'en' ? 'Allowances (legacy total)' : 'Tunjangan (total arsip)', val: data.allowancesTotal }]
+      : [{ label: lang === 'en' ? 'Position Allowance' : 'Tunjangan Jabatan', val: data.positionAllowance },
+         { label: lang === 'en' ? 'Transport & Comm.' : 'Tunjangan Transportasi', val: data.transportAllowance }]),
     { label: lang === 'en' ? 'Performance Bonus' : 'Bonus Kinerja / Lembur', val: data.bonus },
   ];
 
   const deductions = [
     { label: lang === 'en' ? 'Income Tax (PPh 21 TER)' : 'PPh 21 Terutang', val: data.pph21 },
-    { label: lang === 'en' ? 'BPJS Ketenagakerjaan (3%)' : 'BPJS Ketenagakerjaan (3%)', val: data.bpjsKetenagakerjaan },
-    { label: lang === 'en' ? 'BPJS Kesehatan (1%)' : 'BPJS Kesehatan (1%)', val: data.bpjsKesehatan },
+    ...(data.bpjsTotal !== undefined
+      ? [{ label: 'BPJS (total arsip)', val: data.bpjsTotal }]
+      : [{ label: 'BPJS Ketenagakerjaan', val: data.bpjsKetenagakerjaan },
+         { label: 'BPJS Kesehatan', val: data.bpjsKesehatan }]),
   ];
 
   doc.setFont('helvetica', 'normal');
@@ -717,8 +728,8 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
     dY += 7;
   });
 
-  const totalEarnings = data.baseSalary + data.positionAllowance + data.transportAllowance + data.bonus;
-  const totalDeductions = data.pph21 + data.bpjsKetenagakerjaan + data.bpjsKesehatan;
+  const totalEarnings = data.baseSalary + (data.allowancesTotal ?? (data.positionAllowance + data.transportAllowance)) + data.bonus;
+  const totalDeductions = data.pph21 + (data.bpjsTotal ?? (data.bpjsKetenagakerjaan + data.bpjsKesehatan));
 
   // Earnings Subtotal line
   doc.setDrawColor(226, 232, 240);
@@ -743,11 +754,11 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
-  doc.text(lang === 'en' ? 'NET TAKE-HOME PAY' : 'GAJI BERSIH DITERIMA (TAKE-HOME PAY)', 25, bannerY + 10);
+  doc.text(lang === 'en' ? (data.draft ? 'ESTIMATED NET PAY' : 'NET PAY - SIMULATION') : (data.draft ? 'ESTIMASI GAJI BERSIH' : 'GAJI BERSIH - SIMULASI'), 25, bannerY + 10);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(lang === 'en' ? `Disbursed to ${data.bankName}` : `Ditransfer via ${data.bankName}`, 25, bannerY + 17);
+  doc.text(lang === 'en' ? `${data.draft ? 'Not recorded' : 'Simulation recorded'} - ${data.bankName}` : `${data.draft ? 'Belum dicatat' : 'Simulasi tercatat'} - ${data.bankName}`, 25, bannerY + 17);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
@@ -760,8 +771,8 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
   doc.setTextColor(100, 116, 139);
   doc.text(
     lang === 'en'
-      ? 'Note: This payslip is electronically generated and protected by corporate cryptographic signature.'
-      : 'Catatan: Slip gaji ini dibuat secara elektronik dan dilindungi dengan tanda tangan digital resmi Inventora.',
+      ? 'Local simulation only. No bank transfer or cryptographic signature is provided.'
+      : 'Simulasi lokal. Tidak ada transfer bank atau tanda tangan kriptografis.',
     15,
     noteY
   );
@@ -777,8 +788,8 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text('Rina Kusuma, S.Psi.', 25, sigY + 16);
-  doc.text('Sarah Danubrata, S.H., M.M.', 130, sigY + 16);
+  doc.text('Payroll Officer (example)', 25, sigY + 16);
+  doc.text('HR Approver (example)', 130, sigY + 16);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
@@ -792,7 +803,7 @@ export function downloadPayslipPdf(data: PayslipData, lang: 'id' | 'en' = 'id'):
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('Inventora ERP - Workforce & Compensation Management System', 105, 291, { align: 'center' });
+  doc.text('Inventora ERP - Payroll simulation / Simulasi payroll', 105, 291, { align: 'center' });
 
   const fileName = `payslip-${data.empId}-${data.period.replace(/\s+/g, '-')}.pdf`;
   doc.save(fileName);

@@ -115,15 +115,15 @@ export function RestockForecastCard({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-              <span>{lang === 'en' ? 'Predictive Restock & Run-Out Forecast' : 'Prediksi Restok & Habis Stok Gemini'}</span>
+              <span>{lang === 'en' ? 'Restock Estimates' : 'Estimasi Restok'}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-50 dark:bg-blue-950/60 text-[#0070f3] dark:text-[#3291ff] font-bold">
-                AI FORECAST
+                {lang === 'en' ? 'ESTIMATE' : 'ESTIMASI'}
               </span>
             </h3>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
               {lang === 'en'
-                ? 'Machine-learned consumption velocities & recommended reorder schedules'
-                : 'Estimasi laju konsumsi barang & jadwal pemesanan ulang otomatis'}
+                ? 'Illustrative estimates from stock counts. Recorded consumption history is not available.'
+                : 'Estimasi ilustratif dari jumlah stok. Riwayat konsumsi tercatat belum tersedia.'}
             </p>
           </div>
         </div>
@@ -142,7 +142,7 @@ export function RestockForecastCard({
       {isLoading ? (
         <div className="py-6 flex flex-col items-center justify-center gap-2 text-xs text-neutral-500">
           <RefreshCw className="w-5 h-5 animate-spin text-[#0070f3]" />
-          <span>{lang === 'en' ? 'Calculating 30-day velocity depletion curves...' : 'Menghitung kurva deplesi stok 30 hari...'}</span>
+          <span>{lang === 'en' ? 'Preparing stock estimates...' : 'Menyiapkan estimasi stok...'}</span>
         </div>
       ) : (
         <>

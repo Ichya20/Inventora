@@ -1,3 +1,4 @@
+import { validateParsedInvoice } from './src/lib/invoiceValidation';
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -200,7 +201,7 @@ async function startServer() {
     });
 
     return {
-      insights: "Autonomous replenishment calculation active: detected hardware SKUs approaching safety stock boundaries based on 30-day velocity models.",
+      insights: "Illustrative stock estimate using an assumed consumption of 2 units per day. No recorded consumption history or trained velocity model is used.",
       forecasts: forecasts.length > 0 ? forecasts : [
         {
           skuId: "STR-NVME-8TB",
@@ -219,34 +220,6 @@ async function startServer() {
           rationale: "Stock critically low (5 units). Buffer for infrastructure expansion required."
         }
       ]
-    };
-  }
-
-  function getHeuristicInvoiceParse(text: string) {
-    const vendorMatch = text.match(/(?:pt|cv|vendor|supplier|from)\s+([a-zA-Z0-9\s]{3,35})/i);
-    const totalMatch = text.match(/(?:total|amount|rp|idr)\.?\s*[:=]?\s*([0-9.,]+)/i);
-    let parsedTotal = 271950000;
-    if (totalMatch) {
-      const rawNum = totalMatch[1].replace(/[^0-9]/g, '');
-      if (rawNum.length >= 5) parsedTotal = parseInt(rawNum, 10);
-    }
-
-    const subtotal = Math.round(parsedTotal / 1.11);
-    const tax = parsedTotal - subtotal;
-
-    return {
-      vendor: vendorMatch ? vendorMatch[0].trim() : "PT Citra Mandiri Solusindo",
-      invoiceNo: "CMS-2026-" + Math.floor(1000 + Math.random() * 9000),
-      date: new Date().toISOString().split("T")[0],
-      items: [
-        { name: "Cisco Catalyst Core Switch 48-Port PoE+", qty: 4, unitPrice: 45000000, subtotal: 180000000 },
-        { name: "SFP+ 10G Optical Transceiver Modules", qty: 16, unitPrice: 2500000, subtotal: 40000000 },
-        { name: "24U Server Rack Enclosure with PDU", qty: 2, unitPrice: 12500000, subtotal: 25000000 }
-      ],
-      subtotal: subtotal,
-      taxAmount: tax,
-      grandTotal: parsedTotal,
-      notes: "Extracted and validated via Inventora Document Extraction Pipeline."
     };
   }
 
@@ -419,13 +392,13 @@ Return a strict JSON object:
   // 5.5. Smart Invoice & Raw Quote Text Parser (Text-to-PO)
   app.post("/api/ai/parse-invoice", aiRateLimiter, async (req, res) => {
     const { text } = req.body;
-    if (!text || typeof text !== "string") {
+    if (typeof text !== "string" || !text.trim() || text.length > 50000) {
       return res.status(400).json({ error: "Text is required" });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.json(getHeuristicInvoiceParse(text));
+      return res.status(503).json({ error: "Parser invoice belum tersedia. Isi formulir secara manual atau konfigurasi layanan AI." });
     }
 
     try {
@@ -439,7 +412,7 @@ Return a strict JSON object:
 {
   "vendor": string,
   "invoiceNo": string (or "DRAFT"),
-  "date": string (YYYY-MM-DD or current date),
+  "date": string (YYYY-MM-DD, only if present),
   "items": [
     {
       "name": string,
@@ -449,7 +422,7 @@ Return a strict JSON object:
     }
   ],
   "subtotal": number,
-  "taxAmount": number (PPN or tax if specified, or calculated 11%),
+  "taxAmount": number (only tax explicitly specified; use 0 when absent),
   "grandTotal": number,
   "notes": string
 }`;
@@ -459,18 +432,17 @@ Return a strict JSON object:
         contents: prompt,
         config: {
           responseMimeType: "application/json",
-          systemInstruction: "You are an Intelligent Document & Invoice Parser for Inventora ERP. Extract vendor names, numbers, and line items accurately into valid JSON."
+          systemInstruction: "You are an Intelligent Document & Invoice Parser for Inventora ERP. Extract only facts present in the source document. Never invent vendors, dates, item quantities, prices or taxes. If required details are missing, return an error object. Reconcile all line totals and the grand total."
         }
       }), 7500);
 
-      const parsed = JSON.parse(response.text || "{}");
-      if (!parsed.vendor || !parsed.grandTotal) {
-        return res.json(getHeuristicInvoiceParse(text));
-      }
+      const parsed = validateParsedInvoice(JSON.parse(response.text || "{}"));
+      const normalizedSource = text.toLowerCase().replace(/\s+/g, " ");
+      if (!normalizedSource.includes(parsed.vendor.toLowerCase().replace(/\s+/g, " "))) throw new Error("Vendor tidak ditemukan dalam dokumen sumber.");
       return res.json(parsed);
     } catch (error: any) {
-      console.warn("Notice: Gemini API unavailable or quota reached (" + (error.status || error.message) + "). Seamlessly serving invoice parser fallback.");
-      return res.json(getHeuristicInvoiceParse(text));
+      console.warn("Invoice extraction failed:", error.message);
+      return res.status(422).json({ error: "Invoice belum dapat diekstrak dengan konsisten. Periksa dokumen atau isi formulir secara manual." });
     }
   });
 

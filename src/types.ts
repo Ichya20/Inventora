@@ -64,6 +64,7 @@ export interface PurchaseOrder {
   vendor: string;
   desc: string;
   date: string;
+  deliveryDate?: string;
   total: number;
   status: POStatus | string;
   color: 'orange' | 'green' | 'blue' | 'red' | string;
@@ -112,6 +113,7 @@ export interface PaymentTransaction {
   vendor: string;
   amount: number;
   taxAmount: number;
+  withholdingTaxAmount?: number;
   totalPaid: number;
   method: 'bank_transfer' | 'virtual_account' | 'credit_card' | 'qris';
   methodLabel: string;

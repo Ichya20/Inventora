@@ -1,0 +1,224 @@
+{
+  "tanggal_uji": "2026-10-21 08:32:48",
+  "server": "MySQL Community Server 8.0.41",
+  "lingkungan": "Instance sementara, 127.0.0.1:33308, terpisah dari aplikasi",
+  "sha256_sql": "94d47ef9bd6b961789ff4317686f56acf294d3754001f985892b16e88dde9556",
+  "jumlah_tabel": 14,
+  "jumlah_baris": 70,
+  "jumlah_fk": 19,
+  "baris_per_tabel": {
+    "departemen": 5,
+    "pegawai": 5,
+    "pengguna": 5,
+    "supplier": 5,
+    "kategori_produk": 5,
+    "produk": 5,
+    "purchase_order": 5,
+    "detail_purchase_order": 5,
+    "persetujuan_po": 5,
+    "penerimaan_barang": 5,
+    "detail_penerimaan": 5,
+    "pembayaran_po": 5,
+    "payroll": 5,
+    "anggaran_departemen": 5
+  },
+  "foreign_keys": [
+    [
+      "anggaran_departemen",
+      "fk_anggaran_departemen",
+      "departemen"
+    ],
+    [
+      "detail_penerimaan",
+      "fk_detail_terima_header",
+      "penerimaan_barang"
+    ],
+    [
+      "detail_penerimaan",
+      "fk_detail_terima_item",
+      "detail_purchase_order"
+    ],
+    [
+      "detail_purchase_order",
+      "fk_detail_po_header",
+      "purchase_order"
+    ],
+    [
+      "detail_purchase_order",
+      "fk_detail_po_produk",
+      "produk"
+    ],
+    [
+      "payroll",
+      "fk_payroll_pegawai",
+      "pegawai"
+    ],
+    [
+      "payroll",
+      "fk_payroll_pencatat",
+      "pengguna"
+    ],
+    [
+      "pegawai",
+      "fk_pegawai_departemen",
+      "departemen"
+    ],
+    [
+      "pembayaran_po",
+      "fk_pembayaran_penerimaan",
+      "penerimaan_barang"
+    ],
+    [
+      "pembayaran_po",
+      "fk_pembayaran_pengguna",
+      "pengguna"
+    ],
+    [
+      "penerimaan_barang",
+      "fk_penerimaan_pengguna",
+      "pengguna"
+    ],
+    [
+      "penerimaan_barang",
+      "fk_penerimaan_po",
+      "purchase_order"
+    ],
+    [
+      "pengguna",
+      "fk_pengguna_pegawai",
+      "pegawai"
+    ],
+    [
+      "persetujuan_po",
+      "fk_persetujuan_pengguna",
+      "pengguna"
+    ],
+    [
+      "persetujuan_po",
+      "fk_persetujuan_po",
+      "purchase_order"
+    ],
+    [
+      "produk",
+      "fk_produk_kategori",
+      "kategori_produk"
+    ],
+    [
+      "purchase_order",
+      "fk_po_departemen",
+      "departemen"
+    ],
+    [
+      "purchase_order",
+      "fk_po_pembuat",
+      "pengguna"
+    ],
+    [
+      "purchase_order",
+      "fk_po_supplier",
+      "supplier"
+    ]
+  ],
+  "uji": [
+    {
+      "uji": "CREATE dan INSERT lengkap",
+      "lulus": true,
+      "hasil": "SQL dieksekusi tanpa error"
+    },
+    {
+      "uji": "Jumlah tabel dan data",
+      "lulus": true,
+      "hasil": "14 tabel, 70 baris; masing-masing 5"
+    },
+    {
+      "uji": "Relasi foreign key",
+      "lulus": true,
+      "hasil": "19 constraint foreign key"
+    },
+    {
+      "uji": "Agregat nilai contoh",
+      "lulus": true,
+      "hasil": "PO, pembayaran, payroll, stok: 860970000.00, 860970000.00, 125690000.00, 339"
+    },
+    {
+      "uji": "Subtotal header sama dengan detail",
+      "lulus": true,
+      "hasil": "0 ketidaksesuaian"
+    },
+    {
+      "uji": "Pembayaran penuh dan penerimaan",
+      "lulus": true,
+      "hasil": "0 ketidaksesuaian"
+    },
+    {
+      "uji": "Isi penerimaan sama dengan pesanan",
+      "lulus": true,
+      "hasil": "0 ketidaksesuaian"
+    },
+    {
+      "uji": "Urutan tanggal transaksi contoh",
+      "lulus": true,
+      "hasil": "0 ketidaksesuaian"
+    },
+    {
+      "uji": "Peran pelaku pada data contoh",
+      "lulus": true,
+      "hasil": "0 ketidaksesuaian; bukan enforcement role oleh FK"
+    },
+    {
+      "uji": "Deteksi stok minimum",
+      "lulus": true,
+      "hasil": "[['PRD003']]"
+    },
+    {
+      "uji": "Produk dengan kategori tidak ada",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 1452"
+    },
+    {
+      "uji": "Harga produk negatif",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 3819"
+    },
+    {
+      "uji": "Quantity pesanan nol",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 3819"
+    },
+    {
+      "uji": "Payroll pegawai-periode ganda",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 1062"
+    },
+    {
+      "uji": "Periode payroll bukan tanggal satu",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 3819"
+    },
+    {
+      "uji": "Penerimaan produk di luar PO",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 1452"
+    },
+    {
+      "uji": "Pembayaran kedua untuk PO sama",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 1062"
+    },
+    {
+      "uji": "Tanggal kirim sebelum PO",
+      "lulus": true,
+      "hasil": "Ditolak dengan ERROR 3819"
+    },
+    {
+      "uji": "Data tetap utuh setelah uji negatif",
+      "lulus": true,
+      "hasil": "14 tabel tetap berisi masing-masing 5 baris"
+    },
+    {
+      "uji": "Semua query verifikasi",
+      "lulus": true,
+      "hasil": "8 bagian query berhasil dijalankan"
+    }
+  ]
+}

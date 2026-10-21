@@ -7,7 +7,7 @@ interface NetworkStatusIndicatorProps {
   isOnline: boolean;
   queuedCount: number;
   queue: QueuedMutation[];
-  onManualSync: () => void;
+  onManualSync: () => Promise<void>;
   lang?: 'en' | 'id';
 }
 
@@ -21,13 +21,9 @@ export function NetworkStatusIndicator({
   const [isOpen, setIsOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const handleSyncClick = () => {
+  const handleSyncClick = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
-      onManualSync();
-      setIsSyncing(false);
-      setIsOpen(false);
-    }, 800);
+    try { await onManualSync(); } finally { setIsSyncing(false); }
   };
 
   return (
@@ -53,7 +49,7 @@ export function NetworkStatusIndicator({
         />
         {isOnline ? (
           <span className="hidden sm:inline">
-            {lang === 'en' ? 'Live Sync' : 'Sinkron'}
+            {queuedCount ? `${queuedCount} pending` : (lang === 'en' ? 'Online' : 'Online')}
           </span>
         ) : (
           <span>
@@ -86,7 +82,7 @@ export function NetworkStatusIndicator({
               </div>
               <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
                 {isOnline
-                  ? (lang === 'en' ? 'Real-time ERP database socket active' : 'Koneksi database ERP real-time aktif')
+                  ? (lang === 'en' ? 'Browser online. Pending changes remain listed until acknowledged by the server.' : 'Browser online. Perubahan tetap dalam antrean sampai dikonfirmasi server.')
                   : (lang === 'en' ? 'Mutations are queued securely in local browser storage' : 'Perubahan disimpan aman di penyimpanan browser lokal')}
               </div>
             </div>

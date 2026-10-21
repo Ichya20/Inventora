@@ -14,27 +14,27 @@ export function loadStoredData<T>(key: string, defaultValue: T): T {
   }
 }
 
-export function saveStoredData<T>(key: string, value: T): void {
+export function saveStoredData<T>(key: string, value: T, required = false): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('inventora:data-changed'));
   } catch (err) {
     console.warn(`Failed to write to localStorage key "${key}":`, err);
+    if (required) throw err;
   }
 }
 
 export function clearAllInventoraStorage(): void {
-  const keys = [
-    'inventora_inventory_v1',
-    'inventora_procurement_pos_v1',
-    'inventora_finance_invoices_v1',
-    'inventora_hr_employees_v1',
-    'inventora_role_permissions_v1'
-  ];
-  keys.forEach(k => {
-    try {
-      localStorage.removeItem(k);
-    } catch (e) {
-      // ignore
-    }
-  });
+  const preferences = new Set(['inventora_language', 'inventora_lang', 'inventora_theme']);
+  const keys = Object.keys(localStorage).filter(key => key.startsWith('inventora_') && !preferences.has(key));
+  keys.forEach(key => localStorage.removeItem(key));
+}
+
+export function createInventoraBackup() {
+  const data: Record<string, unknown> = {};
+  for (const key of Object.keys(localStorage).filter(key => key.startsWith('inventora_'))) {
+    const raw = localStorage.getItem(key);
+    try { data[key] = JSON.parse(raw!); } catch { data[key] = raw; }
+  }
+  return { version: '2.0', exportedAt: new Date().toISOString(), scope: 'browser-local', data };
 }

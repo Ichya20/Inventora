@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth, signInWithPopup, reauthenticateWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 
 export const app = initializeApp(firebaseConfig);
@@ -13,6 +13,9 @@ provider.addScope('https://www.googleapis.com/auth/calendar.events');
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
+let tokenOwner: string | null = null;
+let tokenExpiresAt = 0;
+let tokenRequest: Promise<string | null> | null = null;
 
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
@@ -43,6 +46,8 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
+    tokenOwner = result.user.uid;
+    tokenExpiresAt = Date.now() + 50 * 60 * 1000;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     const isCancelled =
@@ -71,11 +76,33 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   }
 };
 
-export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+export const getAccessToken = async (forceRefresh = false): Promise<string | null> => {
+  await auth.authStateReady();
+  const user = auth.currentUser;
+  if (!user || sessionStorage.getItem('inventora_demo_user')) return null;
+  if (!forceRefresh && tokenOwner === user.uid && Date.now() < tokenExpiresAt && cachedAccessToken) return cachedAccessToken;
+  if (tokenRequest) return tokenRequest;
+  tokenRequest = (async () => {
+    try {
+      const result = await reauthenticateWithPopup(user, provider);
+      const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+      if (!token || auth.currentUser?.uid !== user.uid) throw new Error('Google authorization did not return a token for this account.');
+      cachedAccessToken = token;
+      tokenOwner = user.uid;
+      tokenExpiresAt = Date.now() + 50 * 60 * 1000;
+      return token;
+    } catch (error: any) {
+      cachedAccessToken = null;
+      if (['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code)) return null;
+      throw error;
+    } finally { tokenRequest = null; }
+  })();
+  return tokenRequest;
 };
 
 export const logout = async () => {
   await signOut(auth);
   cachedAccessToken = null;
+  tokenOwner = null;
+  tokenExpiresAt = 0;
 };

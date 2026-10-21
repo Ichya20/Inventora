@@ -120,6 +120,7 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
               </div>
               <div className="text-[11px] text-neutral-500 mt-1">
                 Date: {po.date || new Date().toLocaleDateString('id-ID')}
+                {po.deliveryDate && <div>Delivery: {po.deliveryDate}</div>}
               </div>
             </div>
           </div>
@@ -132,8 +133,8 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
               </span>
               <div className="font-semibold text-neutral-900 text-sm">{po.vendor}</div>
               <div className="text-neutral-600 mt-1">
-                Official Registered Supplier Partner<br />
-                Term: Net 30 Days • Corporate Settlement
+                Supplier listed in this purchase order<br />
+                Local voucher preview
               </div>
             </div>
             <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/50">
@@ -142,11 +143,11 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
               </span>
               <div className="font-semibold text-emerald-600 text-sm flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{po.status === 'Disetujui' ? 'VERIFIED & APPROVED' : po.status.toUpperCase()}</span>
+                <span>{po.status.toUpperCase()}</span>
               </div>
               <div className="text-neutral-600 mt-1">
                 Category: Enterprise Operational Procurement<br />
-                Approval Auth: Super Admin (Board Verified)
+                Status follows the purchase order record
               </div>
             </div>
           </div>
@@ -197,16 +198,16 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
           {/* Formal Sign-off Signatures */}
           <div className="grid grid-cols-2 gap-12 pt-8 border-t border-neutral-200 text-center text-xs">
             <div>
-              <div className="text-neutral-500 mb-16">Prepared & Verified By:</div>
+              <div className="text-neutral-500 mb-16">Prepared By (example):</div>
               <div className="font-bold border-t border-neutral-400 pt-1.5 text-neutral-900">
-                Budi Santoso
+                Procurement Officer
               </div>
               <div className="text-[10px] text-neutral-500">Lead Procurement Officer</div>
             </div>
             <div>
-              <div className="text-neutral-500 mb-16">Authorized & Approved By:</div>
+              <div className="text-neutral-500 mb-16">Approval Placeholder:</div>
               <div className="font-bold border-t border-neutral-400 pt-1.5 text-neutral-900">
-                Ichya Ulumiddin
+                Budget Approver
               </div>
               <div className="text-[10px] text-neutral-500">Financial Director / Super Admin</div>
             </div>
@@ -214,7 +215,7 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
 
           {/* Footer note */}
           <div className="mt-12 text-center text-[10px] text-neutral-400 border-t border-neutral-100 pt-4">
-            This document is computer-generated and electronically authenticated by Inventora Enterprise ERP System.
+            Local voucher preview. Approval names are examples; no electronic signature is provided.
           </div>
         </div>
 

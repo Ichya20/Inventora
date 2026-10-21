@@ -10,7 +10,8 @@ interface ThreeWayMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
   po: PurchaseOrder | null;
-  onSaveGrn: (poId: string, grn: GoodsReceiptNote, newMatchStatus: ThreeWayMatchStatus) => void;
+  onSaveGrn: (poId: string, grn: GoodsReceiptNote, newMatchStatus: ThreeWayMatchStatus) => Promise<void>;
+  canEdit?: boolean;
   lang?: 'en' | 'id';
 }
 
@@ -59,8 +60,11 @@ export function ThreeWayMatchModal({
   onClose,
   po,
   onSaveGrn,
+  canEdit = true,
   lang = 'en'
 }: ThreeWayMatchModalProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [suratJalan, setSuratJalan] = useState<string>('');
   const [receivedBy, setReceivedBy] = useState<string>('');
   const [inspectorNotes, setInspectorNotes] = useState<string>('');
@@ -147,7 +151,10 @@ export function ThreeWayMatchModal({
     ? (lang === 'en' ? 'Goods Received (Ready for Payment)' : 'Barang Diterima (Siap Bayar)')
     : (lang === 'en' ? 'GRN Discrepancy' : 'Selisih Penerimaan');
 
-  const handleConfirmGrn = () => {
+  const handleConfirmGrn = async () => {
+    if (!canEdit || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
     const existingGrn = po.grn;
     const grnRecord: GoodsReceiptNote = {
       id: existingGrn?.id || `GRN-${Date.now().toString().slice(-6)}`,
@@ -161,8 +168,9 @@ export function ThreeWayMatchModal({
       inspectorNotes
     };
 
-    onSaveGrn(po.id, grnRecord, matchStatus);
-    onClose();
+    try { await onSaveGrn(po.id, grnRecord, matchStatus); onClose(); }
+    catch (error) { setSaveError(String(error)); }
+    finally { setIsSaving(false); }
   };
 
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
@@ -428,7 +436,8 @@ export function ThreeWayMatchModal({
             <Button variant="secondary" onClick={onClose}>
               {lang === 'en' ? 'Cancel' : 'Batal'}
             </Button>
-            <Button 
+            {saveError && <p role="alert" className="text-xs text-red-600">{saveError}</p>}
+            <Button disabled={!canEdit || isSaving}
               variant="primary" 
               onClick={handleConfirmGrn}
               className={hasDiscrepancy ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}
