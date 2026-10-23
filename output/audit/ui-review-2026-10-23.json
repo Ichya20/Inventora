@@ -1,0 +1,20 @@
+{
+  "method": "Local source inspection, actual React static rendering, actual settings callback with mocked timer. No browser or external service.",
+  "modalHasDialogRole": false,
+  "modalHasModalSemantics": false,
+  "sortableHeaderHasKeyboardControl": false,
+  "paginationButtonsHaveNames": false,
+  "poPriceConstraint": {
+    "min": 0,
+    "step": 10000,
+    "examplePrice": 125000,
+    "acceptedByServerValidator": true,
+    "conformsToRenderedStep": false
+  },
+  "profileSave": {
+    "toastCount": 1,
+    "localStorageWrites": 0,
+    "includesSuccessToast": true
+  },
+  "paginationStillEnglish": true
+}

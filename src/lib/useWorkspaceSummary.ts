@@ -3,6 +3,7 @@ import type { PurchaseOrder, Role } from '../types';
 import { canAccessMenu } from './authorization';
 import { poStorageKey } from './procurement';
 import { summarizePurchaseOrders } from './workspaceSummary';
+import { stockHealth, isInventoryList } from './inventory';
 
 export function useWorkspaceSummary(isDemo: boolean, ownerId: string, role: Role | null) {
   const [revision, setRevision] = useState(0);
@@ -37,11 +38,14 @@ export function useWorkspaceSummary(isDemo: boolean, ownerId: string, role: Role
   // Reading on every revision also covers same-tab writes from the individual modules.
   void revision;
   const orders = !canAccessMenu(role, 'po') ? null : isDemo ? readArray(poStorageKey(true, ownerId)) : cloud?.ownerId === ownerId ? cloud.orders : null;
-  const inventory = canAccessMenu(role, 'stok') ? readArray('inventora_inventory_v1') : null;
+  const storedInventory = canAccessMenu(role, 'stok') ? readArray('inventora_inventory_v1') : null;
+  const inventory = isInventoryList(storedInventory) ? storedInventory : null;
   const employees = canAccessMenu(role, 'sdm') ? readArray('inventora_hr_employees_v2') : null;
   return {
     ...summarizePurchaseOrders(orders),
-    lowStockCount: inventory ? inventory.filter(item => item.color === 'red' || item.color === 'orange').length : null,
+    orders: orders as PurchaseOrder[] | null,
+    inventory,
+    lowStockCount: inventory ? inventory.filter(item => stockHealth(item).needsReview).length : null,
     totalHeadcount: employees?.length ?? null,
     infrastructureUnits: inventory ? inventory.reduce((sum, item) => sum + (Number(item.stock) || 0), 0) : null,
   };

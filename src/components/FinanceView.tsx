@@ -1,10 +1,11 @@
+import { markLocalInvoicePaid, reminderDraft } from '../lib/localFinance';
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { Printer, FileText, CheckCircle2, ShieldCheck, Building2, Download } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
 import { translations, Language, Translations } from '../i18n';
-import { exportToCsv } from '../lib/exportUtils';
+import { exportToCsv, exportTextFile } from '../lib/exportUtils';
 import { loadStoredData, saveStoredData } from '../lib/storageUtils';
 import { downloadInvoicePdf, downloadReceiptPdf } from '../lib/pdfGenerator';
 
@@ -19,6 +20,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
   const [search, setSearch] = useState('');
+  const [reminderRecipient, setReminderRecipient] = useState('');
   const defaultInvoices = [
     { id: 'INV-OUT-889', client: 'Bank Mandiri (Persero)', desc: lang === 'en' ? 'Enterprise Client' : 'Klien Enterprise', date: '30 Aug 2026', total: 1450000000, status: 'Lunas', color: 'green' as const, isOverdue: false },
     { id: 'INV-OUT-890', client: 'PT Telkom Indonesia', desc: lang === 'en' ? 'Enterprise Client' : 'Klien Enterprise', date: '21 Aug 2026', total: 890000000, status: 'Overdue', color: 'red' as const, isOverdue: true },
@@ -32,8 +34,10 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
   });
 
   useEffect(() => {
-    saveStoredData('inventora_finance_invoices_v1', invoices);
-  }, [invoices]);
+    try {
+      if (localStorage.getItem('inventora_finance_invoices_v1') === null) saveStoredData('inventora_finance_invoices_v1', invoices, true);
+    } catch { onToast(lang === 'en' ? 'Invoices are not saved. Browser storage is unavailable.' : 'Faktur belum tersimpan. Penyimpanan browser tidak tersedia.', 'error'); }
+  }, []);
 
   const [activeModal, setActiveModal] = useState<{ type: 'receipt' | 'warning' | 'invoice', data: any } | null>(null);
 
@@ -64,8 +68,8 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
     return 0;
   });
 
-  const filteredInvoices = sortedInvoices.filter(inv => 
-    inv.client.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredInvoices = sortedInvoices.filter(inv =>
+    inv.client.toLowerCase().includes(search.toLowerCase()) ||
     inv.id.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -94,30 +98,25 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
     }
   };
 
-  const handleSendWarning = (id: string, clientName: string) => {
-    setActiveModal(null);
-    onToast(
-      lang === 'en' 
-        ? `Automated warning email dispatched to ${clientName} for invoice ${id}` 
-        : `Email peringatan otomatis telah dikirim ke ${clientName} untuk faktur ${id}`,
-      "info"
-    );
+  const handlePrepareReminder = (id: string) => {
+    try {
+      const invoice = invoices.find(item => item.id === id);
+      if (!invoice) throw new Error('Faktur tidak ditemukan.');
+      const draft = reminderDraft(invoice, reminderRecipient, lang);
+      exportTextFile(draft.filename, draft.content, 'message/rfc822');
+      setActiveModal(null);
+      setReminderRecipient('');
+      onToast(lang === 'en' ? 'Reminder draft downloaded. Review the recipient and send it from your email app.' : 'Draf pengingat diunduh. Periksa penerima dan kirim melalui aplikasi email.', 'info');
+    } catch (error) { onToast(lang === 'en' ? 'The draft could not be prepared. Check the recipient and invoice.' : 'Draf belum dapat dibuat. Periksa alamat penerima dan faktur.', 'error'); }
   };
 
   const handleMarkAsPaid = (id: string) => {
-    setInvoices(current => current.map(inv => inv.id === id ? {
-      ...inv,
-      status: 'Lunas',
-      color: 'green' as const,
-      isOverdue: false
-    } : inv));
-    setActiveModal(null);
-    onToast(
-      lang === 'en' 
-        ? `Invoice ${id} marked as Paid (Lunas). Official receipt is now available.` 
-        : `Faktur ${id} berhasil ditandai Lunas. Kuitansi resmi sekarang tersedia.`,
-      'success'
-    );
+    try {
+      const updated = markLocalInvoicePaid('inventora_finance_invoices_v1', invoices, id);
+      setInvoices(updated);
+      setActiveModal(null);
+      onToast(lang === 'en' ? `Paid status for ${id} saved locally.` : `Status Lunas untuk ${id} berhasil disimpan secara lokal.`, 'success');
+    } catch { onToast(lang === 'en' ? 'Invoice status was not changed. Check browser storage and the invoice.' : 'Status faktur tidak berubah. Periksa penyimpanan browser dan faktur.', 'error'); }
   };
 
   const getStatusText = (status: string) => {
@@ -129,6 +128,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
 
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
+      <p className="text-xs text-neutral-500">{lang === 'en' ? 'Local finance simulation. Summary charts show examples; invoice status is saved in this browser.' : 'Simulasi keuangan lokal. Grafik ringkasan berisi contoh; status faktur disimpan pada browser ini.'}</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
         <Card>
           <div className="flex justify-between items-start">
@@ -180,8 +180,8 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
         </Card>
       </div>
 
-      <TableWrapper 
-        title={activeT.finance.tableTitle} 
+      <TableWrapper
+        title={activeT.finance.tableTitle}
         placeholder={activeT.finance.searchPlaceholder}
         searchValue={search}
         onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
@@ -193,11 +193,11 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
       >
         <thead className="sticky top-0 z-10">
           <tr>
-            <Th sortable onSort={() => handleSort('id')}>{activeT.finance.invNumberCol}</Th>
-            <Th sortable onSort={() => handleSort('client')}>{activeT.finance.clientCol}</Th>
-            <Th sortable onSort={() => handleSort('date')}>{activeT.finance.dueDateCol}</Th>
-            <Th sortable onSort={() => handleSort('total')}>{activeT.finance.amountCol}</Th>
-            <Th sortable onSort={() => handleSort('status')}>{activeT.finance.statusCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('id')}>{activeT.finance.invNumberCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'client' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('client')}>{activeT.finance.clientCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('date')}>{activeT.finance.dueDateCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'total' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('total')}>{activeT.finance.amountCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('status')}>{activeT.finance.statusCol}</Th>
             <Th align="right">{activeT.finance.actionCol}</Th>
           </tr>
         </thead>
@@ -242,7 +242,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                       </Button>
                     ) : (
                       <div className="flex items-center gap-1">
-                        <Button variant="secondary" onClick={() => setActiveModal({ type: 'warning', data: inv })}>
+                        <Button variant="secondary" onClick={() => { setReminderRecipient(''); setActiveModal({ type: 'warning', data: inv }); }}>
                           {activeT.finance.sendWarningBtn}
                         </Button>
                         <button
@@ -270,15 +270,15 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
         </tbody>
       </TableWrapper>
 
-      <Modal 
-        isOpen={activeModal !== null} 
-        onClose={() => setActiveModal(null)} 
+      <Modal
+        isOpen={activeModal !== null}
+        onClose={() => setActiveModal(null)}
         title={
-          activeModal?.type === 'receipt' 
-            ? (lang === 'en' ? 'Official Receipt Voucher' : 'Bukti Pembayaran Tagihan') 
+          activeModal?.type === 'receipt'
+            ? (lang === 'en' ? 'Official Receipt Voucher' : 'Bukti Pembayaran Tagihan')
             : activeModal?.type === 'invoice'
             ? (lang === 'en' ? 'Commercial Invoice & Tax Assessment' : 'Faktur Penagihan & Rincian Pajak')
-            : (lang === 'en' ? 'Send Payment Warning' : 'Kirim Peringatan Pembayaran')
+            : (lang === 'en' ? 'Prepare Payment Reminder' : 'Siapkan Pengingat Pembayaran')
         }
       >
         {activeModal && activeModal.type === 'receipt' && (
@@ -300,7 +300,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 </div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm">
               <div className="p-3 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800">
                 <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{activeT.finance.invNumberCol}</p>
@@ -511,31 +511,35 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 {lang === 'en' ? 'Overdue Invoice Alert' : 'Peringatan Tagihan Jatuh Tempo'}
               </h4>
               <p className="text-sm text-[#d00] dark:text-[#ff8888] mt-1">
-                {lang === 'en' 
+                {lang === 'en'
                   ? `Invoice ${activeModal.data.id} is overdue since ${activeModal.data.date}.`
                   : `Faktur ${activeModal.data.id} telah melewati jatuh tempo sejak ${activeModal.data.date}.`}
               </p>
             </div>
-            
+
             <div className="text-sm text-[#171717] dark:text-[#ededed]">
               <p>
                 {lang === 'en'
-                  ? `You are about to send an automated payment reminder to ${activeModal.data.client}.`
-                  : `Anda akan mengirimkan pengingat pembayaran otomatis ke ${activeModal.data.client}.`}
+                  ? `Prepare a payment reminder draft for ${activeModal.data.client}.`
+                  : `Siapkan draf pengingat pembayaran untuk ${activeModal.data.client}.`}
               </p>
               <p className="mt-2 text-[#666] dark:text-[#a1a1aa]">
                 {lang === 'en'
-                  ? "This will dispatch an email to the client's registered billing address and log the warning in the CRM."
-                  : "Ini akan mengirimkan email ke alamat penagihan terdaftar klien dan mencatat peringatan di CRM."}
+                  ? "The .eml file opens as a draft in an email app. Check the recipient and content before sending. No email has been sent yet."
+                  : "File .eml dapat dibuka sebagai draf di aplikasi email. Periksa penerima dan isinya sebelum mengirim. Email belum dikirim."}
               </p>
             </div>
 
+            <label className="block text-sm">
+              {lang === 'en' ? 'Recipient email (optional)' : 'Email penerima (opsional)'}
+              <input type="email" value={reminderRecipient} onChange={event => setReminderRecipient(event.target.value)} className="mt-1 w-full rounded border border-neutral-300 dark:border-neutral-700 px-3 py-2 bg-white dark:bg-neutral-900" />
+            </label>
             <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] flex-wrap">
               <Button variant="secondary" onClick={() => setActiveModal(null)}>
                 {activeT.common.cancel}
               </Button>
-              <Button variant="secondary" onClick={() => handleSendWarning(activeModal.data.id, activeModal.data.client)}>
-                {lang === 'en' ? 'Dispatch Warning' : 'Kirim Peringatan'}
+              <Button variant="secondary" onClick={() => handlePrepareReminder(activeModal.data.id)}>
+                {lang === 'en' ? 'Download Email Draft' : 'Unduh Draf Email'}
               </Button>
               <Button variant="primary" onClick={() => handleMarkAsPaid(activeModal.data.id)}>
                 <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />

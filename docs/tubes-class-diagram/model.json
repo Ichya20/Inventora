@@ -1,0 +1,1810 @@
+{
+  "classes": [
+    {
+      "name": "POLineItem",
+      "kind": "interface",
+      "source": "src/types.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "sku?",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "qty",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "unitPrice",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "subtotal",
+          "type": "number",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "GoodsReceiptItem",
+      "kind": "interface",
+      "source": "src/types.ts",
+      "attrs": [
+        {
+          "name": "sku?",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "orderedQty",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "receivedQty",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "condition",
+          "type": "'EXCELLENT' | 'GOOD' | 'DAMAGED' | 'SHORTAGE'",
+          "access": "public"
+        },
+        {
+          "name": "notes?",
+          "type": "string",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "GoodsReceiptNote",
+      "kind": "interface",
+      "source": "src/types.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "grnNumber",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "poId",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "receivedDate",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "receivedBy",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "suratJalanNumber",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "items",
+          "type": "GoodsReceiptItem[]",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "'MATCHED' | 'DISCREPANCY' | 'PENDING'",
+          "access": "public"
+        },
+        {
+          "name": "inspectorNotes?",
+          "type": "string",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "PurchaseOrder",
+      "kind": "interface",
+      "source": "src/types.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "desc",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "deliveryDate?",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "POStatus | string",
+          "access": "public"
+        },
+        {
+          "name": "color",
+          "type": "'orange' | 'green' | 'blue' | 'red' | string",
+          "access": "public"
+        },
+        {
+          "name": "department?",
+          "type": "'IT Infrastructure' | 'Operations & Logistics' | 'Engineering & R&D' | 'HR & GA'",
+          "access": "public"
+        },
+        {
+          "name": "items?",
+          "type": "POLineItem[]",
+          "access": "public"
+        },
+        {
+          "name": "lineItems?",
+          "type": "any[]",
+          "access": "public"
+        },
+        {
+          "name": "subtotal?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "discountAmount?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "taxAmount?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "withholdingTaxAmount?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "grn?",
+          "type": "GoodsReceiptNote",
+          "access": "public"
+        },
+        {
+          "name": "threeWayMatchStatus?",
+          "type": "ThreeWayMatchStatus",
+          "access": "public"
+        },
+        {
+          "name": "paymentInfo?",
+          "type": "{ paidAt: string; method: string; txId: string; reference: string; amount: number; accountOrCard: string; receiptNo: string; payerName: string; }",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "PaymentInfo",
+      "kind": "interface",
+      "source": "src/types.ts: PurchaseOrder.paymentInfo",
+      "attrs": [
+        {
+          "name": "paidAt",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "method",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "txId",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "reference",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "accountOrCard",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "receiptNo",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "payerName",
+          "type": "string",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "DepartmentBudget",
+      "kind": "interface",
+      "source": "src/types.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "quarter",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "allocated",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "spent",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "committed",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "PaymentTransaction",
+      "kind": "interface",
+      "source": "src/types.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "poId",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "vendor",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "taxAmount",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "withholdingTaxAmount?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "totalPaid",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "method",
+          "type": "'bank_transfer' | 'virtual_account' | 'credit_card' | 'qris'",
+          "access": "public"
+        },
+        {
+          "name": "methodLabel",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "accountReference",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "'SUCCESS' | 'PENDING' | 'FAILED'",
+          "access": "public"
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "receiptNumber",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "notes?",
+          "type": "string",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "EmployeeSalary",
+      "kind": "interface",
+      "source": "src/components/HRView.tsx",
+      "attrs": [
+        {
+          "name": "baseSalary",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "positionAllowance",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "transportAllowance",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bonus",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bpjsKesehatan",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bpjsKetenagakerjaan",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "pph21",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bankName",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "accountNumber",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "disbursementStatus",
+          "type": "'Disbursed' | 'Scheduled' | 'Pending Approval'",
+          "access": "public"
+        },
+        {
+          "name": "lastDisbursed?",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "disbursementRef?",
+          "type": "string",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "Employee",
+      "kind": "interface",
+      "source": "src/components/HRView.tsx",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "dept",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "color",
+          "type": "'green' | 'gray' | 'red'",
+          "access": "public"
+        },
+        {
+          "name": "joined",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "taxId?",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "salary",
+          "type": "EmployeeSalary",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "PayrollDisbursementRecord",
+      "kind": "interface",
+      "source": "src/components/HRView.tsx",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "referenceNumber",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "empId",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "empName",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "dept",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "taxId?",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "period",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "periodKey?",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "disbursedAt",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "disbursedDateFormatted",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "baseSalary",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "allowances",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "positionAllowance?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "transportAllowance?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bpjsKesehatan?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bpjsKetenagakerjaan?",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bonus",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "gross",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "deductions",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "pph21",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bpjs",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "netPay",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "bankName",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "accountNumber",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "actor",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "'SUCCESS' | 'SCHEDULED'",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "UserSession",
+      "kind": "interface",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "uid",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "email",
+          "type": "string | null",
+          "access": "public"
+        },
+        {
+          "name": "displayName",
+          "type": "string | null",
+          "access": "public"
+        },
+        {
+          "name": "role",
+          "type": "Role | null",
+          "access": "public"
+        },
+        {
+          "name": "isDemo",
+          "type": "boolean",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "InventoryItem",
+      "kind": "interface",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "desc",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "stock",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "color",
+          "type": "'orange' | 'green' | 'blue' | 'red'",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "InvoiceRecord",
+      "kind": "interface",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "client",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "desc",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "color",
+          "type": "'orange' | 'green' | 'blue' | 'red'",
+          "access": "public"
+        },
+        {
+          "name": "isOverdue",
+          "type": "boolean",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "SubscriptionInvoice",
+      "kind": "interface",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "id",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "total",
+          "type": "number",
+          "access": "public"
+        },
+        {
+          "name": "period",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "client",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "planName",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "paymentMethod",
+          "type": "string",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "SubscriptionRecord",
+      "kind": "interface",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "planId",
+          "type": "SubscriptionTier",
+          "access": "public"
+        },
+        {
+          "name": "cycle",
+          "type": "BillingCycle",
+          "access": "public"
+        },
+        {
+          "name": "anchorDate",
+          "type": "string",
+          "access": "public"
+        },
+        {
+          "name": "autoRenew",
+          "type": "boolean",
+          "access": "public"
+        },
+        {
+          "name": "invoices",
+          "type": "SubscriptionInvoice[]",
+          "access": "public"
+        }
+      ],
+      "methods": []
+    },
+    {
+      "name": "AuthService",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "provider",
+          "type": "GoogleAuthProvider",
+          "access": "private"
+        },
+        {
+          "name": "cachedAccessToken",
+          "type": "string | null",
+          "access": "private"
+        },
+        {
+          "name": "auth",
+          "type": "Auth",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "auth",
+              "type": "Auth",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "signIn",
+          "params": [],
+          "returns": "Promise<UserSession | null>",
+          "access": "public"
+        },
+        {
+          "name": "observe",
+          "params": [
+            {
+              "name": "listener",
+              "type": "SessionListener",
+              "optional": false
+            }
+          ],
+          "returns": "Unsubscribe",
+          "access": "public"
+        },
+        {
+          "name": "getGoogleAccessToken",
+          "params": [
+            {
+              "name": "forceRefresh",
+              "type": "boolean",
+              "optional": true
+            }
+          ],
+          "returns": "Promise<string | null>",
+          "access": "public"
+        },
+        {
+          "name": "signOut",
+          "params": [],
+          "returns": "Promise<void>",
+          "access": "public"
+        },
+        {
+          "name": "mapUser",
+          "params": [
+            {
+              "name": "user",
+              "type": "User",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role | null",
+              "optional": false
+            }
+          ],
+          "returns": "UserSession",
+          "access": "private"
+        }
+      ]
+    },
+    {
+      "name": "AuthorizationPolicy",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [],
+      "methods": [
+        {
+          "name": "isRole",
+          "params": [
+            {
+              "name": "value",
+              "type": "unknown",
+              "optional": false
+            }
+          ],
+          "returns": "value is Role",
+          "access": "public"
+        },
+        {
+          "name": "canAccessMenu",
+          "params": [
+            {
+              "name": "role",
+              "type": "Role | null",
+              "optional": false
+            },
+            {
+              "name": "menu",
+              "type": "string",
+              "optional": false
+            }
+          ],
+          "returns": "boolean",
+          "access": "public"
+        },
+        {
+          "name": "canPerformPoAction",
+          "params": [
+            {
+              "name": "role",
+              "type": "Role | null",
+              "optional": false
+            },
+            {
+              "name": "action",
+              "type": "PoAction",
+              "optional": false
+            }
+          ],
+          "returns": "boolean",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "LoginController",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "session",
+          "type": "UserSession | null",
+          "access": "private"
+        },
+        {
+          "name": "authService",
+          "type": "AuthService",
+          "access": "private"
+        },
+        {
+          "name": "policy",
+          "type": "AuthorizationPolicy",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "authService",
+              "type": "AuthService",
+              "optional": false
+            },
+            {
+              "name": "policy",
+              "type": "AuthorizationPolicy",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "loginWithGoogle",
+          "params": [],
+          "returns": "Promise<UserSession | null>",
+          "access": "public"
+        },
+        {
+          "name": "logout",
+          "params": [],
+          "returns": "Promise<void>",
+          "access": "public"
+        },
+        {
+          "name": "canEnterDashboard",
+          "params": [],
+          "returns": "boolean",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "PurchaseOrderModel",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "data",
+          "type": "PurchaseOrder",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "data",
+              "type": "PurchaseOrder",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "getData",
+          "params": [],
+          "returns": "Readonly<PurchaseOrder>",
+          "access": "public"
+        },
+        {
+          "name": "calculateTotal",
+          "params": [],
+          "returns": "number",
+          "access": "public"
+        },
+        {
+          "name": "approve",
+          "params": [
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "void",
+          "access": "public"
+        },
+        {
+          "name": "reject",
+          "params": [
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "void",
+          "access": "public"
+        },
+        {
+          "name": "receive",
+          "params": [
+            {
+              "name": "note",
+              "type": "GoodsReceiptNote",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "void",
+          "access": "public"
+        },
+        {
+          "name": "recordPayment",
+          "params": [
+            {
+              "name": "info",
+              "type": "PaymentInfo",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "void",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "GoodsReceiptModel",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "data",
+          "type": "GoodsReceiptNote",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "data",
+              "type": "GoodsReceiptNote",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "getData",
+          "params": [],
+          "returns": "Readonly<GoodsReceiptNote>",
+          "access": "public"
+        },
+        {
+          "name": "hasDiscrepancy",
+          "params": [],
+          "returns": "boolean",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "PurchaseOrderRepository",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "db",
+          "type": "Firestore",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "db",
+              "type": "Firestore",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "create",
+          "params": [
+            {
+              "name": "po",
+              "type": "PurchaseOrder",
+              "optional": false
+            }
+          ],
+          "returns": "Promise<void>",
+          "access": "public"
+        },
+        {
+          "name": "findById",
+          "params": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            }
+          ],
+          "returns": "Promise<PurchaseOrder | null>",
+          "access": "public"
+        },
+        {
+          "name": "listen",
+          "params": [
+            {
+              "name": "listener",
+              "type": "PurchaseOrderListener",
+              "optional": false
+            }
+          ],
+          "returns": "Unsubscribe",
+          "access": "public"
+        },
+        {
+          "name": "transition",
+          "params": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "patch",
+              "type": "Partial<PurchaseOrder>",
+              "optional": false
+            },
+            {
+              "name": "source",
+              "type": "MutationSource",
+              "optional": false
+            },
+            {
+              "name": "mutationId",
+              "type": "string",
+              "optional": true
+            }
+          ],
+          "returns": "Promise<void>",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "ProcurementService",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "repository",
+          "type": "PurchaseOrderRepository",
+          "access": "private"
+        },
+        {
+          "name": "policy",
+          "type": "AuthorizationPolicy",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "repository",
+              "type": "PurchaseOrderRepository",
+              "optional": false
+            },
+            {
+              "name": "policy",
+              "type": "AuthorizationPolicy",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "create",
+          "params": [
+            {
+              "name": "po",
+              "type": "PurchaseOrder",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "Promise<void>",
+          "access": "public"
+        },
+        {
+          "name": "approve",
+          "params": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "Promise<void>",
+          "access": "public"
+        },
+        {
+          "name": "reject",
+          "params": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "Promise<void>",
+          "access": "public"
+        },
+        {
+          "name": "receive",
+          "params": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "note",
+              "type": "GoodsReceiptNote",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "Promise<void>",
+          "access": "public"
+        },
+        {
+          "name": "pay",
+          "params": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "info",
+              "type": "PaymentInfo",
+              "optional": false
+            },
+            {
+              "name": "role",
+              "type": "Role",
+              "optional": false
+            }
+          ],
+          "returns": "Promise<void>",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "InventoryService",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "storage",
+          "type": "Storage",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "storage",
+              "type": "Storage",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "list",
+          "params": [],
+          "returns": "InventoryItem[]",
+          "access": "public"
+        },
+        {
+          "name": "deploy",
+          "params": [
+            {
+              "name": "sku",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "qty",
+              "type": "number",
+              "optional": false
+            }
+          ],
+          "returns": "void",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "PayrollService",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "storage",
+          "type": "Storage",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "storage",
+              "type": "Storage",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "listEmployees",
+          "params": [],
+          "returns": "Employee[]",
+          "access": "public"
+        },
+        {
+          "name": "getRecord",
+          "params": [
+            {
+              "name": "empId",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "periodKey",
+              "type": "string",
+              "optional": false
+            }
+          ],
+          "returns": "PayrollDisbursementRecord | undefined",
+          "access": "public"
+        },
+        {
+          "name": "record",
+          "params": [
+            {
+              "name": "empId",
+              "type": "string",
+              "optional": false
+            },
+            {
+              "name": "periodKey",
+              "type": "string",
+              "optional": false
+            }
+          ],
+          "returns": "PayrollDisbursementRecord",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "FinanceService",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "storage",
+          "type": "Storage",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "storage",
+              "type": "Storage",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "listInvoices",
+          "params": [],
+          "returns": "InvoiceRecord[]",
+          "access": "public"
+        },
+        {
+          "name": "markAsPaid",
+          "params": [
+            {
+              "name": "id",
+              "type": "string",
+              "optional": false
+            }
+          ],
+          "returns": "InvoiceRecord",
+          "access": "public"
+        }
+      ]
+    },
+    {
+      "name": "BillingService",
+      "kind": "class",
+      "source": "docs/tubes-class-diagram/kerangka.ts",
+      "attrs": [
+        {
+          "name": "storage",
+          "type": "Storage",
+          "access": "private"
+        }
+      ],
+      "methods": [
+        {
+          "name": "constructor",
+          "params": [
+            {
+              "name": "storage",
+              "type": "Storage",
+              "optional": false
+            }
+          ],
+          "returns": "",
+          "access": "public"
+        },
+        {
+          "name": "getSubscription",
+          "params": [],
+          "returns": "SubscriptionRecord",
+          "access": "public"
+        },
+        {
+          "name": "changePlan",
+          "params": [
+            {
+              "name": "planId",
+              "type": "SubscriptionTier",
+              "optional": false
+            },
+            {
+              "name": "cycle",
+              "type": "BillingCycle",
+              "optional": false
+            }
+          ],
+          "returns": "SubscriptionRecord",
+          "access": "public"
+        },
+        {
+          "name": "setAutoRenew",
+          "params": [
+            {
+              "name": "enabled",
+              "type": "boolean",
+              "optional": false
+            }
+          ],
+          "returns": "void",
+          "access": "public"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    [
+      "PurchaseOrder",
+      "POLineItem",
+      "*--",
+      "1",
+      "0..*"
+    ],
+    [
+      "PurchaseOrder",
+      "GoodsReceiptNote",
+      "*--",
+      "1",
+      "0..1"
+    ],
+    [
+      "PurchaseOrder",
+      "PaymentInfo",
+      "*--",
+      "1",
+      "0..1"
+    ],
+    [
+      "GoodsReceiptNote",
+      "GoodsReceiptItem",
+      "*--",
+      "1",
+      "0..*"
+    ],
+    [
+      "PurchaseOrder",
+      "PaymentTransaction",
+      "--",
+      "1",
+      "0..*"
+    ],
+    [
+      "Employee",
+      "EmployeeSalary",
+      "*--",
+      "1",
+      "1"
+    ],
+    [
+      "Employee",
+      "PayrollDisbursementRecord",
+      "--",
+      "1",
+      "0..*"
+    ],
+    [
+      "SubscriptionRecord",
+      "SubscriptionInvoice",
+      "*--",
+      "1",
+      "0..*"
+    ],
+    [
+      "LoginController",
+      "AuthService",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "LoginController",
+      "AuthorizationPolicy",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "AuthService",
+      "UserSession",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "PurchaseOrderModel",
+      "PurchaseOrder",
+      "--",
+      "1",
+      "1"
+    ],
+    [
+      "GoodsReceiptModel",
+      "GoodsReceiptNote",
+      "--",
+      "1",
+      "1"
+    ],
+    [
+      "ProcurementService",
+      "PurchaseOrderRepository",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "ProcurementService",
+      "AuthorizationPolicy",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "InventoryService",
+      "InventoryItem",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "PayrollService",
+      "Employee",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "PayrollService",
+      "PayrollDisbursementRecord",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "FinanceService",
+      "InvoiceRecord",
+      "..>",
+      "",
+      ""
+    ],
+    [
+      "BillingService",
+      "SubscriptionRecord",
+      "..>",
+      "",
+      ""
+    ]
+  ],
+  "hashes": [
+    {
+      "file": "src/types.ts",
+      "sha256": "23714f0a926fa35ad8c46980e590e0e10b3926efe377653e9fbd66694ef2995c"
+    },
+    {
+      "file": "src/components/HRView.tsx",
+      "sha256": "37dbaeea2a2d0f53c975434c933014319df38ab813a27db568dd6a0f4ce05f2e"
+    },
+    {
+      "file": "src/components/BillingSubscriptionView.tsx",
+      "sha256": "401dc34d63bc4e3ddacb7c015fe276a8470e2e73e9fe0241c61ef330973b951c"
+    },
+    {
+      "file": "docs/tubes-class-diagram/kerangka.ts",
+      "sha256": "bc1bad8650c7569fa7946ff262c0b321af41f03533ed2a115a863b8e037b9afd"
+    }
+  ]
+}

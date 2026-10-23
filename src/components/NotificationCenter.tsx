@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useId } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, CheckCheck, Trash2, CreditCard, CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { AppNotification } from '../types';
@@ -13,9 +13,9 @@ interface NotificationCenterProps {
   t?: Translations;
 }
 
-export function NotificationCenter({ 
-  notifications, 
-  onMarkAllAsRead, 
+export function NotificationCenter({
+  notifications,
+  onMarkAllAsRead,
   onClearAll,
   onSelectNotification,
   lang = 'en',
@@ -23,6 +23,8 @@ export function NotificationCenter({
 }: NotificationCenterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'payment'>('all');
+  const panelId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const activeT = t || defaultTranslations[lang] || defaultTranslations.en;
@@ -34,11 +36,14 @@ export function NotificationCenter({
         setIsOpen(false);
       }
     }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setIsOpen(false); triggerRef.current?.focus(); } };
     if (isOpen) {
+      document.addEventListener('keydown', escape);
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', escape);
     };
   }, [isOpen]);
 
@@ -67,6 +72,8 @@ export function NotificationCenter({
       {/* Bell Button */}
       <button
         type="button"
+        ref={triggerRef}
+        aria-expanded={isOpen} aria-controls={panelId}
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed] hover:bg-[#fafafa] dark:hover:bg-[#1f1f1f] transition-colors cursor-pointer"
         title={activeT.notifications.centerTitle}
@@ -83,11 +90,12 @@ export function NotificationCenter({
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            id={panelId} role="region" aria-label={activeT.notifications.centerTitle}
             initial={{ opacity: 0, y: 10, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-[#141414] rounded-xl shadow-2xl border border-[#eaeaea] dark:border-[#282828] overflow-hidden z-50 flex flex-col max-h-[80vh]"
+            className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-96 bg-white dark:bg-[#141414] rounded-xl shadow-2xl border border-[#eaeaea] dark:border-[#282828] overflow-hidden z-50 flex flex-col max-h-[80vh]"
           >
             {/* Header */}
             <div className="p-3.5 border-b border-[#eaeaea] dark:border-[#282828] flex items-center justify-between bg-[#fafafa] dark:bg-[#181818] shrink-0">
@@ -125,7 +133,8 @@ export function NotificationCenter({
                 )}
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  aria-label={lang === 'en' ? 'Close notifications' : 'Tutup notifikasi'}
+                  onClick={() => { setIsOpen(false); triggerRef.current?.focus(); }}
                   className="p-1 text-xs text-[#666] dark:text-[#aaa] hover:text-[#171717] dark:hover:text-white rounded hover:bg-white dark:hover:bg-[#222] transition-colors cursor-pointer ml-1"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -137,10 +146,11 @@ export function NotificationCenter({
             <div className="flex items-center px-3 pt-2 pb-1 border-b border-[#eaeaea] dark:border-[#262626] gap-2 shrink-0">
               <button
                 type="button"
+                aria-pressed={filter === 'all'}
                 onClick={() => setFilter('all')}
                 className={`text-[11px] font-medium px-2 py-1 rounded transition-colors cursor-pointer ${
-                  filter === 'all' 
-                    ? 'bg-[#171717] text-white dark:bg-white dark:text-black font-semibold' 
+                  filter === 'all'
+                    ? 'bg-[#171717] text-white dark:bg-white dark:text-black font-semibold'
                     : 'text-[#666] dark:text-[#aaa] hover:text-[#171717] dark:hover:text-white'
                 }`}
               >
@@ -148,10 +158,11 @@ export function NotificationCenter({
               </button>
               <button
                 type="button"
+                aria-pressed={filter === 'payment'}
                 onClick={() => setFilter('payment')}
                 className={`text-[11px] font-medium px-2 py-1 rounded transition-colors cursor-pointer flex items-center gap-1 ${
-                  filter === 'payment' 
-                    ? 'bg-[#171717] text-white dark:bg-white dark:text-black font-semibold' 
+                  filter === 'payment'
+                    ? 'bg-[#171717] text-white dark:bg-white dark:text-black font-semibold'
                     : 'text-[#666] dark:text-[#aaa] hover:text-[#171717] dark:hover:text-white'
                 }`}
               >
@@ -166,18 +177,19 @@ export function NotificationCenter({
                 filteredNotifications.map((notif) => {
                   const isPayment = notif.type === 'payment';
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={notif.id}
                       onClick={() => {
-                        if (onSelectNotification) onSelectNotification(notif);
+                        if (onSelectNotification) { onSelectNotification(notif); setIsOpen(false); triggerRef.current?.focus(); }
                       }}
-                      className={`p-3.5 hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] transition-colors cursor-pointer flex items-start gap-3 ${
+                      className={`w-full text-left p-3.5 hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] transition-colors cursor-pointer flex items-start gap-3 ${
                         !notif.read ? 'bg-blue-50/30 dark:bg-blue-950/15' : ''
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                        isPayment 
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' 
+                        isPayment
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
                           : notif.type === 'approval'
                           ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
                           : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
@@ -220,7 +232,7 @@ export function NotificationCenter({
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               ) : (
@@ -234,9 +246,9 @@ export function NotificationCenter({
 
             {/* Footer Summary */}
             <div className="p-2.5 bg-[#fafafa] dark:bg-[#181818] border-t border-[#eaeaea] dark:border-[#282828] text-center text-[10px] text-[#888] shrink-0">
-              {lang === 'en' 
-                ? 'Automated real-time notifications for procurement & settlements' 
-                : 'Notifikasi terintegrasi otomatis dengan Pengadaan PO'}
+              {lang === 'en'
+                ? 'Procurement and payment updates'
+                : 'Pembaruan pengadaan dan pembayaran'}
             </div>
           </motion.div>
         )}

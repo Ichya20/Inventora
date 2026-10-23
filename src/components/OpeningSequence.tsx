@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'motion/react';
 import { ArrowRight, CornerDownLeft } from 'lucide-react';
 import { Language } from '../i18n';
 
@@ -11,6 +11,7 @@ interface OpeningSequenceProps {
 
 export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps) {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -32,7 +33,7 @@ export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps
   const shineY = useTransform(smoothY, [-0.5, 0.5], ['20%', '80%']);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
+    if (reduceMotion || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
@@ -67,7 +68,7 @@ export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps
       style={{ perspective: 1200 }}
     >
       {/* Precision CAD / Architectural Grid Backdrop with Radial Mask */}
-      <div 
+      <div
         className="absolute inset-0 pointer-events-none opacity-[0.35] dark:opacity-[0.2]"
         style={{
           backgroundImage: `
@@ -118,7 +119,7 @@ export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps
 
       {/* Main 3D Hero Assembly */}
       <div className="relative z-10 flex flex-col items-center gap-10 max-w-xl text-center">
-        
+
         {/* 3D Isometric Logo Monoliths Container */}
         <motion.div
           style={{
@@ -138,7 +139,7 @@ export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps
           />
 
           {/* 4 Monolithic 3D Tiles representing Inventora's 4 Core Enterprise Pillars */}
-          <div 
+          <div
             className="grid grid-cols-2 gap-3.5 w-32 h-32"
             style={{ transformStyle: 'preserve-3d' }}
           >
@@ -221,7 +222,7 @@ export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps
               Inventora
             </h1>
           </div>
-          
+
           <p className="text-xs sm:text-sm uppercase tracking-[0.24em] font-semibold text-neutral-500 dark:text-neutral-400">
             {lang === 'en' ? 'Enterprise Resource Planning' : 'Sistem Perencanaan Sumber Daya Terpadu'}
           </p>
@@ -248,7 +249,7 @@ export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps
             className="group relative inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.1),0_4px_16px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.18)] dark:hover:shadow-[0_4px_24px_rgba(255,255,255,0.15)] hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <span>{lang === 'en' ? 'Enter Workspace' : 'Buka Workspace'}</span>
-            
+
             {/* Keyboard shortcut affordance keycap */}
             <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-neutral-800 dark:bg-neutral-200 text-neutral-300 dark:text-neutral-700 text-[10px] font-mono border border-neutral-700 dark:border-neutral-300">
               <CornerDownLeft className="w-2.5 h-2.5" />

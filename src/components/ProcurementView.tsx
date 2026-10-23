@@ -11,6 +11,7 @@ import { PrintableVoucher } from './PrintableVoucher';
 import { VirtualizedTable, Column } from './VirtualizedTable';
 import { PoRiskCard } from './PoRiskCard';
 import { ThreeWayMatchModal } from './ThreeWayMatchModal';
+import { validatedReceiptPatch } from '../lib/goodsReceipt';
 import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
 import { downloadReceiptPdf } from '../lib/pdfGenerator';
 
@@ -35,8 +36,8 @@ interface ProcurementViewProps {
   onQueueOffline?: (mutation: any) => void;
 }
 
-export function ProcurementView({ 
-  onNavigate, 
+export function ProcurementView({
+  onNavigate,
   onToast,
   onNotify,
   t,
@@ -57,7 +58,7 @@ export function ProcurementView({
   const [poForPrint, setPoForPrint] = useState<PurchaseOrder | null>(null);
   const [isVirtualized, setIsVirtualized] = useState(false);
   const [threeWayPo, setThreeWayPo] = useState<PurchaseOrder | null>(null);
-  
+
   const [transactions, setTransactions] = useState<PaymentTransaction[]>(() => {
     const saved = localStorage.getItem(isDemo ? 'inventora_po_transactions' : 'inventora_po_transactions:' + ownerId);
     if (saved) {
@@ -221,6 +222,11 @@ export function ProcurementView({
     const target = pos.find(item => item.id === id);
     if (!target) throw new Error('PO tidak ditemukan.');
     assertPoTransition(target, patch.status!, role, source);
+    if (source === 'receipt') {
+      const validated = validatedReceiptPatch(target, patch.grn!, role);
+      if (patch.status !== validated.status || patch.threeWayMatchStatus !== validated.threeWayMatchStatus) throw new Error('Status GRN tidak sesuai rincian penerimaan.');
+      patch = validated;
+    }
     saving.current = true;
     try {
       if (!isDemo) {
@@ -306,8 +312,8 @@ export function ProcurementView({
   }, [pos, sortConfig]);
 
   const filteredPos = useMemo(() => {
-    return sortedPos.filter(po => 
-      po.vendor?.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+    return sortedPos.filter(po =>
+      po.vendor?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       po.id?.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
   }, [sortedPos, debouncedSearch]);
@@ -323,7 +329,7 @@ export function ProcurementView({
   const debouncedTxSearch = useDebounce(txSearch, 180);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(tx => 
+    return transactions.filter(tx =>
       (tx.id || '').toLowerCase().includes(debouncedTxSearch.toLowerCase()) ||
       (tx.poId || '').toLowerCase().includes(debouncedTxSearch.toLowerCase()) ||
       (tx.vendor || '').toLowerCase().includes(debouncedTxSearch.toLowerCase()) ||
@@ -340,11 +346,12 @@ export function ProcurementView({
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const headers = ['PO Number', 'Vendor', 'Description', 'Date', 'Total (IDR)', 'Status', 'Department', '3-Way Match Status', 'Payment Receipt'];
+      const headers = ['PO Number', 'Vendor', 'Description', 'Notes', 'Date', 'Total (IDR)', 'Status', 'Department', '3-Way Match Status', 'Payment Receipt'];
       const rows = filteredPos.map(po => [
         `"${po.id}"`,
         `"${(po.vendor || '').replace(/"/g, '""')}"`,
         `"${(po.desc || '').replace(/"/g, '""')}"`,
+        `"${(po.notes || '').replace(/"/g, '""')}"`,
         `"${po.date}"`,
         po.total,
         `"${po.status}"`,
@@ -437,19 +444,19 @@ export function ProcurementView({
 
       <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="flex bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] rounded-md p-1">
-          <button 
+          <button
             onClick={() => setViewMode('list')}
             className={`px-3 py-1.5 text-sm font-medium rounded transition-colors cursor-pointer ${viewMode === 'list' ? 'bg-[#fafafa] dark:bg-[#333] text-[#171717] dark:text-[#ededed] shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed]'}`}
           >
             {activeT.procurement.listView}
           </button>
-          <button 
+          <button
             onClick={() => setViewMode('kanban')}
             className={`px-3 py-1.5 text-sm font-medium rounded transition-colors cursor-pointer ${viewMode === 'kanban' ? 'bg-[#fafafa] dark:bg-[#333] text-[#171717] dark:text-[#ededed] shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed]'}`}
           >
             {activeT.procurement.kanbanView}
           </button>
-          <button 
+          <button
             onClick={() => setViewMode('transactions')}
             className={`px-3 py-1.5 text-sm font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${viewMode === 'transactions' ? 'bg-[#fafafa] dark:bg-[#333] text-[#171717] dark:text-[#ededed] shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed]'}`}
           >
@@ -467,10 +474,11 @@ export function ProcurementView({
                 ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                 : 'bg-white dark:bg-[#1a1a1a] border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800'
             }`}
-            title="Toggle 60 FPS Virtualized Grid"
+            aria-pressed={isVirtualized}
+            title={lang === 'en' ? 'Toggle compact table' : 'Ganti tabel ringkas'}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isVirtualized ? 'Virtualized Grid (60 FPS)' : 'Virtualization Off'}</span>
+            <span className="hidden sm:inline">{isVirtualized ? (lang === 'en' ? 'Compact table' : 'Tabel ringkas') : (lang === 'en' ? 'Standard table' : 'Tabel standar')}</span>
           </button>
           <Button variant="secondary" onClick={() => { setAuditPoFilter(null); setIsAuditOpen(true); }}>
             <History className="w-3.5 h-3.5" />
@@ -492,6 +500,7 @@ export function ProcurementView({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={activeT.procurement.searchPlaceholder}
+                aria-label={activeT.procurement.searchPlaceholder}
                 className="w-full max-w-sm px-3.5 py-2 bg-white dark:bg-[#161616] border border-neutral-200 dark:border-neutral-800 rounded-lg text-xs"
               />
             </div>
@@ -508,8 +517,8 @@ export function ProcurementView({
             />
           </div>
         ) : (
-        <TableWrapper 
-          title={activeT.procurement.tableTitle} 
+        <TableWrapper
+          title={activeT.procurement.tableTitle}
           placeholder={activeT.procurement.searchPlaceholder}
           searchValue={search}
           onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
@@ -521,11 +530,11 @@ export function ProcurementView({
         >
           <thead className="sticky top-0 z-10">
             <tr>
-              <Th sortable onSort={() => handleSort('id')}>{activeT.procurement.poNumber}</Th>
-              <Th sortable onSort={() => handleSort('vendor')}>{activeT.procurement.vendor}</Th>
-              <Th sortable onSort={() => handleSort('date')}>{activeT.procurement.date}</Th>
-              <Th sortable onSort={() => handleSort('total')}>{activeT.procurement.amount}</Th>
-              <Th sortable onSort={() => handleSort('status')}>{activeT.procurement.status}</Th>
+              <Th sortable sortDirection={sortConfig?.key === 'id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('id')}>{activeT.procurement.poNumber}</Th>
+              <Th sortable sortDirection={sortConfig?.key === 'vendor' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('vendor')}>{activeT.procurement.vendor}</Th>
+              <Th sortable sortDirection={sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('date')}>{activeT.procurement.date}</Th>
+              <Th sortable sortDirection={sortConfig?.key === 'total' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('total')}>{activeT.procurement.amount}</Th>
+              <Th sortable sortDirection={sortConfig?.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('status')}>{activeT.procurement.status}</Th>
               <Th>3-Way Match</Th>
               <Th align="right">{activeT.procurement.actions}</Th>
             </tr>
@@ -590,7 +599,7 @@ export function ProcurementView({
                       >
                         <PackageCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       </button>
-                      {canPerformPoAction(role, 'pay') && po.status === 'Barang Diterima' && po.threeWayMatchStatus === 'MATCHED' && !po.paymentInfo && (
+                      {canPerformPoAction(role, 'pay') && po.status === 'Barang Diterima' && po.threeWayMatchStatus === 'MATCHED' && (isDemo || po.receiptVerification?.version === 1) && !po.paymentInfo && (
                         <button
                           type="button"
                           onClick={() => setSelectedPoForPayment(po)}
@@ -634,14 +643,14 @@ export function ProcurementView({
       {viewMode === 'kanban' && (
         <div className="flex flex-1 gap-6 overflow-x-auto pb-4">
           {kanbanColumns.map(col => {
-            const columnPos = pos.filter(po => 
-              col.status === 'Ditolak' 
-                ? (po.status === 'Ditolak' || po.status === 'Selisih Penerimaan') 
+            const columnPos = pos.filter(po =>
+              col.status === 'Ditolak'
+                ? (po.status === 'Ditolak' || po.status === 'Selisih Penerimaan')
                 : po.status === col.status
             );
             return (
-            <div 
-              key={col.status} 
+            <div
+              key={col.status}
               className="flex-shrink-0 w-80 bg-[#eaeaea]/50 dark:bg-[#111] rounded-xl flex flex-col max-h-full border border-[#eaeaea] dark:border-[#333]"
               onDragOver={onDragOver}
               onDrop={(e) => onDrop(e, col.status, col.color)}
@@ -691,8 +700,8 @@ export function ProcurementView({
                           <span>{po.grn?.grnNumber ? `${po.grn.grnNumber} (Selisih)` : 'Selisih Penerimaan'}</span>
                         </div>
                       )}
-                      
-                      {canPerformPoAction(role, 'pay') && po.status === 'Barang Diterima' && po.threeWayMatchStatus === 'MATCHED' && !po.paymentInfo && (
+
+                      {canPerformPoAction(role, 'pay') && po.status === 'Barang Diterima' && po.threeWayMatchStatus === 'MATCHED' && (isDemo || po.receiptVerification?.version === 1) && !po.paymentInfo && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -762,8 +771,8 @@ export function ProcurementView({
             </Card>
           </div>
 
-          <TableWrapper 
-            title={activeT.procurement.auditTableTitle} 
+          <TableWrapper
+            title={activeT.procurement.auditTableTitle}
             placeholder={lang === 'en' ? "Search transaction ID, PO, or vendor..." : "Cari transaksi ID, PO, atau vendor..."}
             searchValue={txSearch}
             onSearchChange={(v) => { setTxSearch(v); setTxPage(1); }}
@@ -874,9 +883,9 @@ export function ProcurementView({
         </div>
       )}
 
-      <Modal 
-        isOpen={activeModal !== null} 
-        onClose={() => setActiveModal(null)} 
+      <Modal
+        isOpen={activeModal !== null}
+        onClose={() => setActiveModal(null)}
         title={activeModal?.type === 'review' ? activeT.procurement.reviewModalTitle : activeT.procurement.detailModalTitle}
       >
         {activeModal && (
@@ -896,6 +905,10 @@ export function ProcurementView({
                 <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.vendor}</p>
                 <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{activeModal.data.desc}</p>
               </div>
+              {activeModal.data.notes && <div className="col-span-2">
+                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{lang === 'en' ? 'Procurement notes / delivery instructions' : 'Catatan pengadaan / instruksi pengiriman'}</p>
+                <p className="text-xs whitespace-pre-wrap break-words">{activeModal.data.notes}</p>
+              </div>}
               <div className="col-span-2 p-4 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg shadow-inner dark:shadow-none dark:border dark:border-[#333]">
                 <p className="text-[#666] dark:text-[#a1a1aa] mb-1 text-xs uppercase tracking-wider">{activeT.procurement.amount}</p>
                 <p className="text-2xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">
@@ -1015,7 +1028,7 @@ export function ProcurementView({
                   </Button>
                 </>
               )}
-              {canPerformPoAction(role, 'pay') && activeModal.data.status === 'Barang Diterima' && activeModal.data.threeWayMatchStatus === 'MATCHED' && !activeModal.data.paymentInfo && (
+              {canPerformPoAction(role, 'pay') && activeModal.data.status === 'Barang Diterima' && activeModal.data.threeWayMatchStatus === 'MATCHED' && (isDemo || activeModal.data.receiptVerification?.version === 1) && !activeModal.data.paymentInfo && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1067,7 +1080,7 @@ export function ProcurementView({
           onClose={() => setThreeWayPo(null)}
           po={threeWayPo}
           onSaveGrn={handleSaveGrn}
-          canEdit={canPerformPoAction(role, 'receive') && ['Disetujui', 'Selisih Penerimaan'].includes(threeWayPo.status)}
+          canEdit={canPerformPoAction(role, 'receive') && (['Disetujui', 'Selisih Penerimaan'].includes(threeWayPo.status) || (threeWayPo.status === 'Barang Diterima' && !threeWayPo.receiptVerification && !threeWayPo.paymentInfo))}
           lang={lang}
         />
       )}

@@ -1,0 +1,70 @@
+{
+  "jumlah_halaman": 31,
+  "font_pdf": {
+    "TimesNewRomanPS-BoldMT": 5388,
+    "TimesNewRomanPSMT": 11456,
+    "Consolas": 19873
+  },
+  "ukuran_font_pt": {
+    "12.0": 36717
+  },
+  "warna_font": {
+    "(0.0,)": 36717
+  },
+  "sql_create_lengkap": 14,
+  "sql_insert_lengkap": 14,
+  "isi_sql_sesuai_sumber": true,
+  "daftar_isi_sesuai_halaman": true,
+  "spasi_paragraf": 1.5,
+  "peta_halaman": {
+    "bab1": 3,
+    "bab2": 3,
+    "bab3": 4,
+    "bab4": 5,
+    "bab5": 8,
+    "bab6": 10,
+    "bab7": 24,
+    "bab8": 26,
+    "lampiranA": 27,
+    "lampiranB": 31,
+    "total_pages": 31
+  },
+  "run_font_diverifikasi": 376,
+  "acuan_asli_tidak_berubah": true,
+  "sha256_pdf_final": "8ce569c1d6ca70bceb3e976bf8d1fe7a45d303fe0a8311f8282efccf327e563e",
+  "sha256_docx_final": "15c26e45aec6b7e6525fa049146daeab6b0e1c024c4e2b1df1773c086400781d",
+  "halaman_diperiksa_visual": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "render_final": "tmp/doc-format/render-delivery"
+}

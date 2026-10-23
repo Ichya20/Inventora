@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { authenticatedPost } from '../lib/apiClient';
+import { apiErrorMessage } from '../lib/apiError';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, AlertTriangle, ArrowRight, RefreshCw, Box, CheckCircle2, TrendingDown, ShoppingCart } from 'lucide-react';
 import { stripAiClutter } from './CleanAiText';
 
@@ -17,82 +19,40 @@ interface RestockForecastCardProps {
   lang?: 'en' | 'id';
 }
 
-let cachedRestockData: { insights: string; forecasts: RestockForecastItem[] } | null = null;
-
-const DEFAULT_RESTOCK_FALLBACK: RestockForecastItem[] = [
-  {
-    skuId: "STR-NVME-8TB",
-    name: "8TB NVMe Enterprise Storage",
-    daysUntilStockout: 3,
-    recommendedOrderQty: 40,
-    urgency: "CRITICAL",
-    rationale: "Current inventory (8 units) is below safety margin (15 units). Projected run-out in 3 business days."
-  },
-  {
-    skuId: "DS-24B-NAS",
-    name: "24-Bay Enterprise NAS",
-    daysUntilStockout: 4,
-    recommendedOrderQty: 15,
-    urgency: "CRITICAL",
-    rationale: "Stock critically low (5 units). Buffer for infrastructure expansion required."
-  }
-];
-
 export function RestockForecastCard({
   inventory,
   onGeneratePo,
   lang = 'en'
 }: RestockForecastCardProps) {
-  const [forecasts, setForecasts] = useState<RestockForecastItem[]>(() => {
-    return cachedRestockData?.forecasts || DEFAULT_RESTOCK_FALLBACK;
-  });
-  const [insights, setInsights] = useState<string>(() => {
-    return cachedRestockData?.insights || (
-      lang === 'en'
-        ? "Automated replenishment calculation active: detected hardware SKUs approaching safety stock boundaries."
-        : "Perhitungan restok otomatis aktif: mendeteksi perangkat keras yang mendekati batas stok minimum."
-    );
-  });
+  const [forecasts, setForecasts] = useState<RestockForecastItem[]>([]);
+  const [insights, setInsights] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const fetchForecast = async (force = false) => {
-    if (cachedRestockData && !force) return;
+  const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
+  const fetchForecast = async () => {
+    const request = ++requestId.current;
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setIsLoading(true);
+    setError(null);
+    setForecasts([]);
+    setInsights('');
     try {
-      const res = await fetch('/api/ai/forecast-restock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory })
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const newInsights = data.insights || (
-        lang === 'en'
-          ? "Autonomous replenishment calculation active: detected hardware SKUs approaching safety stock boundaries."
-          : "Perhitungan restok otomatis aktif: mendeteksi SKU yang mendekati batas stok minimum."
-      );
-      const newForecasts = (data.forecasts && data.forecasts.length > 0)
-        ? data.forecasts
-        : DEFAULT_RESTOCK_FALLBACK;
-
-      cachedRestockData = { insights: newInsights, forecasts: newForecasts };
-      setInsights(newInsights);
-      setForecasts(newForecasts);
-    } catch (e) {
-      console.warn('Notice: Restock API fallback active due to network/capacity limit:', e);
-      if (!forecasts || forecasts.length === 0) {
-        setForecasts(DEFAULT_RESTOCK_FALLBACK);
-      }
-    } finally {
-      setIsLoading(false);
-    }
+      const data = await authenticatedPost<{ insights: string; forecasts: RestockForecastItem[] }>('/api/ai/forecast-restock', { inventory }, { signal: controller.signal });
+      if (request !== requestId.current) return;
+      setInsights(data.insights || '');
+      setForecasts(Array.isArray(data.forecasts) ? data.forecasts : []);
+    } catch (error) {
+      if (request !== requestId.current) return;
+      setError(apiErrorMessage(error, lang));
+    } finally { if (request === requestId.current) setIsLoading(false); }
   };
-
   useEffect(() => {
-    if (!cachedRestockData) {
-      fetchForecast(false);
-    }
-  }, []);
+    void fetchForecast();
+    return () => { requestId.current++; activeRequest.current?.abort(); };
+  }, [inventory]);
 
   const getUrgencyBadge = (urgency: 'NORMAL' | 'HIGH' | 'CRITICAL') => {
     switch (urgency) {
@@ -130,7 +90,7 @@ export function RestockForecastCard({
 
         <button
           type="button"
-          onClick={() => fetchForecast(true)}
+          onClick={() => fetchForecast()}
           disabled={isLoading}
           className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all cursor-pointer"
           title="Refresh forecast"
@@ -139,6 +99,7 @@ export function RestockForecastCard({
         </button>
       </div>
 
+      {error && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       {isLoading ? (
         <div className="py-6 flex flex-col items-center justify-center gap-2 text-xs text-neutral-500">
           <RefreshCw className="w-5 h-5 animate-spin text-[#0070f3]" />

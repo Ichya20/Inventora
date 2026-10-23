@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages, Keyboard } from 'lucide-react';
-import { ToastType, ToastItem, ToastFunction, Role, PurchaseOrder, PaymentTransaction, AppNotification } from './types';
+import { ToastType, ToastItem, ToastFunction, Role, PurchaseOrder, PaymentTransaction, AppNotification, RestockDraft } from './types';
 import { translations, Language, Translations } from './i18n';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -20,6 +20,9 @@ import { loadStoredData, saveStoredData, clearAllInventoraStorage, createInvento
 import { canAccessMenu, isRole } from './lib/authorization';
 import { readDemoUser } from './lib/demoSession';
 import { useWorkspaceSummary } from './lib/useWorkspaceSummary';
+import { useNotifications } from './lib/useNotifications';
+import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal, UILanguageContext } from './components/UI';
+import { OverviewView } from './components/OverviewView';
 
 const InventoryView = lazy(() => import('./components/InventoryView').then(m => ({ default: m.InventoryView })));
 
@@ -31,235 +34,22 @@ const PurchaseUnitView = lazy(() => import('./components/PurchaseUnitView').then
 const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(m => ({ default: m.AnalyticsView })));
 const BillingSubscriptionView = lazy(() => import('./components/BillingSubscriptionView').then(m => ({ default: m.BillingSubscriptionView })));
 
-const Card = ({ children }: { children: React.ReactNode }) => (
-  <div className="bg-white dark:bg-[#111] p-6 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.2)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_8px_16px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_8px_16px_rgba(0,0,0,0.4)] transition-shadow duration-300">
-    {children}
-  </div>
-);
-
-const Badge = ({ children, color = "blue" }: { children: React.ReactNode, color?: "blue" | "green" | "orange" | "gray" | "red" }) => {
-  const colorMap = {
-    blue: "bg-[#0070f3] dark:bg-[#3291ff]",
-    green: "bg-[#10b981] dark:bg-[#34d399]",
-    orange: "bg-[#f5a623] dark:bg-[#f5a623]",
-    red: "bg-[#e00] dark:bg-[#f87171]",
-    gray: "bg-[#999] dark:bg-[#888]"
-  };
-  return (
-    <span className="shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] bg-white dark:bg-[#1a1a1a] px-2.5 py-0.5 rounded-full text-xs font-medium text-[#666] dark:text-[#a1a1aa] flex items-center gap-1.5 w-fit">
-      <div className={`w-1.5 h-1.5 rounded-full ${colorMap[color]}`}></div>
-      {children}
-    </span>
-  );
-};
-
-const Button = ({ 
-  children, 
-  variant = "primary", 
-  onClick, 
-  type = "button", 
-  disabled = false, 
-  isLoading = false,
-  className = ""
-}: { 
-  children: React.ReactNode, 
-  variant?: "primary" | "secondary", 
-  onClick?: () => void, 
-  type?: "button" | "submit", 
-  disabled?: boolean, 
-  isLoading?: boolean,
-  className?: string
-}) => {
-  const content = isLoading ? (
-    <div className="flex items-center gap-2">
-      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      {children}
-    </div>
-  ) : children;
-
-  if (variant === "primary") {
-    return (
-      <button 
-        type={type} 
-        onClick={onClick} 
-        disabled={disabled || isLoading} 
-        className={`bg-[#171717] dark:bg-[#ededed] text-white dark:text-[#171717] font-medium px-4 py-2 rounded-md text-sm hover:bg-[#383838] dark:hover:bg-[#ccc] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.12)] disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[36px] ${className}`}
-      >
-        {content}
-      </button>
-    );
-  }
-  return (
-    <button 
-      type={type} 
-      onClick={onClick} 
-      disabled={disabled || isLoading} 
-      className={`bg-white dark:bg-[#111] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2)] hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] px-3 py-1.5 rounded-md transition-shadow text-sm disabled:opacity-80 disabled:cursor-not-allowed flex items-center justify-center min-h-[32px] ${className}`}
-    >
-      {content}
-    </button>
-  );
-};
-
-const TableWrapper = ({ title, placeholder, action, searchValue, onSearchChange, onExport, isExporting, currentPage, totalPages, onPageChange, children }: any) => (
-  <div className="flex-1 bg-white dark:bg-[#111] rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] flex flex-col min-h-0">
-    <div className="px-4 sm:px-6 py-3.5 sm:py-4 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center justify-between bg-white dark:bg-[#111] rounded-t-xl z-10 shrink-0">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold tracking-tight text-sm sm:text-base text-[#171717] dark:text-[#ededed]">{title}</h2>
-        <span className="sm:hidden text-[10px] text-neutral-400 font-mono">Swipe table &rarr;</span>
-      </div>
-      <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
-        <input 
-          type="text" 
-          value={searchValue}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={placeholder} 
-          className="bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15)] focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] dark:focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.4)] outline-none text-xs sm:text-sm px-3 py-1.5 rounded-md flex-1 sm:w-64 transition-shadow placeholder-[#999] dark:placeholder-[#666] text-[#171717] dark:text-[#ededed]" 
-        />
-        {onExport && (
-          <Button variant="secondary" onClick={onExport} isLoading={isExporting}>
-            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" /> <span className="text-xs sm:text-sm">Export</span>
-          </Button>
-        )}
-        {action}
-      </div>
-    </div>
-    <div className="flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain -webkit-overflow-scrolling-touch">
-      <table className="w-full text-left border-collapse min-w-[700px] sm:min-w-[800px]">
-        {children}
-      </table>
-    </div>
-    {(currentPage && totalPages) && (
-      <div className="px-4 sm:px-6 py-2.5 sm:py-3 shadow-[0_-1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.08)] bg-[#fafafa] dark:bg-[#111] flex items-center justify-between rounded-b-xl shrink-0">
-        <span className="text-xs sm:text-sm text-[#666] dark:text-[#a1a1aa]">
-          Showing page <span className="font-medium text-[#171717] dark:text-[#ededed]">{currentPage}</span> of <span className="font-medium text-[#171717] dark:text-[#ededed]">{totalPages}</span>
-        </span>
-        <div className="flex gap-1.5 sm:gap-2">
-          <Button variant="secondary" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)}>
-            <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          </Button>
-          <Button variant="secondary" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)}>
-            <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          </Button>
-        </div>
-      </div>
-    )}
-  </div>
-);
-
-const Th = ({ children, align = "left", sortable, onSort }: { children: React.ReactNode, align?: "left" | "right", sortable?: boolean, onSort?: () => void }) => (
-  <th 
-    onClick={sortable ? onSort : undefined}
-    className={`px-6 py-3 text-xs font-medium text-[#666] dark:text-[#a1a1aa] shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] bg-[#fafafa] dark:bg-[#0a0a0a] tracking-tight ${align === 'right' ? 'text-right' : ''} ${sortable ? 'cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#1a1a1a] transition-colors select-none' : ''}`}
-  >
-    <div className={`flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
-      {children}
-      {sortable && <ArrowUpDown className="w-3 h-3 opacity-50" />}
-    </div>
-  </th>
-);
-
-const Td = ({ children, align = "left" }: { children: React.ReactNode, align?: "left" | "right" }) => (
-  <td className={`px-6 py-4 text-sm text-[#171717] dark:text-[#ededed] shadow-[0_1px_0_0_rgba(0,0,0,0.04)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)] ${align === 'right' ? 'text-right' : ''}`}>
-    {children}
-  </td>
-);
-
-const Tr = ({ children, index = 0 }: { children: React.ReactNode, index?: number, key?: any }) => (
-  <motion.tr
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
-    className="hover:bg-[#fafafa] dark:hover:bg-[#161616] transition-colors group"
-  >
-    {children}
-  </motion.tr>
-);
-
-const Modal = ({ isOpen, onClose, title, children }: any) => {
-  if (!isOpen) return null;
-  return (
-    <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 dark:bg-black/40 backdrop-blur-sm p-4">
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }} className="bg-white dark:bg-[#111] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="px-6 py-4 border-b border-[#eaeaea] dark:border-white/10 flex justify-between items-center bg-[#fafafa] dark:bg-[#0a0a0a]">
-            <h3 className="font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">{title}</h3>
-            <button onClick={onClose} className="text-[#999] hover:text-[#171717] dark:hover:text-[#ededed] transition-colors">
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-          </div>
-          <div className="p-6 overflow-y-auto">
-            {children}
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-};
-
-function OverviewView({ onNavigate, t, lang, summary, role, isDemo, notifications }: {
-  onNavigate: (menu: string) => void; t: Translations; lang: Language;
-  summary: ReturnType<typeof useWorkspaceSummary>; role: Role | null; isDemo: boolean; notifications: AppNotification[];
-}) {
-  const count = (value: number | null) => value === null ? '—' : value.toLocaleString(lang === 'en' ? 'en-US' : 'id-ID');
-  const missing = lang === 'en' ? 'Open an authorized module to load its data.' : 'Buka modul yang diizinkan untuk memuat datanya.';
-  const cards = [
-    { label: lang === 'en' ? 'Recorded PO Value' : 'Nilai PO Tercatat', value: summary.poValue === null ? '—' : `Rp ${count(summary.poValue)}`, note: lang === 'en' ? 'Excludes rejected orders; includes completed orders.' : 'Tidak termasuk PO ditolak; mencakup PO selesai.', menu: 'po' },
-    { label: t.overview.activePos, value: count(summary.activePosCount), note: summary.pendingApprovalsCount === null ? missing : `${count(summary.pendingApprovalsCount)} ${lang === 'en' ? 'pending approvals' : 'menunggu persetujuan'}`, menu: 'po' },
-    { label: t.overview.lowStockAlerts, value: count(summary.lowStockCount), note: lang === 'en' ? 'Items marked critical or monitoring in local inventory.' : 'Item berstatus kritis atau pemantauan di inventori lokal.', menu: 'stok' },
-    { label: lang === 'en' ? 'Employee Directory' : 'Direktori Karyawan', value: count(summary.totalHeadcount), note: lang === 'en' ? 'Personnel recorded in this browser.' : 'Personel yang tersimpan di browser ini.', menu: 'sdm' },
-  ].filter(card => canAccessMenu(role, card.menu));
-  const actions = [
-    { menu: 'purchase', label: t.overview.createPo }, { menu: 'keuangan', label: t.overview.generateInvoice },
-    { menu: 'sdm', label: t.overview.onboardEmployee }, { menu: 'analytics', label: t.overview.viewAnalytics },
-  ].filter(action => canAccessMenu(role, action.menu));
-  const activities = notifications.filter(item => !['notif-gateway-init', 'notif-po-approved'].includes(item.id)).slice(0, 5);
-  return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <p className="text-sm text-neutral-500">{isDemo
-        ? (lang === 'en' ? 'Demo workspace · totals follow local records. A dash means data has not loaded.' : 'Workspace demo · total mengikuti data lokal. Tanda — berarti data belum dimuat.')
-        : (lang === 'en' ? 'PO totals use Firestore. Inventory and HR use this browser’s local records. A dash means data is unavailable.' : 'Total PO memakai Firestore. Inventori dan SDM memakai arsip lokal browser. Tanda — berarti data belum tersedia.')}</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {cards.map(card => <Card key={card.label}>
-          <p className="text-sm font-medium text-neutral-500">{card.label}</p>
-          <h3 className="text-2xl font-semibold tracking-tight mt-2 break-words tabular-nums">{card.value}</h3>
-          <p className="text-xs text-neutral-500 mt-2 min-h-10">{card.value === '—' ? missing : card.note}</p>
-          <div className="mt-4"><Button variant="secondary" onClick={() => onNavigate(card.menu)}>{lang === 'en' ? 'Open module' : 'Buka modul'}</Button></div>
-        </Card>)}
-      </div>
-      <Card>
-        <h3 className="font-semibold mb-4">{t.overview.quickActions}</h3>
-        <div className="flex flex-wrap gap-3">{actions.map(action => <Button key={action.menu} variant="secondary" onClick={() => onNavigate(action.menu)}>{action.label}</Button>)}</div>
-      </Card>
-      <Card>
-        <h3 className="font-semibold mb-4">{t.overview.activityStream}</h3>
-        {activities.length ? <div className="space-y-4">{activities.map(item => <div key={item.id}>
-          <p className="text-sm font-medium">{item.title}</p><p className="text-sm text-neutral-500">{item.message}</p>
-          <time className="text-xs text-neutral-500">{new Date(item.timestamp).toLocaleString(lang === 'en' ? 'en-US' : 'id-ID')}</time>
-        </div>)}</div> : <p className="text-sm text-neutral-500">{lang === 'en' ? 'No recorded activity yet. Open a module to get started.' : 'Belum ada aktivitas tercatat. Buka modul untuk mulai bekerja.'}</p>}
-      </Card>
-    </section>
-  );
-}
-
-function SettingsView({ 
-  onToast, 
-  lang, 
-  onLanguageChange, 
+function SettingsView({
+  onToast,
+  lang,
+  onLanguageChange,
   t,
-  onNavigate
-}: { 
+  onNavigate,
+  account
+}: {
   onToast: ToastFunction;
   lang: Language;
   onLanguageChange: (newLang: Language) => void;
   t: Translations;
   onNavigate?: (menu: string) => void;
+  account: { displayName?: string; email?: string };
 }) {
   const [activeTab, setActiveTab] = useState<'profile' | 'workspace' | 'language'>('profile');
-  const [isSaving, setIsSaving] = useState(false);
   const [selectedLang, setSelectedLang] = useState<Language>(lang);
   const [confirmReset, setConfirmReset] = useState(false);
   const resetTimerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -271,6 +61,10 @@ function SettingsView({
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+        onToast(lang === 'en' ? 'Choose a PNG, JPEG, WebP, or GIF image.' : 'Pilih gambar PNG, JPEG, WebP, atau GIF.', 'error');
+        return;
+      }
       if (file.size > 2 * 1024 * 1024) {
         onToast(lang === 'en' ? 'Avatar image must be under 2MB' : 'Ukuran foto avatar maksimal 2MB', 'error');
         return;
@@ -278,9 +72,13 @@ function SettingsView({
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
-        setUserAvatar(base64);
-        localStorage.setItem('inventora_user_avatar', base64);
-        onToast(lang === 'en' ? 'Profile avatar updated' : 'Foto avatar profil berhasil diperbarui', 'success');
+        try {
+          localStorage.setItem('inventora_user_avatar', base64);
+          setUserAvatar(base64);
+          onToast(lang === 'en' ? 'Profile avatar updated' : 'Foto avatar profil berhasil diperbarui', 'success');
+        } catch {
+          onToast(lang === 'en' ? 'Could not save the avatar in this browser.' : 'Foto belum dapat disimpan di browser ini.', 'error');
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -290,36 +88,25 @@ function SettingsView({
     setSelectedLang(lang);
   }, [lang]);
 
-  const handleSave = () => {
-    setIsSaving(true);
-    if (selectedLang !== lang) {
-      onLanguageChange(selectedLang);
-    }
-    setTimeout(() => {
-      setIsSaving(false);
-      onToast(lang === 'en' ? "Settings updated successfully" : "Pengaturan berhasil diperbarui", "success");
-    }, 600);
-  };
-
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
       <div className="max-w-4xl w-full mx-auto flex flex-col md:flex-row gap-8">
         <div className="w-full md:w-64 shrink-0 space-y-1">
-          <div 
-            onClick={() => setActiveTab('profile')} 
-            className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'profile' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
+          <button type="button" aria-pressed={activeTab === 'profile'}
+            onClick={() => setActiveTab('profile')}
+            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'profile' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
           >
             {t.settings.profileTab}
-          </div>
-          <div 
-            onClick={() => setActiveTab('workspace')} 
-            className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'workspace' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
+          </button>
+          <button type="button" aria-pressed={activeTab === 'workspace'}
+            onClick={() => setActiveTab('workspace')}
+            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'workspace' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
           >
             {t.settings.workspaceTab}
-          </div>
-          <div 
-            onClick={() => setActiveTab('language')} 
-            className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors flex items-center justify-between ${activeTab === 'language' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
+          </button>
+          <button type="button" aria-pressed={activeTab === 'language'}
+            onClick={() => setActiveTab('language')}
+            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors flex items-center justify-between ${activeTab === 'language' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
           >
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4" />
@@ -328,7 +115,7 @@ function SettingsView({
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400">
               {lang.toUpperCase()}
             </span>
-          </div>
+          </button>
         </div>
 
         <div className="flex-1">
@@ -350,12 +137,12 @@ function SettingsView({
                     )}
                   </div>
                   <div>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      onChange={handleAvatarFileChange} 
-                      accept="image/*" 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAvatarFileChange}
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
                     />
                     <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
                       {t.settings.changeAvatar}
@@ -365,24 +152,22 @@ function SettingsView({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">{t.settings.fullName}</label>
-                    <input type="text" defaultValue="Admin User" className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] outline-none text-sm px-3 py-2 rounded-md focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] text-[#171717] dark:text-[#ededed]" />
+                    <label htmlFor="profile-name" className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">{t.settings.fullName}</label>
+                    <input id="profile-name" type="text" value={account.displayName || '—'} readOnly className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] outline-none text-sm px-3 py-2 rounded-md focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] text-[#171717] dark:text-[#ededed]" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">{t.settings.emailAddress}</label>
-                    <input type="email" defaultValue="admin@inventora.com" className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] outline-none text-sm px-3 py-2 rounded-md focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] text-[#171717] dark:text-[#ededed]" />
+                    <label htmlFor="profile-email" className="block text-sm font-medium text-[#171717] dark:text-[#ededed]">{t.settings.emailAddress}</label>
+                    <input id="profile-email" type="email" value={account.email || ''} readOnly className="w-full bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] outline-none text-sm px-3 py-2 rounded-md focus:shadow-[0_0_0_1px_#0070f3,0_0_0_3px_rgba(0,112,243,0.24)] text-[#171717] dark:text-[#ededed]" />
                   </div>
                 </div>
-                <div className="pt-4 flex justify-end">
-                  <Button variant="primary" onClick={handleSave} isLoading={isSaving}>{t.settings.saveChanges}</Button>
-                </div>
+                <p className="text-xs text-[var(--ws-muted)]">{lang === 'en' ? 'Name and email follow your signed-in account. Avatar changes are saved in this browser.' : 'Nama dan email mengikuti akun yang masuk. Perubahan foto disimpan di browser ini.'}</p>
               </div>
             )}
 
             {activeTab === 'workspace' && (
               <div className="space-y-6 text-[#171717] dark:text-[#ededed]">
-                <p className="text-sm text-[#666] dark:text-[#a1a1aa]">Configure your workspace preferences and notification settings.</p>
-                
+                <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{lang === 'en' ? 'Manage language and data saved in this browser.' : 'Kelola bahasa dan data yang tersimpan di browser ini.'}</p>
+
                 {/* Language section in Workspace tab */}
                 <div className="p-4 rounded-lg bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] space-y-3">
                   <div className="flex items-center justify-between">
@@ -416,9 +201,9 @@ function SettingsView({
                       <span>{lang === 'en' ? 'Local Storage & Demo State' : 'Penyimpanan Lokal & Data Demo'}</span>
                     </h4>
                     <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">
-                      {lang === 'en' 
-                        ? 'All purchase orders, inventory units, and invoice adjustments are stored locally in your browser.' 
-                        : 'Semua pesanan pembelian, unit inventaris, dan penyesuaian faktur disimpan secara lokal di browser Anda.'}
+                      {lang === 'en'
+                        ? 'This backup contains browser data only. Live purchase orders in Firestore are managed separately.'
+                        : 'Cadangan ini hanya memuat data browser. PO aktif di Firestore dikelola secara terpisah.'}
                     </p>
                   </div>
 
@@ -459,25 +244,13 @@ function SettingsView({
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
                       {confirmReset
-                        ? (lang === 'en' ? 'Confirm Reset (4s)?' : 'Konfirmasi Reset (4d)?')
+                        ? (lang === 'en' ? 'Confirm Reset (4s)?' : 'Konfirmasi Reset (4 detik)?')
                         : (lang === 'en' ? 'Reset Demo Data' : 'Reset Data Demo')}
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-[#0070f3] focus:ring-[#0070f3]" />
-                    <span className="text-sm">{t.settings.emailOnPo}</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-[#0070f3] focus:ring-[#0070f3]" />
-                    <span className="text-sm">{t.settings.weeklySummary}</span>
-                  </label>
-                </div>
-                <div className="pt-4 flex justify-end">
-                  <Button variant="primary" onClick={handleSave} isLoading={isSaving}>{t.settings.updatePreferences}</Button>
-                </div>
+                <p className="text-xs text-[var(--ws-muted)]">{lang === 'en' ? 'Language changes are saved automatically in this browser. Email notifications are not configured.' : 'Perubahan bahasa tersimpan otomatis di browser ini. Notifikasi email belum dikonfigurasi.'}</p>
               </div>
             )}
 
@@ -491,7 +264,7 @@ function SettingsView({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* English Card */}
-                  <div 
+                  <div
                     onClick={() => {
                       setSelectedLang('en');
                       onLanguageChange('en');
@@ -560,7 +333,7 @@ function SettingsView({
                   </div>
 
                   {/* Indonesian Card */}
-                  <div 
+                  <div
                     onClick={() => {
                       setSelectedLang('id');
                       onLanguageChange('id');
@@ -636,8 +409,8 @@ function SettingsView({
                       {lang === 'en' ? 'Seamless Persistence' : 'Tersimpan Otomatis'}
                     </p>
                     <p className="text-blue-800 dark:text-blue-300 text-[11px] leading-relaxed">
-                      {lang === 'en' 
-                        ? 'Your language selection is saved locally across sessions and synchronized with the top navigation bar quick switcher.' 
+                      {lang === 'en'
+                        ? 'Your language selection is saved locally across sessions and synchronized with the top navigation bar quick switcher.'
                         : 'Pilihan bahasa Anda disimpan secara otomatis untuk seluruh sesi kerja dan disinkronkan langsung dengan tombol cepat di header atas.'}
                     </p>
                   </div>
@@ -651,107 +424,58 @@ function SettingsView({
   );
 }
 
-function CommandPalette({ 
-  isOpen, 
-  onClose, 
-  onNavigate, 
-  toggleDarkMode, 
-  lang = 'en', 
-  onLanguageChange 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  onNavigate: (menu: string) => void; 
-  toggleDarkMode: () => void; 
-  lang?: Language; 
-  onLanguageChange?: (newLang: Language) => void; 
+function CommandPalette({
+  isOpen,
+  onClose,
+  onNavigate,
+  toggleDarkMode,
+  lang = 'en',
+  onLanguageChange,
+  role
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onNavigate: (menu: string) => void;
+  toggleDarkMode: () => void;
+  lang?: Language;
+  onLanguageChange?: (newLang: Language) => void;
+  role: Role | null;
 }) {
   const [search, setSearch] = useState('');
-  
-  useEffect(() => {
-    if (isOpen) {
-      setSearch('');
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => { document.body.style.overflow = 'unset'; }
-  }, [isOpen]);
 
-  if (!isOpen) return null;
+  useEffect(() => { if (isOpen) setSearch(''); }, [isOpen]);
 
   const commands = [
-    { id: 'overview', name: lang === 'en' ? 'Go to Command Center Overview' : 'Buka Command Center Overview', icon: LayoutDashboard, action: () => onNavigate('overview') },
+    { id: 'overview', name: lang === 'en' ? 'Open overview' : 'Buka ringkasan', icon: LayoutDashboard, action: () => onNavigate('overview') },
     { id: 'analytics', name: lang === 'en' ? 'View Analytics & Reports' : 'Buka Analytics & Pelaporan', icon: BarChart3, action: () => onNavigate('analytics') },
     { id: 'stok', name: lang === 'en' ? 'Check Inventory Stock' : 'Periksa Stok Inventaris', icon: Database, action: () => onNavigate('stok') },
-    { id: 'po', name: lang === 'en' ? 'Manage Procurement (PO & Payment Gateway)' : 'Kelola Pengadaan (PO & Gateway Pembayaran)', icon: ShoppingCart, action: () => onNavigate('po') },
-    { id: 'finance', name: lang === 'en' ? 'Go to Finance & Invoices' : 'Buka Keuangan & Invoice', icon: FileText, action: () => onNavigate('keuangan') },
-    { id: 'hr', name: lang === 'en' ? 'Manage HR & Payroll' : 'Kelola SDM & Payroll', icon: Users, action: () => onNavigate('sdm') },
+    { id: 'po', name: lang === 'en' ? 'Open procurement' : 'Buka pengadaan', icon: ShoppingCart, action: () => onNavigate('po') },
+    { id: 'keuangan', name: lang === 'en' ? 'Go to Finance & Invoices' : 'Buka Keuangan & Invoice', icon: FileText, action: () => onNavigate('keuangan') },
+    { id: 'sdm', name: lang === 'en' ? 'Manage HR & Payroll' : 'Kelola SDM & Payroll', icon: Users, action: () => onNavigate('sdm') },
     { id: 'billing', name: lang === 'en' ? 'Manage Billing & Cloud Subscription' : 'Kelola Langganan & Tagihan Cloud', icon: CreditCard, action: () => onNavigate('billing') },
     { id: 'settings', name: lang === 'en' ? 'Open Workspace & Language Settings' : 'Buka Pengaturan Workspace & Bahasa', icon: SettingsIcon, action: () => onNavigate('settings') },
-    { 
-      id: 'lang-en', 
-      name: 'Switch Language to English (US)', 
-      icon: Globe, 
-      action: () => onLanguageChange && onLanguageChange('en') 
+    {
+      id: 'lang-en',
+      name: 'Switch Language to English (US)',
+      icon: Globe,
+      action: () => onLanguageChange && onLanguageChange('en')
     },
-    { 
-      id: 'lang-id', 
-      name: 'Ganti Bahasa ke Bahasa Indonesia', 
-      icon: Globe, 
-      action: () => onLanguageChange && onLanguageChange('id') 
+    {
+      id: 'lang-id',
+      name: 'Ganti Bahasa ke Bahasa Indonesia',
+      icon: Globe,
+      action: () => onLanguageChange && onLanguageChange('id')
     },
     { id: 'theme', name: lang === 'en' ? 'Toggle Dark Mode' : 'Ganti Tema Gelap / Terang', icon: Moon, action: () => toggleDarkMode() },
   ];
 
-  const filtered = commands.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = commands.filter(c => (['lang-en', 'lang-id', 'theme'].includes(c.id) || canAccessMenu(role, c.id)) && c.name.toLowerCase().includes(search.toLowerCase()));
 
-  return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] sm:pt-[20vh] px-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.15 }}
-        className="bg-white dark:bg-[#111] w-full max-w-lg rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_16px_64px_rgba(0,0,0,0.2)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_16px_64px_rgba(0,0,0,0.6)] overflow-hidden relative z-10"
-      >
-        <div className="flex items-center px-4 py-3 border-b border-[#eaeaea] dark:border-[#333]">
-          <Search className="w-5 h-5 text-[#666] dark:text-[#a1a1aa] mr-3" />
-          <input 
-            autoFocus
-            type="text" 
-            placeholder={lang === 'en' ? "Type a command or search..." : "Ketik perintah atau cari menu..."} 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-[#171717] dark:text-[#ededed] placeholder-[#999] dark:placeholder-[#666]"
-          />
-          <div className="text-[10px] font-mono text-[#999] border border-[#eaeaea] dark:border-[#333] px-1.5 py-0.5 rounded">ESC</div>
-        </div>
-        <div className="max-h-[60vh] overflow-y-auto p-2">
-          {filtered.length > 0 ? (
-            filtered.map((cmd) => {
-              const Icon = cmd.icon;
-              return (
-                <div 
-                  key={cmd.id}
-                  onClick={() => { cmd.action(); onClose(); }}
-                  className="flex items-center px-3 py-2.5 rounded-lg hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] cursor-pointer text-[#171717] dark:text-[#ededed] group"
-                >
-                  <Icon className="w-4 h-4 text-[#666] dark:text-[#a1a1aa] group-hover:text-[#171717] dark:group-hover:text-[#ededed] mr-3" />
-                  <span className="text-sm font-medium">{cmd.name}</span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="py-8 text-center text-sm text-[#666] dark:text-[#a1a1aa]">
-              {lang === 'en' ? `No results found for "${search}"` : `Tidak ada hasil untuk "${search}"`}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </div>
-  );
+  return <Modal isOpen={isOpen} onClose={onClose} title={lang === 'en' ? 'Search workspace' : 'Cari di ruang kerja'}>
+    <input autoFocus type="search" value={search} onChange={event => setSearch(event.target.value)} aria-label={lang === 'en' ? 'Search modules and actions' : 'Cari modul dan tindakan'} placeholder={lang === 'en' ? 'Find a module or action…' : 'Cari modul atau tindakan…'} className="w-full rounded-md border border-[var(--ws-border)] bg-[var(--ws-raised)] px-3 py-2 text-sm mb-3"/>
+    <div className="max-h-[55vh] overflow-y-auto space-y-1">{filtered.map(cmd => <button key={cmd.id} type="button" onClick={() => { cmd.action(); onClose(); }} className="flex w-full items-center gap-3 px-3 py-3 rounded-md text-left text-xs hover:bg-[var(--ws-raised)] cursor-pointer"><cmd.icon size={16} className="text-[var(--ws-muted)]"/>{cmd.name}</button>)}
+    {!filtered.length && <p className="py-6 text-center text-xs text-[var(--ws-muted)]">{lang === 'en' ? 'No matching modules or actions.' : 'Tidak ada modul atau tindakan yang cocok.'}</p>}</div>
+  </Modal>;
 }
 
 function Dashboard() {
@@ -765,6 +489,37 @@ function Dashboard() {
     return 'en';
   });
 
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+    const mobile = window.matchMedia('(max-width: 767px)');
+    if (!mobile.matches) { setIsSidebarOpen(false); return; }
+    const sidebar = document.getElementById('workspace-navigation');
+    const main = document.querySelector<HTMLElement>('.app-main');
+    const previous = document.activeElement as HTMLElement | null;
+    const wasInert = main?.inert ?? false;
+    if (main) main.inert = true;
+    const controls = () => Array.from(sidebar?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, [tabindex="0"]') ?? []).filter(element => element.getClientRects().length > 0);
+    controls()[0]?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setIsSidebarOpen(false); }
+      if (event.key !== 'Tab') return;
+      const items = controls();
+      if (!items.length) return;
+      const first = items[0]; const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    const handleResize = () => { if (!mobile.matches) setIsSidebarOpen(false); };
+    document.addEventListener('keydown', handleKey);
+    mobile.addEventListener('change', handleResize);
+    return () => {
+      if (main) main.inert = wasInert;
+      document.removeEventListener('keydown', handleKey);
+      mobile.removeEventListener('change', handleResize);
+      previous?.focus();
+    };
+  }, [isSidebarOpen]);
+
   const t = translations[language];
 
   const handleLanguageChange = (newLang: Language) => {
@@ -777,6 +532,9 @@ function Dashboard() {
   const isDemo = !!demoUser;
   const [user, setUser] = useState<any>(demoUser);
   const [currentRole, setCurrentRole] = useState<Role | null>(demoUser?.role ?? null);
+  const draftOwner = `${isDemo ? 'demo' : 'live'}:${user?.uid ?? demoUser?.email ?? ''}:${currentRole ?? ''}`;
+  const [restockDraft, setRestockDraft] = useState<{ owner: string; key: string; item: RestockDraft } | null>(null);
+  const activeRestockDraft = restockDraft?.owner === draftOwner ? restockDraft : null;
   const [authReady, setAuthReady] = useState(isDemo);
   const summary = useWorkspaceSummary(isDemo, user?.uid ?? 'demo', currentRole);
   const [isCmdKOpen, setIsCmdKOpen] = useState(false);
@@ -798,40 +556,10 @@ function Dashboard() {
     onToggleCopilot: () => setIsAiCopilotOpen(prev => !prev),
   });
 
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem('inventora_notifications');
-    if (saved) {
-      try { return JSON.parse(saved).filter((item: AppNotification) => !['notif-gateway-init', 'notif-po-approved'].includes(item.id)); } catch {}
-    }
-    return [];
-  });
-
-  const handleNewNotification = (notifData: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
-    const newNotif: AppNotification = {
-      ...notifData,
-      id: 'notif-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-      timestamp: new Date().toISOString(),
-      read: false
-    };
-    setNotifications(prev => {
-      const updated = [newNotif, ...prev];
-      try { localStorage.setItem('inventora_notifications', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => {
-      const updated = prev.map(n => ({ ...n, read: true }));
-      try { localStorage.setItem('inventora_notifications', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-  };
-
-  const handleClearAllNotifications = () => {
-    setNotifications([]);
-    try { localStorage.removeItem('inventora_notifications'); } catch {}
-  };
+  const {
+    notifications, notify: handleNewNotification, markAllAsRead: handleMarkAllAsRead,
+    clearAll: handleClearAllNotifications, clearSession: clearNotificationSession,
+  } = useNotifications(isDemo, authReady ? user?.uid ?? (isDemo ? demoUser.email.trim().toLowerCase() : null) : null, currentRole);
 
   useEffect(() => {
     if (demoUser) return;
@@ -874,22 +602,28 @@ function Dashboard() {
   };
 
   const showToast = (
-    msg: string, 
-    type: ToastType = 'success', 
-    options?: { 
-      title?: string; 
-      actionLabel?: string; 
-      onAction?: () => void; 
+    msg: string,
+    type: ToastType = 'success',
+    options?: {
+      title?: string;
+      actionLabel?: string;
+      onAction?: () => void;
       duration?: number;
     }
   ) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
-    
+
     // Auto-detect high-context category title if not explicitly passed
     let determinedTitle = options?.title;
     if (!determinedTitle) {
       const lower = msg.toLowerCase();
-      if (lower.includes('pembayaran') || lower.includes('payment') || lower.includes('lunas') || lower.includes('settled') || lower.includes('receipt')) {
+      if (type === 'error') {
+        determinedTitle = language === 'en' ? 'Action Failed' : 'Tindakan Gagal';
+      } else if (type === 'warning') {
+        determinedTitle = language === 'en' ? 'Attention Required' : 'Perlu Diperiksa';
+      } else if (type === 'info') {
+        determinedTitle = language === 'en' ? 'Information' : 'Informasi';
+      } else if (lower.includes('pembayaran') || lower.includes('payment') || lower.includes('lunas') || lower.includes('settled') || lower.includes('receipt')) {
         determinedTitle = language === 'en' ? 'Payment Confirmed' : 'Pembayaran Lunas';
       } else if (lower.includes('deploy') || lower.includes('stok') || lower.includes('unit') || lower.includes('dispatched')) {
         determinedTitle = language === 'en' ? 'Inventory Dispatched' : 'Stok Berkurang';
@@ -932,15 +666,22 @@ function Dashboard() {
       showToast(language === 'en' ? 'You do not have access to this module.' : 'Anda tidak memiliki akses ke modul ini.', 'error');
       return;
     }
+    setRestockDraft(null);
     setActiveMenu(menuName);
     setIsSidebarOpen(false); // Close mobile sidebar on navigation
   };
 
-  const getMenuClass = (menuName: string) => {
-    return activeMenu === menuName
-      ? "bg-white dark:bg-[#1a1a1a] shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] text-[#171717] dark:text-[#ededed] font-medium px-3 py-2 rounded-md flex items-center gap-3 cursor-pointer"
-      : "text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed] hover:bg-[#eaeaea] dark:hover:bg-[#333] px-3 py-2 rounded-md flex items-center gap-3 transition-colors cursor-pointer";
+  const handleRestockDraft = (item: RestockDraft) => {
+    if (!canAccessMenu(currentRole, 'purchase')) { handleMenuClick('purchase'); return; }
+    if (!item || typeof item.skuId !== 'string' || !item.skuId.trim() || typeof item.name !== 'string' || !item.name.trim() || !Number.isSafeInteger(item.recommendedOrderQty) || item.recommendedOrderQty <= 0) {
+      showToast(language === 'en' ? 'The restock recommendation is incomplete. Review stock before creating a PO.' : 'Rekomendasi restok belum lengkap. Periksa stok sebelum membuat PO.', 'error');
+      return;
+    }
+    handleMenuClick('purchase');
+    setRestockDraft({ owner: draftOwner, key: crypto.randomUUID(), item: { skuId: item.skuId, name: item.name, recommendedOrderQty: item.recommendedOrderQty } });
   };
+
+  const getMenuClass = (menuName: string) => `sidebar-link ${activeMenu === menuName || (menuName === 'po' && ['purchase', 'new-po'].includes(activeMenu)) ? 'is-active' : ''}`;
 
   const getHeaderTitle = () => {
     switch(activeMenu) {
@@ -962,6 +703,9 @@ function Dashboard() {
   const hasAccess = (menu: string) => canAccessMenu(currentRole, menu);
 
   const handleLogout = async () => {
+    setRestockDraft(null);
+    clearNotificationSession();
+    setIsAiCopilotOpen(false);
     sessionStorage.removeItem('inventora_demo_user');
     try {
       const { logout } = await import('./firebase');
@@ -983,24 +727,20 @@ function Dashboard() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-[#fafafa] dark:bg-[#000] text-[#171717] dark:text-[#ededed] font-sans overflow-hidden transition-colors duration-200">
-      
+    <UILanguageContext.Provider value={language}>
+    <div className="app-shell flex h-dvh w-full text-[#171717] dark:text-[#ededed] font-sans overflow-hidden">
+
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-20 md:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`
-        fixed md:static inset-y-0 left-0 z-30 w-64 bg-[#fafafa] dark:bg-[#111] flex flex-col shrink-0 
-        shadow-[1px_0_0_0_rgba(0,0,0,0.08)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.08)]
-        transform transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-      `}>
-        <div className="p-6 flex items-center justify-between gap-2.5">
+      <aside id="workspace-navigation" aria-label={language === 'en' ? 'Main navigation' : 'Navigasi utama'} className={`app-sidebar fixed md:static inset-y-0 left-0 z-30 flex flex-col shrink-0 ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+        <div className="sidebar-brand flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
             <div className="flex-shrink-0 flex items-center justify-center">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1014,72 +754,40 @@ function Dashboard() {
               <span className="text-lg font-semibold tracking-tight text-[#171717] dark:text-[#ededed] leading-none">Inventora</span>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(false)}
+            aria-label={language === 'en' ? 'Close navigation' : 'Tutup navigasi'}
             className="md:hidden text-[#666] dark:text-[#a1a1aa]"
           >
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
-        
-        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
-          {hasAccess('overview') && (
-            <div onClick={() => handleMenuClick('overview')} className={getMenuClass('overview')}>
-              <LayoutDashboard className="w-4 h-4" />
-              <span className="text-sm">{t.nav.overview}</span>
-            </div>
-          )}
-          {hasAccess('analytics') && (
-            <div onClick={() => handleMenuClick('analytics')} className={getMenuClass('analytics')}>
-              <BarChart3 className="w-4 h-4" />
-              <span className="text-sm">{t.nav.analytics}</span>
-            </div>
-          )}
-          {hasAccess('stok') && (
-            <div onClick={() => handleMenuClick('stok')} className={getMenuClass('stok')}>
-              <Database className="w-4 h-4" />
-              <span className="text-sm">{t.nav.inventory}</span>
-            </div>
-          )}
-          {hasAccess('po') && (
-            <div onClick={() => handleMenuClick('po')} className={getMenuClass('po')}>
-              <ShoppingCart className="w-4 h-4" />
-              <span className="text-sm">{t.nav.procurement}</span>
-            </div>
-          )}
-          {hasAccess('keuangan') && (
-            <div onClick={() => handleMenuClick('keuangan')} className={getMenuClass('keuangan')}>
-              <FileText className="w-4 h-4" />
-              <span className="text-sm">{t.nav.finance}</span>
-            </div>
-          )}
-          {hasAccess('sdm') && (
-            <div onClick={() => handleMenuClick('sdm')} className={getMenuClass('sdm')}>
-              <Users className="w-4 h-4" />
-              <span className="text-sm">{t.nav.hr}</span>
-            </div>
-          )}
-          {hasAccess('billing') && (
-            <div onClick={() => handleMenuClick('billing')} className={getMenuClass('billing')}>
-              <CreditCard className="w-4 h-4" />
-              <span className="text-sm">{t.nav.billing}</span>
-            </div>
-          )}
-          
-          {hasAccess('settings') && (
-            <div className="pt-4 mt-4 border-t border-[#eaeaea] dark:border-[#333]">
-              <div onClick={() => handleMenuClick('settings')} className={getMenuClass('settings')}>
-                <SettingsIcon className="w-4 h-4" />
-                <span className="text-sm">{t.nav.settings}</span>
-              </div>
-            </div>
-          )}
+
+        <div className="workspace-label"><span className="workspace-monogram">IN</span><div><strong>Inventora</strong><span>{language === 'en' ? 'Operations workspace' : 'Ruang kerja operasional'}</span></div><span className="workspace-role">{isDemo ? 'DEMO' : 'ERP'}</span></div>
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+          <p className="nav-group-label">{language === 'en' ? 'Workspace' : 'Ruang kerja'}</p>
+          {[
+            { id: 'overview', label: t.nav.overview, icon: LayoutDashboard },
+            { id: 'analytics', label: t.nav.analytics, icon: BarChart3 },
+            { id: 'stok', label: t.nav.inventory, icon: Database },
+            { id: 'po', label: t.nav.procurement, icon: ShoppingCart },
+            { id: 'keuangan', label: t.nav.finance, icon: FileText },
+            { id: 'sdm', label: t.nav.hr, icon: Users },
+            { id: 'billing', label: t.nav.billing, icon: CreditCard },
+          ].filter(item => hasAccess(item.id)).map(item => <button key={item.id} type="button" aria-current={getMenuClass(item.id).includes('is-active') ? 'page' : undefined} onClick={() => handleMenuClick(item.id)} className={getMenuClass(item.id)}>
+            {getMenuClass(item.id).includes('is-active') && <motion.span layoutId="navigation-active" className="sidebar-active-indicator" transition={{ type: 'spring', stiffness: 420, damping: 38 }} />}
+            <item.icon className="w-[18px] h-[18px]" strokeWidth={1.7} /><span>{item.label}</span>
+            {item.id === 'po' && !!summary.pendingApprovalsCount && <span className="nav-count">{summary.pendingApprovalsCount}</span>}
+          </button>)}
+          {hasAccess('settings') && <div className="nav-settings"><p className="nav-group-label">{language === 'en' ? 'Manage' : 'Pengelolaan'}</p><button type="button" aria-current={activeMenu === 'settings' ? 'page' : undefined} onClick={() => handleMenuClick('settings')} className={getMenuClass('settings')}>
+            {activeMenu === 'settings' && <motion.span layoutId="navigation-active" className="sidebar-active-indicator" transition={{ type: 'spring', stiffness: 420, damping: 38 }} />}
+            <SettingsIcon size={18} strokeWidth={1.7}/><span>{t.nav.settings}</span></button></div>}
         </nav>
-        
-        <div className="p-6 text-[#666] dark:text-[#a1a1aa] text-xs space-y-4 shadow-[0_-1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_-1px_0_0_rgba(255,255,255,0.08)]">
+
+        <div className="sidebar-account text-xs space-y-4">
           <p>{t.nav.activeSession}:<br/><span className="text-[#171717] dark:text-[#ededed] font-medium text-sm truncate block" title={user?.email}>{user?.email || 'admin@inventora.com'}</span></p>
           <div className="flex gap-2">
-            <button onClick={toggleDarkMode} className="flex-1 bg-white dark:bg-[#1a1a1a] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-[#fafafa] dark:hover:bg-[#333] px-3 py-2 rounded-md transition-colors flex items-center justify-center">
+            <button onClick={toggleDarkMode} aria-label={language === 'en' ? 'Toggle color theme' : 'Ganti tema warna'} className="flex-1 bg-white dark:bg-[#1a1a1a] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-[#fafafa] dark:hover:bg-[#333] px-3 py-2 rounded-md transition-colors flex items-center justify-center">
               <svg className="hidden dark:block w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
               <svg className="block dark:hidden w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
             </button>
@@ -1092,22 +800,21 @@ function Dashboard() {
       </aside>
 
 
-      <main className="flex-1 flex flex-col min-w-0 bg-[#fafafa] dark:bg-[#000]">
-        <header className="h-14 shadow-[0_1px_0_0_rgba(0,0,0,0.08)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.08)] flex items-center justify-between gap-2 px-4 md:px-8 bg-white dark:bg-[#111] shrink-0 z-10">
+      <main className="app-main flex-1 flex flex-col min-w-0">
+        <header className="app-topbar flex items-center justify-between gap-2 px-4 md:px-6 shrink-0 z-10">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(true)}
               aria-label={language === 'en' ? 'Open navigation' : 'Buka navigasi'}
+              aria-expanded={isSidebarOpen} aria-controls="workspace-navigation"
               className="md:hidden shrink-0 text-[#171717] dark:text-[#ededed] p-1 -ml-1 rounded hover:bg-[#fafafa] dark:hover:bg-[#333]"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="min-w-0 text-base font-medium tracking-tight text-[#171717] dark:text-[#ededed] flex items-center gap-3">
-              <span className="truncate" title={getHeaderTitle()}>{getHeaderTitle()}</span>
-              <span className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] text-xs text-[#999] font-mono cursor-pointer hover:border-[#ccc] dark:hover:border-[#555] transition-colors" onClick={() => setIsCmdKOpen(true)}>
-                <Command className="w-3 h-3" /> K
-              </span>
-            </h1>
+            <div className="min-w-0 flex items-center gap-3"><h1 className="min-w-0 text-base font-medium tracking-tight">
+              <span className="block truncate" title={getHeaderTitle()}>{getHeaderTitle()}</span>
+            </h1><button type="button" className="command-trigger hidden lg:flex" onClick={() => setIsCmdKOpen(true)} aria-label={language === 'en' ? 'Search modules (Ctrl+K)' : 'Cari modul (Ctrl+K)'}><Search size={14}/><span>{language === 'en' ? 'Search modules' : 'Cari modul'}</span><kbd>Ctrl K</kbd></button>
+            </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-3 shrink-0">
             {pendingSequence && (
@@ -1143,6 +850,7 @@ function Dashboard() {
                     ? 'bg-white dark:bg-[#262626] text-[#0070f3] dark:text-[#3291ff] shadow-sm'
                     : 'text-[#666] dark:text-[#888] hover:text-[#171717] dark:hover:text-[#ededed]'
                 }`}
+                aria-pressed={language === 'en'}
                 title="Switch language to English (US)"
               >
                 EN
@@ -1155,6 +863,7 @@ function Dashboard() {
                     ? 'bg-white dark:bg-[#262626] text-[#0070f3] dark:text-[#3291ff] shadow-sm'
                     : 'text-[#666] dark:text-[#888] hover:text-[#171717] dark:hover:text-[#ededed]'
                 }`}
+                aria-pressed={language === 'id'}
                 title="Ganti bahasa ke Bahasa Indonesia"
               >
                 ID
@@ -1162,6 +871,7 @@ function Dashboard() {
             </div>
 
             <NotificationCenter
+              lang={language} t={t}
               notifications={notifications}
               onMarkAllAsRead={handleMarkAllAsRead}
               onClearAll={handleClearAllNotifications}
@@ -1179,19 +889,21 @@ function Dashboard() {
           </div>
         </header>
 
+        <div className="workspace-sheet">
+        <div key={activeMenu} className="workspace-page">
         <Suspense fallback={<div className="p-6 md:p-8"><ViewSkeleton title={getHeaderTitle()} /></div>}>
           <ErrorBoundary fallbackTitle={getHeaderTitle()} onReset={() => setActiveMenu('overview')}>
             {hasAccess('overview') && activeMenu === 'overview' && <OverviewView onNavigate={handleMenuClick} t={t} lang={language} summary={summary} role={currentRole} isDemo={isDemo} notifications={notifications} />}
             {hasAccess('analytics') && activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
             {hasAccess('billing') && activeMenu === 'billing' && <BillingSubscriptionView onToast={showToast} t={t} lang={language} />}
-            {hasAccess('settings') && activeMenu === 'settings' && <SettingsView onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={handleMenuClick} />}
-            {hasAccess('stok') && activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={handleMenuClick} t={t} lang={language} />}
+            {hasAccess('settings') && activeMenu === 'settings' && <SettingsView account={user} onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={handleMenuClick} />}
+            {hasAccess('stok') && activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={handleMenuClick} onRestock={handleRestockDraft} t={t} lang={language} />}
             {hasAccess('po') && activeMenu === 'po' && (
-              <ProcurementView 
+              <ProcurementView
                 onNavigate={handleMenuClick}
-                onToast={showToast} 
-                onNotify={handleNewNotification} 
-                t={t} 
+                onToast={showToast}
+                onNotify={handleNewNotification}
+                t={t}
                 lang={language}
                 isOnline={isOnline}
                 onQueueOffline={enqueue}
@@ -1203,40 +915,24 @@ function Dashboard() {
             {hasAccess('keuangan') && activeMenu === 'keuangan' && <FinanceView onToast={showToast} t={t} lang={language} />}
             {hasAccess('sdm') && activeMenu === 'sdm' && <HRView onToast={showToast} t={t} lang={language} />}
             {hasAccess(activeMenu) && (activeMenu === 'purchase' || activeMenu === 'new-po') && (
-              <PurchaseUnitView role={currentRole} isDemo={isDemo} ownerId={user.uid ?? "demo"}
+              <PurchaseUnitView key={`${draftOwner}:${activeRestockDraft?.key ?? 'manual'}`} initialDraft={activeRestockDraft?.item} role={currentRole} isDemo={isDemo} ownerId={user.uid ?? "demo"}
                 onNavigate={handleMenuClick}
                 onToast={showToast}
                 onNotify={handleNewNotification}
-                t={t} 
-                lang={language} 
+                t={t}
+                lang={language}
               />
             )}
           </ErrorBoundary>
         </Suspense>
+        </div>
+        </div>
 
-        {/* Floating Action Button for AI Copilot (Compact Logo that expands outward on hover) */}
-        <button
-          type="button"
-          onClick={() => setIsAiCopilotOpen(true)}
-          className="group fixed bottom-6 right-6 z-40 h-12 w-12 hover:w-auto px-0 hover:px-3.5 rounded-full bg-gradient-to-r from-[#0070f3] to-indigo-600 hover:from-[#0060df] hover:to-indigo-700 text-white shadow-xl hover:shadow-2xl hover:shadow-indigo-500/30 active:scale-95 transition-all duration-300 ease-out flex items-center justify-center cursor-pointer border border-white/25 overflow-hidden origin-right"
-          title="Open Executive AI Copilot (Cmd+J)"
-          aria-label="Open AI Copilot"
-        >
-          {/* Logo icon with subtle active spark dot */}
-          <div className="relative flex items-center justify-center w-6 h-6 shrink-0 transition-transform duration-300 group-hover:scale-105">
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-indigo-600 animate-pulse" />
-            <Sparkles className="w-5 h-5 text-white transition-transform duration-300 group-hover:rotate-12" />
-          </div>
-
-          {/* Text & Hotkey badge that expands outward horizontally on cursor hover */}
-          <div className="max-w-0 opacity-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-out group-hover:max-w-[160px] group-hover:opacity-100 group-hover:ml-2.5 flex items-center gap-2">
-            <span className="text-xs font-semibold tracking-tight text-white select-none">AI Copilot</span>
-            <kbd className="px-1.5 py-0.5 text-[10px] bg-white/20 rounded font-mono font-medium text-white/90 select-none">⌘J</kbd>
-          </div>
-        </button>
+        <button type="button" onClick={() => setIsAiCopilotOpen(true)} className="copilot-launcher" title={language === 'en' ? 'Open assistant (Ctrl+J)' : 'Buka asisten (Ctrl+J)'} aria-label={language === 'en' ? 'Open AI assistant' : 'Buka asisten AI'}><Sparkles size={17}/><span>{language === 'en' ? 'Assistant' : 'Asisten'}</span><kbd>Ctrl J</kbd></button>
 
         {/* Executive AI Copilot Drawer */}
         <AiCopilotDrawer
+          key={`${isDemo ? 'demo' : 'live'}:${user?.uid ?? 'none'}:${currentRole ?? 'none'}`}
           isOpen={isAiCopilotOpen}
           onClose={() => setIsAiCopilotOpen(false)}
           currentRole={currentRole}
@@ -1253,10 +949,11 @@ function Dashboard() {
         />
 
         <InteractiveToaster toasts={toasts} onDismiss={handleDismissToast} />
-        <CommandPalette 
-          isOpen={isCmdKOpen} 
-          onClose={() => setIsCmdKOpen(false)} 
-          onNavigate={handleMenuClick} 
+        <CommandPalette
+          role={currentRole}
+          isOpen={isCmdKOpen}
+          onClose={() => setIsCmdKOpen(false)}
+          onNavigate={handleMenuClick}
           toggleDarkMode={toggleDarkMode}
           lang={language}
           onLanguageChange={handleLanguageChange}
@@ -1269,6 +966,7 @@ function Dashboard() {
         />
       </main>
     </div>
+    </UILanguageContext.Provider>
   );
 }
 
@@ -1305,8 +1003,8 @@ function Login() {
   const [copied, setCopied] = useState(false);
 
   const handleDemoLogin = (role: Role = 'Super Admin') => {
-    sessionStorage.setItem('inventora_demo_user', JSON.stringify({ 
-      email: `${role.toLowerCase().replace(/\s+/g, '.')}@inventora.com`, 
+    sessionStorage.setItem('inventora_demo_user', JSON.stringify({
+      email: `${role.toLowerCase().replace(/\s+/g, '.')}@inventora.com`,
       displayName: `${role} (Preview)`,
       role
     }));
@@ -1387,15 +1085,15 @@ function Login() {
         </button>
       </div>
 
-      <motion.div 
+      <motion.div
         animate={{ scale: [1, 1.1, 1], opacity: [0.4, 0.7, 0.4] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-gradient-to-br from-[#0070f3]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none" 
+        className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-gradient-to-br from-[#0070f3]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none"
       />
-      <motion.div 
+      <motion.div
         animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-gradient-to-tl from-[#7928ca]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none" 
+        className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-gradient-to-tl from-[#7928ca]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none"
       />
 
       <motion.div
@@ -1431,13 +1129,13 @@ function Login() {
                   {lang === 'en' ? 'Preview Domain Authorization Required' : 'Otorisasi Domain Preview Diperlukan'}
                 </h4>
                 <p className="text-amber-800 leading-relaxed mb-2 text-[11px]">
-                  {lang === 'en' 
+                  {lang === 'en'
                     ? "Google Sign-In blocked this request because the preview domain isn't yet listed in Firebase Authorized Domains."
                     : 'Google Sign-In memblokir permintaan ini karena domain preview belum terdaftar di Firebase Authorized Domains.'}
                 </p>
                 <div className="flex items-center justify-between gap-1.5 bg-amber-100/80 px-2 py-1.5 rounded font-mono text-[10px] text-amber-950 mb-2.5 border border-amber-200">
                   <span className="truncate max-w-[190px]">{unauthorizedDomain}</span>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                       navigator.clipboard.writeText(unauthorizedDomain);
@@ -1478,9 +1176,9 @@ function Login() {
           </div>
         )}
 
-        <button 
+        <button
           onClick={handleGoogleLogin}
-          disabled={isLoading} 
+          disabled={isLoading}
           className="w-full bg-white text-[#171717] border border-[#eaeaea] font-medium px-4 py-2 rounded-md text-sm hover:bg-[#fafafa] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.98] disabled:opacity-80 disabled:active:scale-100 flex items-center justify-center gap-2 h-10 cursor-pointer"
         >
           {isLoading ? (
@@ -1508,28 +1206,28 @@ function Login() {
             {lang === 'en' ? 'Select Instant Demo Role' : 'Pilih Peran Uji Coba Cepat'}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <button 
+            <button
               onClick={() => handleDemoLogin('Super Admin')}
               className="p-2.5 rounded-lg border border-neutral-200 hover:border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800 transition-all text-left cursor-pointer shadow-xs"
             >
               <span className="block text-xs font-semibold">Super Admin</span>
               <span className="block text-[10px] text-neutral-400">{lang === 'en' ? 'Full System Access' : 'Akses Penuh'}</span>
             </button>
-            <button 
+            <button
               onClick={() => handleDemoLogin('Warehouse Manager')}
               className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
             >
               <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'Warehouse Mgr' : 'Manajer Gudang'}</span>
               <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Stock & GRN' : 'Stok & GRN'}</span>
             </button>
-            <button 
+            <button
               onClick={() => handleDemoLogin('Finance Manager')}
               className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
             >
               <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'Finance Lead' : 'Manajer Keuangan'}</span>
               <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Invoices & Payouts' : 'Faktur & Bayar'}</span>
             </button>
-            <button 
+            <button
               onClick={() => handleDemoLogin('HR Manager')}
               className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
             >
@@ -1545,6 +1243,7 @@ function Login() {
 
 export default function App() {
   return (
+    <MotionConfig reducedMotion="user">
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -1552,5 +1251,6 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </BrowserRouter>
+    </MotionConfig>
   );
 }

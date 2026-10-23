@@ -1,3 +1,5 @@
+import { authenticatedPost } from '../lib/apiClient';
+import { apiErrorMessage } from '../lib/apiError';
 import React, { useState, useEffect } from 'react';
 import { Sparkles, AlertTriangle, ShieldCheck, CheckCircle2, TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
 import { PurchaseOrder } from '../types';
@@ -25,29 +27,13 @@ export function PoRiskCard({ po, lang = 'en' }: PoRiskCardProps) {
   const analyzePo = async () => {
     setIsLoading(true);
     setError(null);
+    setData(null);
     try {
-      const res = await fetch('/api/ai/po-risk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ po })
-      });
-      if (!res.ok) throw new Error('Risk assessment failed');
-      const json = await res.json();
+      const json = await authenticatedPost<PoRiskData>('/api/ai/po-risk', { po });
       setData(json);
-    } catch (err: any) {
-      console.warn('Notice: Local PO risk evaluation active:', err);
-      const amount = typeof po?.total === "number" ? po.total : parseInt(String(po?.total || 0).replace(/[^0-9]/g, ""), 10);
-      const isHigh = amount > 300000000;
-      setData({
-        riskLevel: isHigh ? 'MEDIUM' : 'LOW',
-        riskScore: isHigh ? 38 : 10,
-        summary: isHigh
-          ? `High transaction volume (Rp ${amount.toLocaleString('id-ID')}). Standard vendor pricing alignment confirmed.`
-          : `Order total is within verified monthly operating baseline for ${po.vendor || 'vendor'}.`,
-        anomalies: isHigh ? ['Standard operational threshold advisory (> Rp 300M)'] : [],
-        recommendation: isHigh ? 'Dual-signoff approval advised.' : 'Safe to proceed with authorization.',
-        budgetVariancePercent: isHigh ? 5.2 : 0.8
-      });
+    } catch (error) {
+      setData(null);
+      setError(apiErrorMessage(error, lang));
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +111,7 @@ export function PoRiskCard({ po, lang = 'en' }: PoRiskCardProps) {
       {isLoading && (
         <div className="py-3 flex items-center gap-2 text-xs text-neutral-500">
           <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#0070f3]" />
-          <span>{lang === 'en' ? 'Evaluating historical pricing benchmarks and corporate limits...' : 'Mengevaluasi acuan harga historis dan limit belanja...'}</span>
+          <span>{lang === 'en' ? 'Analyzing the supplied PO details...' : 'Menganalisis rincian PO yang tersedia...'}</span>
         </div>
       )}
 

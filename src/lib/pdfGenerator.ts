@@ -25,6 +25,7 @@ interface PurchaseOrderData {
   id: string;
   vendor: string;
   desc?: string;
+  notes?: string;
   date: string;
   deliveryDate?: string;
   total: number;
@@ -549,6 +550,22 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrderData, lang: 'id' | 'en
   doc.text(lang === 'en' ? 'Grand Total Purchase Order:' : 'Total Nilai Pesanan:', 110, tableY);
   doc.setTextColor(0, 112, 243);
   doc.text(formatCurrency(po.total, lang), 190, tableY, { align: 'right' });
+
+  if (po.notes) {
+    tableY += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    if (tableY > 260) { doc.addPage(); tableY = 20; }
+    doc.text(lang === 'en' ? 'Procurement notes / delivery instructions:' : 'Catatan pengadaan / instruksi pengiriman:', 15, tableY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    for (const line of doc.splitTextToSize(po.notes, 180)) {
+      tableY += 4;
+      if (tableY > 260) { doc.addPage(); tableY = 20; }
+      doc.text(line, 15, tableY);
+    }
+  }
+  if (tableY > 205) { doc.addPage(); tableY = 20; }
 
   // 3-Way Match Notice
   tableY += 12;

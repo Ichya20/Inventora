@@ -9,31 +9,18 @@ service cloud.firestore {
 
     match /purchaseOrders/{poId} {
       allow read: if hasRole(['Super Admin', 'Finance Manager', 'Warehouse Manager']);
-      allow create: if warehouse()
-        && request.resource.data.id == poId
-        && request.resource.data.status == 'Pending Approval'
-        && request.resource.data.total is number && request.resource.data.total > 0
-        && request.resource.data.subtotal is number && request.resource.data.subtotal > 0
-        && request.resource.data.discountAmount >= 0
-        && request.resource.data.taxAmount >= 0 && request.resource.data.withholdingTaxAmount >= 0
-        && request.resource.data.total == request.resource.data.subtotal - request.resource.data.discountAmount
-          + request.resource.data.taxAmount - request.resource.data.withholdingTaxAmount
-        && !('paymentInfo' in request.resource.data) && !('grn' in request.resource.data);
+      // Creation is validated item-by-item by the server, which uses Admin SDK.
+      allow create: if false;
 
       allow update: if (
         finance() && resource.data.status == 'Pending Approval'
         && request.resource.data.status in ['Disetujui', 'Ditolak']
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'color', 'lastMutationId'])
       ) || (
-        warehouse() && resource.data.status in ['Disetujui', 'Selisih Penerimaan']
-        && request.resource.data.status in ['Barang Diterima', 'Selisih Penerimaan']
-        && request.resource.data.grn.poId == poId
-        && ((request.resource.data.status == 'Barang Diterima' && request.resource.data.threeWayMatchStatus == 'MATCHED' && request.resource.data.grn.status == 'MATCHED')
-          || (request.resource.data.status == 'Selisih Penerimaan' && request.resource.data.threeWayMatchStatus == 'DISCREPANCY' && request.resource.data.grn.status == 'DISCREPANCY'))
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'color', 'grn', 'threeWayMatchStatus'])
-      ) || (
         finance() && resource.data.status == 'Barang Diterima'
         && resource.data.threeWayMatchStatus == 'MATCHED'
+        // Receipts and this verification marker are written only by the trusted server.
+        && resource.data.get('receiptVerification', {}).get('version', 0) == 1
         && !('paymentInfo' in resource.data)
         && request.resource.data.status == 'Selesai'
         && request.resource.data.paymentInfo.amount == resource.data.total

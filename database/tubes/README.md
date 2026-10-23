@@ -1,5 +1,7 @@
 # Inventora - Tugas Basis Data MySQL
 
+Versi ini adalah alternatif relasional sebelumnya. Dokumentasi yang mengikuti implementasi Firebase aktual berada di [paket Firestore](../firestore/README.md).
+
 Paket ini berisi rancangan relasional untuk tugas kelompok: **14 tabel, masing-masing 5 baris contoh (70 baris)**. Rancangan mengikuti domain Inventora: inventori, pengadaan, keuangan, pegawai, payroll, dan anggaran.
 
 Ini merupakan rancangan SQL untuk tugas. Aplikasi Inventora yang ada masih menggunakan Firebase; menjalankan file ini tidak mengalihkan koneksi aplikasi ke MySQL.
@@ -11,8 +13,13 @@ Ini merupakan rancangan SQL untuk tugas. Aplikasi Inventora yang ada masih mengg
 - `hasil-uji.json`: bukti 20 pemeriksaan yang lulus pada MySQL Community Server 8.0.41.
 - `hasil-query.txt`: keluaran query verifikasi dari pengujian tersebut.
 - `uji_mysql.py`: pemeriksaan ulang pada instance MySQL sementara di 127.0.0.1:33308.
-- `build_pdf.py`: pembuat PDF dari sumber SQL dan hasil pengujian.
+- `format_laporan.py`: pembuat laporan Word dengan tata letak mengikuti dokumen referensi.
+- `ekspor_laporan.ps1`: ekspor Word ke PDF dan pemeriksaan nomor halaman melalui Microsoft Word lokal.
+- `hasil-verifikasi-format.json`: hasil pemeriksaan font, spasi, kelengkapan SQL, dan daftar isi.
 - `../../output/pdf/Inventora_Tugas_Basis_Data_MySQL.pdf`: dokumen pengumpulan.
+- `../../output/docx/Inventora_Tugas_Basis_Data_MySQL.docx`: versi Word yang dapat diedit.
+
+Laporan terdiri atas 31 halaman. Teks menggunakan Times New Roman 12, kode SQL menggunakan Consolas 12, seluruh teks hitam, dan spasi baris 1,5. Sampul, logo, identitas anggota, margin, header/footer, dan susunan bagian mengikuti dokumen referensi. `build_pdf.py` merupakan pembuat versi tata letak lama; menjalankannya akan menimpa PDF dengan format sebelumnya.
 
 ## Menjalankan di MySQL Workbench
 
@@ -58,4 +65,4 @@ Pengujian pada 21 Oktober 2026 menggunakan instance sementara terpisah, bukan se
 | Total unit stok contoh | 339 |
 | Produk di bawah stok minimum | PRD003 - NVMe 8TB |
 
-PDF memuat seluruh CREATE dan INSERT, diagram relasi utama, daftar FK lengkap, query verifikasi, serta ringkasan pengujian. Isi identitas kelompok, kelas, dan anggota sebelum pengumpulan.
+PDF memuat seluruh CREATE dan INSERT, diagram relasi utama, daftar FK lengkap, query verifikasi, serta ringkasan pengujian. Identitas kelima anggota dan logo telah disalin dari dokumen referensi.

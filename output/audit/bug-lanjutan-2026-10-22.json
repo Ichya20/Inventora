@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-22",
+  "scope": "local source callbacks, memory storage, mocked API; no production data",
+  "issues": 6,
+  "observations": [
+    {
+      "id": "NUMERIC_INPUT_STRING",
+      "field": "qty",
+      "value": "3",
+      "storedType": "string",
+      "rejectedByValidator": true
+    },
+    {
+      "id": "NUMERIC_INPUT_STRING",
+      "field": "unitPrice",
+      "value": "600",
+      "storedType": "string",
+      "rejectedByValidator": true
+    },
+    {
+      "id": "POST_COMMIT_CACHE_FAILURE",
+      "mockedServerCreates": 2,
+      "distinctIds": true,
+      "uiReportsFailure": true,
+      "step": "form"
+    },
+    {
+      "id": "MULTILINE_NOTES_LOST",
+      "descriptionSaved": "Instruksi utama",
+      "secondLineSaved": false
+    },
+    {
+      "id": "INVALID_CACHE_CRASH",
+      "validJsonWrongShape": "{}",
+      "failure": "storedItems.map is not a function"
+    },
+    {
+      "id": "RESTOCK_DRAFT_NOT_PASSED",
+      "selectedSku": "UPS-3KVA-RT",
+      "selectedQty": 17,
+      "formInitialSku": "NV-H100-TC",
+      "formInitialQty": 2,
+      "navigation": [
+        "purchase"
+      ]
+    },
+    {
+      "id": "ERROR_TOAST_SUCCESS_TITLE",
+      "message": "Stok tidak berubah. Periksa penyimpanan browser dan ketersediaan stok.",
+      "type": "error",
+      "title": "Stok Berkurang"
+    },
+    {
+      "id": "ERROR_TOAST_SUCCESS_TITLE",
+      "message": "Nominal pembayaran tidak valid.",
+      "type": "error",
+      "title": "Pembayaran Lunas"
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+import { authenticatedPost } from '../lib/apiClient';
+import { ApiError } from '../lib/apiError';
+import { validatePurchaseOrderCreate } from '../lib/purchaseOrderValidation';
+import { businessDate } from '../lib/businessDates';
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Sparkles, FileText, Plus, Trash2, CheckCircle2, Calculator, Percent, ArrowLeft, Building2, AlertTriangle, ShieldCheck } from 'lucide-react';
@@ -5,15 +9,16 @@ import { Button } from './UI';
 import { translations, Language, Translations } from '../i18n';
 import { SmartInvoiceParserModal, ParsedInvoiceData } from './SmartInvoiceParserModal';
 import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
-import { Role, POLineItem, ToastType, AppNotification, PurchaseOrder } from '../types';
+import { Role, ToastType, AppNotification, PurchaseOrder, RestockDraft } from '../types';
 import { canPerformPoAction } from '../lib/authorization';
 import { poStorageKey } from '../lib/procurement';
-import { loadStoredData, saveStoredData } from '../lib/storageUtils';
+import { readStoredArray, saveStoredData } from '../lib/storageUtils';
 
 interface PurchaseUnitViewProps {
   role: Role;
   isDemo: boolean;
   ownerId: string;
+  initialDraft?: RestockDraft;
   onNavigate: (menu: string) => void;
   onToast?: (msg: string, type?: ToastType, options?: { title?: string; actionLabel?: string; onAction?: () => void }) => void;
   onNotify?: (n: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
@@ -25,8 +30,8 @@ interface RequisitionItem {
   id: string;
   sku: string;
   name: string;
-  qty: number;
-  unitPrice: number;
+  qty: number | '';
+  unitPrice: number | '';
   total: number;
 }
 
@@ -40,18 +45,20 @@ const POPULAR_CATALOG = [
   { sku: 'FW-NGFW-10G', name: 'Next-Gen Firewall 10Gbps', unitPrice: 165000000, vendor: 'cisco' },
 ];
 
-export function PurchaseUnitView({ 
-  onNavigate, 
-  onToast, 
-  onNotify, 
-  t, 
-  lang = 'en', role, isDemo, ownerId
+export function PurchaseUnitView({
+  onNavigate,
+  onToast,
+  onNotify,
+  t,
+  lang = 'en', role, isDemo, ownerId, initialDraft
 }: PurchaseUnitViewProps) {
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
   const [step, setStep] = useState<'form' | 'success'>('form');
   const submitting = useRef(false);
+  const pendingPo = useRef<PurchaseOrder | null>(null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const storageKey = poStorageKey(isDemo, ownerId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiParserOpen, setIsAiParserOpen] = useState(false);
@@ -59,12 +66,15 @@ export function PurchaseUnitView({
 
   // Form states
   const [department, setDepartment] = useState('IT Infrastructure');
-  const [vendor, setVendor] = useState('nvidia');
+  const [vendor, setVendor] = useState(initialDraft ? '' : 'nvidia');
   const [deliveryDate, setDeliveryDate] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [notes, setNotes] = useState('');
 
   // Multi-line items
-  const [items, setItems] = useState<RequisitionItem[]>([
+  const [items, setItems] = useState<RequisitionItem[]>(initialDraft ? [{
+    id: 'item-1', sku: initialDraft.skuId, name: initialDraft.name,
+    qty: initialDraft.recommendedOrderQty, unitPrice: '', total: 0,
+  }] : [
     {
       id: 'item-1',
       sku: 'NV-H100-TC',
@@ -82,7 +92,7 @@ export function PurchaseUnitView({
   const [discountPercent, setDiscountPercent] = useState<number>(0);
 
   // Financial calculations
-  const subtotal = items.reduce((acc, it) => acc + (it.qty * it.unitPrice), 0);
+  const subtotal = items.reduce((acc, it) => acc + (Number(it.qty) * Number(it.unitPrice)), 0);
   const discountAmount = Math.round((subtotal * discountPercent) / 100);
   const netSubtotal = Math.max(0, subtotal - discountAmount);
   const vatAmount = applyVat ? importedTaxAmount ?? Math.round(netSubtotal * 0.11) : 0;
@@ -115,11 +125,10 @@ export function PurchaseUnitView({
     if (field === 'qty' || field === 'unitPrice') setImportedTaxAmount(null);
     setItems(prev => prev.map(item => {
       if (item.id !== id) return item;
-      const updated = { ...item, [field]: value };
+      const numeric = field === 'qty' || field === 'unitPrice';
+      const updated = { ...item, [field]: numeric ? (value === '' ? '' : Number(value)) : value };
       if (field === 'qty' || field === 'unitPrice') {
-        const q = field === 'qty' ? Number(value) : item.qty;
-        const p = field === 'unitPrice' ? Number(value) : item.unitPrice;
-        updated.total = (isNaN(q) ? 0 : q) * (isNaN(p) ? 0 : p);
+        updated.total = Number(updated.qty) * Number(updated.unitPrice);
       }
       return updated;
     }));
@@ -136,7 +145,7 @@ export function PurchaseUnitView({
         sku: cat.sku,
         name: cat.name,
         unitPrice: cat.unitPrice,
-        total: item.qty * cat.unitPrice
+        total: Number(item.qty) * cat.unitPrice
       };
     }));
     if (cat.vendor && !vendor) {
@@ -179,16 +188,16 @@ export function PurchaseUnitView({
     e.preventDefault();
     if (submitting.current) return;
     if (!canPerformPoAction(role, 'create') || !vendor.trim() || !deliveryDate || !Number.isFinite(grandTotal) || grandTotal <= 0 || discountPercent < 0 || discountPercent > 100 ||
-      items.some(item => !item.name.trim() || !Number.isInteger(Number(item.qty)) || item.qty <= 0 || !Number.isFinite(Number(item.unitPrice)) || item.unitPrice < 0)) {
+      items.some(item => !item.name.trim() || item.qty === '' || !Number.isSafeInteger(item.qty) || item.qty <= 0 || item.unitPrice === '' || !Number.isFinite(item.unitPrice) || item.unitPrice < 0)) {
       onToast?.(lang === 'en' ? 'Check access, vendor, delivery date and positive item amounts.' : 'Periksa hak akses, vendor, tanggal kirim, serta jumlah dan harga barang.', 'error');
       return;
     }
     submitting.current = true;
     setIsSubmitting(true);
-    
+
     // Generate department code prefix
     const deptPrefix = department.includes('IT') ? 'IT' : department.includes('Operations') ? 'OPS' : department.includes('Engineering') ? 'RND' : 'GA';
-    const newPoId = `PO-${new Date().getFullYear()}-${deptPrefix}-${crypto.randomUUID().slice(0, 12)}`;
+    const newPoId = pendingPo.current?.id ?? `PO-${new Date().getFullYear()}-${deptPrefix}-${crypto.randomUUID().slice(0, 12)}`;
     setCreatedPoNumber(newPoId);
 
     const vendorName = vendor === 'nvidia' ? 'NVIDIA Corp Indonesia'
@@ -197,16 +206,13 @@ export function PurchaseUnitView({
       : vendor === 'lenovo' ? 'Lenovo Enterprise Solution'
       : vendor === 'apc' ? 'APC by Schneider Electric' : vendor;
 
-    const formattedDate = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
+    const formattedDate = businessDate();
 
     const newPo: PurchaseOrder = {
       id: newPoId,
       vendor: vendorName,
-      desc: notes ? notes.split('\n')[0] : `${department} Requisition (${items.length} items)`,
+      desc: `${department} Requisition (${items.length} items)`,
+      notes,
       date: formattedDate,
       deliveryDate,
       total: grandTotal,
@@ -219,38 +225,43 @@ export function PurchaseUnitView({
       department: department as any,
       threeWayMatchStatus: 'PENDING_RECEIPT',
       items: items.map((it, idx) => ({
-        id: `li-${Date.now()}-${idx}`,
+        id: `line-${idx + 1}`,
         sku: it.sku,
         name: it.name,
-        qty: it.qty,
-        unitPrice: it.unitPrice,
-        subtotal: it.total
+        qty: Number(it.qty),
+        unitPrice: Number(it.unitPrice),
+        subtotal: Number(it.qty) * Number(it.unitPrice)
       })),
       lineItems: items.map((it, idx) => ({
-        id: `li-${Date.now()}-${idx}`,
+        id: `line-${idx + 1}`,
         sku: it.sku,
         name: it.name,
-        qty: it.qty,
-        unitPrice: it.unitPrice,
-        totalPrice: it.total
+        qty: Number(it.qty),
+        unitPrice: Number(it.unitPrice),
+        totalPrice: Number(it.qty) * Number(it.unitPrice)
       }))
     };
 
     try {
+      const validatedPo = pendingPo.current ?? validatePurchaseOrderCreate(newPo);
+      pendingPo.current = validatedPo;
+      setAwaitingConfirmation(true);
       if (!isDemo) {
         if (!navigator.onLine) throw new Error('Pembuatan PO memerlukan koneksi server. Formulir tetap tersedia untuk dicoba kembali.');
-        const { db } = await import('../firebase');
-        const { doc, runTransaction } = await import('firebase/firestore');
-        await runTransaction(db, async transaction => {
-          const ref = doc(db, 'purchaseOrders', newPo.id);
-          if ((await transaction.get(ref)).exists()) throw new Error('Nomor PO sudah digunakan. Coba kembali.');
-          transaction.set(ref, newPo);
-        });
+        await authenticatedPost('/api/purchase-orders', validatedPo);
+      } else {
+        const existing = readStoredArray<PurchaseOrder>(storageKey, []);
+        saveStoredData(storageKey, [validatedPo, ...existing.filter(po => po.id !== validatedPo.id)], true);
       }
-      const existing = loadStoredData<PurchaseOrder[]>(storageKey, []);
-      saveStoredData(storageKey, [newPo, ...existing], isDemo);
-      window.dispatchEvent(new CustomEvent('inventora_po_created', { detail: newPo }));
+      // Live orders are confirmed by the server; browser cache cannot undo that result.
+      setStep('success');
+      setAwaitingConfirmation(false);
+      window.dispatchEvent(new CustomEvent('inventora_po_created', { detail: validatedPo }));
     } catch (error) {
+      if (!pendingPo.current || isDemo || (error instanceof ApiError && [400, 409, 422].includes(error.status ?? 0))) {
+        pendingPo.current = null;
+        setAwaitingConfirmation(false);
+      }
       onToast?.(String(error), 'error');
       setIsSubmitting(false); submitting.current = false;
       return;
@@ -258,9 +269,9 @@ export function PurchaseUnitView({
     // 3. User feedback toast & notification
     if (onToast) {
       onToast(
-        lang === 'en' 
-          ? `Purchase Order ${newPoId} created successfully! Total: Rp ${grandTotal.toLocaleString('en-US')}` 
-          : `Purchase Order ${newPoId} berhasil diajukan! Total: Rp ${grandTotal.toLocaleString('id-ID')}`, 
+        lang === 'en'
+          ? `Purchase Order ${newPoId} created successfully! Total: Rp ${grandTotal.toLocaleString('en-US')}`
+          : `Purchase Order ${newPoId} berhasil diajukan! Total: Rp ${grandTotal.toLocaleString('id-ID')}`,
         'success',
         {
           title: lang === 'en' ? 'New PO Submitted' : 'PO Berhasil Diajukan',
@@ -273,7 +284,7 @@ export function PurchaseUnitView({
     if (onNotify) {
       onNotify({
         title: lang === 'en' ? 'New Purchase Order Created' : 'Purchase Order Baru Diajukan',
-        message: lang === 'en' 
+        message: lang === 'en'
           ? `PO ${newPoId} totaling Rp ${grandTotal.toLocaleString('en-US')} for ${vendorName} is pending approval.`
           : `PO ${newPoId} senilai Rp ${grandTotal.toLocaleString('id-ID')} untuk ${vendorName} menunggu persetujuan.`,
         type: 'approval',
@@ -285,10 +296,7 @@ export function PurchaseUnitView({
       });
     }
 
-    setTimeout(() => {
-      setIsSubmitting(false); submitting.current = false;
-      setStep('success');
-    }, 600);
+    setIsSubmitting(false); submitting.current = false;
   };
 
   if (step === 'success') {
@@ -338,7 +346,7 @@ export function PurchaseUnitView({
             <Button onClick={() => onNavigate('po')} variant="primary" className="flex-1">
               {lang === 'en' ? 'Return to Procurement' : 'Kembali ke Pengadaan'}
             </Button>
-            <Button onClick={() => { setStep('form'); setItems([{ id: 'item-1', sku: '', name: '', qty: 1, unitPrice: 0, total: 0 }]); }} variant="secondary">
+            <Button onClick={() => { pendingPo.current = null; setCreatedPoNumber(''); setStep('form'); setNotes(''); setVendor(''); setImportedTaxAmount(null); setApplyVat(true); setApplyPph(false); setDiscountPercent(0); setItems([{ id: 'item-1', sku: '', name: '', qty: 1, unitPrice: '', total: 0 }]); }} variant="secondary">
               {lang === 'en' ? 'New Requisition' : 'Buat Baru'}
             </Button>
           </div>
@@ -351,8 +359,8 @@ export function PurchaseUnitView({
     <section className="p-4 md:p-8 flex-1 flex flex-col overflow-y-auto">
       <div className="flex items-center justify-between mb-6 shrink-0 flex-wrap gap-3">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => onNavigate('po')} 
+          <button
+            onClick={() => onNavigate('po')}
             className="text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed] transition-colors shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] bg-white dark:bg-[#1a1a1a] w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#fafafa] dark:hover:bg-[#333] cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -369,8 +377,9 @@ export function PurchaseUnitView({
 
         <button
           type="button"
+          disabled={isSubmitting || awaitingConfirmation}
           onClick={() => setIsAiParserOpen(true)}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-linear-to-r from-[#0070f3] to-indigo-600 hover:from-[#0060df] hover:to-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-all hover:shadow"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0864d9] hover:bg-[#0758bf] text-white text-xs font-semibold shadow-xs cursor-pointer transition-all hover:shadow"
         >
           <Sparkles className="w-4 h-4" />
           <span>{lang === 'en' ? 'AI Auto-Fill from Quote / Invoice' : 'AI Ekstrak dari Dokumen / Quote'}</span>
@@ -422,15 +431,18 @@ export function PurchaseUnitView({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {awaitingConfirmation && !isSubmitting && <p role="alert" className="text-xs text-amber-700 dark:text-amber-400">{lang === 'en' ? `PO ${createdPoNumber} has not been confirmed. Retry to check the same order; its details are held until confirmation.` : `PO ${createdPoNumber} belum mendapat konfirmasi. Coba kembali untuk memeriksa pesanan yang sama; rinciannya dipertahankan sampai terkonfirmasi.`}</p>}
+          <fieldset disabled={isSubmitting || awaitingConfirmation} className="space-y-6">
           {/* Header Metadata Section */}
           <div className="bg-white dark:bg-[#111] p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300" htmlFor="po-department">
                   {lang === 'en' ? 'Charging Department (Cost Center)' : 'Departemen Pengaju (Cost Center)'}
                 </label>
                 <div className="relative">
                   <select
+                    id="po-department"
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
                     className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs px-3 py-2 rounded-lg outline-none focus:border-[#0070f3] text-neutral-800 dark:text-neutral-200"
@@ -444,15 +456,17 @@ export function PurchaseUnitView({
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300" htmlFor="po-vendor">
                   {activeT.purchase.vendorLabel}
                 </label>
                 <select
                   required
-                  value={vendor}
+                  id="po-vendor"
+                    value={vendor}
                   onChange={(e) => setVendor(e.target.value)}
                   className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs px-3 py-2 rounded-lg outline-none focus:border-[#0070f3] text-neutral-800 dark:text-neutral-200 cursor-pointer"
                 >
+                  <option value="" disabled>{lang === 'en' ? 'Choose vendor' : 'Pilih vendor'}</option>
                   <option value="nvidia">NVIDIA Corp Indonesia (Tier-1 AI Partner)</option>
                   <option value="cisco">Cisco Systems Indonesia (Enterprise Network)</option>
                   <option value="dell">Dell EMC Indonesia (Server & Storage)</option>
@@ -463,12 +477,13 @@ export function PurchaseUnitView({
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300" htmlFor="po-delivery">
                   {lang === 'en' ? 'Target Delivery Date' : 'Target Tanggal Kirim'}
                 </label>
                 <input
                   type="date"
-                  value={deliveryDate}
+                  id="po-delivery"
+                    value={deliveryDate}
                   onChange={(e) => setDeliveryDate(e.target.value)}
                   className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs px-3 py-2 rounded-lg outline-none focus:border-[#0070f3] text-neutral-800 dark:text-neutral-200"
                 />
@@ -516,6 +531,7 @@ export function PurchaseUnitView({
                         <div className="space-y-1.5">
                           <div className="flex gap-2">
                             <select
+                              aria-label={`${lang === 'en' ? 'Choose catalog item' : 'Pilih barang katalog'} ${index + 1}`}
                               onChange={(e) => handleSelectCatalogItem(row.id, e.target.value)}
                               defaultValue=""
                               className="text-[11px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-1 outline-none text-neutral-600 dark:text-neutral-400 cursor-pointer"
@@ -532,6 +548,7 @@ export function PurchaseUnitView({
                             <input
                               type="text"
                               required
+                              aria-label={`${lang === 'en' ? 'SKU' : 'SKU'} ${index + 1}`}
                               value={row.sku}
                               onChange={(e) => handleItemChange(row.id, 'sku', e.target.value)}
                               placeholder="SKU (e.g. NV-H100)"
@@ -540,6 +557,7 @@ export function PurchaseUnitView({
                             <input
                               type="text"
                               required
+                              aria-label={`${lang === 'en' ? 'Item name' : 'Nama barang'} ${index + 1}`}
                               value={row.name}
                               onChange={(e) => handleItemChange(row.id, 'name', e.target.value)}
                               placeholder="Item Name / Description"
@@ -553,7 +571,8 @@ export function PurchaseUnitView({
                           type="number"
                           min="1"
                           required
-                          value={row.qty}
+                          aria-label={`${lang === 'en' ? 'Quantity' : 'Jumlah'} ${index + 1}`}
+                              value={row.qty}
                           onChange={(e) => handleItemChange(row.id, 'qty', e.target.value)}
                           className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-[#0070f3] font-mono"
                         />
@@ -562,9 +581,10 @@ export function PurchaseUnitView({
                         <input
                           type="number"
                           min="0"
-                          step="10000"
+                          step="1"
                           required
-                          value={row.unitPrice}
+                          aria-label={`${lang === 'en' ? 'Unit price in rupiah' : 'Harga satuan dalam rupiah'} ${index + 1}`}
+                              value={row.unitPrice}
                           onChange={(e) => handleItemChange(row.id, 'unitPrice', e.target.value)}
                           className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-[#0070f3] font-mono"
                         />
@@ -576,6 +596,7 @@ export function PurchaseUnitView({
                         <button
                           type="button"
                           disabled={items.length <= 1}
+                          aria-label={`${lang === 'en' ? 'Remove item' : 'Hapus barang'} ${index + 1}`}
                           onClick={() => handleRemoveItem(row.id)}
                           className="text-neutral-400 hover:text-rose-600 disabled:opacity-30 disabled:hover:text-neutral-400 transition-colors p-1"
                         >
@@ -673,12 +694,14 @@ export function PurchaseUnitView({
             </label>
             <textarea
               rows={3}
+              maxLength={10000}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={activeT.purchase.notesPlaceholder}
               className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 text-xs outline-none focus:border-[#0070f3] text-neutral-800 dark:text-neutral-200 resize-none font-mono"
             />
           </div>
+          </fieldset>
 
           <div className="flex items-center justify-end gap-3 pt-2">
             <Button onClick={() => onNavigate('po')} variant="secondary" type="button">
@@ -694,7 +717,7 @@ export function PurchaseUnitView({
                   {activeT.purchase.processing}
                 </div>
               ) : (
-                lang === 'en' ? 'Submit Requisition & Issue PO' : 'Ajukan Pengadaan & Terbitkan PO'
+                awaitingConfirmation ? (lang === 'en' ? 'Retry Same Order' : 'Coba Pesanan yang Sama') : lang === 'en' ? 'Submit Requisition & Issue PO' : 'Ajukan Pengadaan & Terbitkan PO'
               )}
             </Button>
           </div>

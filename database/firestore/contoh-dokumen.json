@@ -1,0 +1,235 @@
+{
+  "collection": "purchaseOrders",
+  "documents": [
+    {
+      "id": "PO-2026-IT-DEMO01",
+      "vendor": "NVIDIA Corp Indonesia",
+      "desc": "Pengadaan contoh NV-H100-TC",
+      "date": "21 Okt 2026",
+      "deliveryDate": "2026-10-28",
+      "department": "IT Infrastructure",
+      "subtotal": 900000000,
+      "discountAmount": 0,
+      "taxAmount": 99000000,
+      "withholdingTaxAmount": 0,
+      "total": 999000000,
+      "status": "Pending Approval",
+      "color": "orange",
+      "threeWayMatchStatus": "PENDING_RECEIPT",
+      "items": [
+        {
+          "id": "li-demo-1",
+          "sku": "NV-H100-TC",
+          "name": "NVIDIA H100 Tensor Core GPU",
+          "qty": 2,
+          "unitPrice": 450000000,
+          "subtotal": 900000000
+        }
+      ],
+      "lineItems": [
+        {
+          "id": "li-demo-1",
+          "sku": "NV-H100-TC",
+          "name": "NVIDIA H100 Tensor Core GPU",
+          "qty": 2,
+          "unitPrice": 450000000,
+          "totalPrice": 900000000
+        }
+      ]
+    },
+    {
+      "id": "PO-2026-OPS-DEMO02",
+      "vendor": "Cisco Systems Indonesia",
+      "desc": "Pengadaan contoh SW-10GBE-L3",
+      "date": "21 Okt 2026",
+      "deliveryDate": "2026-10-28",
+      "department": "Operations & Logistics",
+      "subtotal": 180000000,
+      "discountAmount": 0,
+      "taxAmount": 19800000,
+      "withholdingTaxAmount": 0,
+      "total": 199800000,
+      "status": "Disetujui",
+      "color": "green",
+      "threeWayMatchStatus": "PENDING_RECEIPT",
+      "items": [
+        {
+          "id": "li-demo-2",
+          "sku": "SW-10GBE-L3",
+          "name": "10GbE Network L3 Managed Switch",
+          "qty": 4,
+          "unitPrice": 45000000,
+          "subtotal": 180000000
+        }
+      ],
+      "lineItems": [
+        {
+          "id": "li-demo-2",
+          "sku": "SW-10GBE-L3",
+          "name": "10GbE Network L3 Managed Switch",
+          "qty": 4,
+          "unitPrice": 45000000,
+          "totalPrice": 180000000
+        }
+      ]
+    },
+    {
+      "id": "PO-2026-RND-DEMO03",
+      "vendor": "Dell EMC Indonesia",
+      "desc": "Pengadaan contoh STR-NVME-8TB",
+      "date": "21 Okt 2026",
+      "deliveryDate": "2026-10-28",
+      "department": "Engineering & R&D",
+      "subtotal": 180000000,
+      "discountAmount": 0,
+      "taxAmount": 19800000,
+      "withholdingTaxAmount": 0,
+      "total": 199800000,
+      "status": "Barang Diterima",
+      "color": "blue",
+      "threeWayMatchStatus": "MATCHED",
+      "items": [
+        {
+          "id": "li-demo-3",
+          "sku": "STR-NVME-8TB",
+          "name": "8TB NVMe Enterprise Storage",
+          "qty": 10,
+          "unitPrice": 18000000,
+          "subtotal": 180000000
+        }
+      ],
+      "lineItems": [
+        {
+          "id": "li-demo-3",
+          "sku": "STR-NVME-8TB",
+          "name": "8TB NVMe Enterprise Storage",
+          "qty": 10,
+          "unitPrice": 18000000,
+          "totalPrice": 180000000
+        }
+      ],
+      "grn": {
+        "id": "GRN-PO-2026-RND-DEMO03",
+        "grnNumber": "GRN-PO-2026-RND-DEMO03",
+        "poId": "PO-2026-RND-DEMO03",
+        "receivedDate": "2026-10-28",
+        "receivedBy": "Petugas Gudang Contoh",
+        "suratJalanNumber": "SJ-PO-2026-RND-DEMO03",
+        "items": [
+          {
+            "sku": "STR-NVME-8TB",
+            "name": "8TB NVMe Enterprise Storage",
+            "orderedQty": 10,
+            "receivedQty": 10,
+            "condition": "GOOD",
+            "notes": "Sesuai pesanan"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": "Data uji fiktif"
+      }
+    },
+    {
+      "id": "PO-2026-GA-DEMO04",
+      "vendor": "APC by Schneider Electric",
+      "desc": "Pengadaan contoh UPS-3KVA-RT",
+      "date": "21 Okt 2026",
+      "deliveryDate": "2026-10-28",
+      "department": "HR & GA",
+      "subtotal": 84000000,
+      "discountAmount": 0,
+      "taxAmount": 9240000,
+      "withholdingTaxAmount": 0,
+      "total": 93240000,
+      "status": "Selesai",
+      "color": "green",
+      "threeWayMatchStatus": "MATCHED",
+      "items": [
+        {
+          "id": "li-demo-4",
+          "sku": "UPS-3KVA-RT",
+          "name": "3kVA Rackmount UPS",
+          "qty": 3,
+          "unitPrice": 28000000,
+          "subtotal": 84000000
+        }
+      ],
+      "lineItems": [
+        {
+          "id": "li-demo-4",
+          "sku": "UPS-3KVA-RT",
+          "name": "3kVA Rackmount UPS",
+          "qty": 3,
+          "unitPrice": 28000000,
+          "totalPrice": 84000000
+        }
+      ],
+      "grn": {
+        "id": "GRN-PO-2026-GA-DEMO04",
+        "grnNumber": "GRN-PO-2026-GA-DEMO04",
+        "poId": "PO-2026-GA-DEMO04",
+        "receivedDate": "2026-10-28",
+        "receivedBy": "Petugas Gudang Contoh",
+        "suratJalanNumber": "SJ-PO-2026-GA-DEMO04",
+        "items": [
+          {
+            "sku": "UPS-3KVA-RT",
+            "name": "3kVA Rackmount UPS",
+            "orderedQty": 3,
+            "receivedQty": 3,
+            "condition": "GOOD",
+            "notes": "Sesuai pesanan"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": "Data uji fiktif"
+      },
+      "paymentInfo": {
+        "paidAt": "2026-10-29T03:00:00.000Z",
+        "method": "Transfer bank (simulasi)",
+        "txId": "TX-PO-2026-GA-DEMO04",
+        "reference": "DEMO-TRANSFER-04",
+        "amount": 93240000,
+        "accountOrCard": "DEMO-0004",
+        "receiptNo": "REC-PO-2026-GA-DEMO04",
+        "payerName": "Inventora (simulasi)"
+      }
+    },
+    {
+      "id": "PO-2026-IT-DEMO05",
+      "vendor": "Dell EMC Indonesia",
+      "desc": "Pengadaan contoh RS-W1-PRO",
+      "date": "21 Okt 2026",
+      "deliveryDate": "2026-10-28",
+      "department": "IT Infrastructure",
+      "subtotal": 120000000,
+      "discountAmount": 0,
+      "taxAmount": 13200000,
+      "withholdingTaxAmount": 0,
+      "total": 133200000,
+      "status": "Ditolak",
+      "color": "red",
+      "threeWayMatchStatus": "PENDING_RECEIPT",
+      "items": [
+        {
+          "id": "li-demo-5",
+          "sku": "RS-W1-PRO",
+          "name": "Rack Server Web Infrastructure",
+          "qty": 1,
+          "unitPrice": 120000000,
+          "subtotal": 120000000
+        }
+      ],
+      "lineItems": [
+        {
+          "id": "li-demo-5",
+          "sku": "RS-W1-PRO",
+          "name": "Rack Server Web Infrastructure",
+          "qty": 1,
+          "unitPrice": 120000000,
+          "totalPrice": 120000000
+        }
+      ]
+    }
+  ]
+}

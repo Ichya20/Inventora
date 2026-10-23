@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-21",
+  "projectId": "demo-inventora-tubes",
+  "emulator": "127.0.0.1:8085",
+  "collection": "purchaseOrders",
+  "documentCount": 5,
+  "checks": [
+    {
+      "name": "Lima ID unik dan rumus nominal sesuai",
+      "passed": true
+    },
+    {
+      "name": "Gudang membuat lima dokumen lewat transaksi",
+      "passed": true
+    },
+    {
+      "name": "Keuangan menyetujui PO 2 sampai 4",
+      "passed": true
+    },
+    {
+      "name": "Keuangan menolak PO 5",
+      "passed": true
+    },
+    {
+      "name": "Gudang mencatat penerimaan PO 3 dan 4",
+      "passed": true
+    },
+    {
+      "name": "Keuangan mencatat pembayaran simulasi PO 4",
+      "passed": true
+    },
+    {
+      "name": "Kelima dokumen sama dengan data akhir contoh",
+      "passed": true
+    },
+    {
+      "name": "Filter status mengembalikan satu PO selesai",
+      "passed": true
+    },
+    {
+      "name": "Baca tanpa autentikasi ditolak",
+      "passed": true
+    },
+    {
+      "name": "Baca PO oleh HR Manager ditolak",
+      "passed": true
+    },
+    {
+      "name": "Gudang tidak boleh menyetujui PO",
+      "passed": true
+    },
+    {
+      "name": "Total baru yang tidak cocok ditolak",
+      "passed": true
+    },
+    {
+      "name": "Pembayaran sebelum penerimaan ditolak",
+      "passed": true
+    },
+    {
+      "name": "Nominal pembayaran tidak cocok ditolak",
+      "passed": true
+    },
+    {
+      "name": "Pembayaran kedua pada PO selesai ditolak",
+      "passed": true
+    },
+    {
+      "name": "Penghapusan PO ditolak",
+      "passed": true
+    },
+    {
+      "name": "Koleksi activities belum diizinkan rules",
+      "passed": true
+    },
+    {
+      "name": "Uji negatif tidak mengubah lima dokumen",
+      "passed": true
+    }
+  ],
+  "passed": 18,
+  "sha256_rules": "53e5e777b688ad7c5c553973522705165b180cad1b8318d603968037635634e5",
+  "sha256_data": "3db3e7e0c48ab71304d4bb42dbc5111c4203971bc16b5946c2ac25745ac9f960",
+  "totalPo": 1625040000,
+  "totalPaid": 93240000
+}

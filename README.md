@@ -44,7 +44,7 @@ Inventora is a modern, production-ready Enterprise Resource Planning (ERP) platf
 - **Overview & KPI Dashboard:** High-level executive summaries with real-time trend charts.
 - **Inventory Management:** Stock monitoring, health indicators, SKU deployment actions, and restock forecast cards.
 - **Procurement & POs:** Kanban-style PO status tracking, Google Sheets export, and vendor management.
-- **Finance & Accounts Receivable:** Invoices, overdue tracking, payment receipt modal, and automated warning email dispatch simulation.
+- **Finance & Accounts Receivable:** Local invoices, overdue tracking, payment receipt modal, and downloadable payment reminder email drafts.
 - **Human Resources:** Team roster, employee profiles, and automated Google Calendar onboarding event creation.
 - **Enterprise Cloud Billing & Subscription:** Live quota meters (seats, PO transaction volume, Gemini AI runs, cloud storage), 3-tier plan switching (Starter, Business, Enterprise AI), annual/monthly discount toggling, corporate payment methods, and 1-click tax-compliant PDF subscription statements.
 
@@ -87,6 +87,8 @@ Inside `.env`:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
+
+Pembuatan PO dan penyimpanan GRN memerlukan Firebase Admin pada server. Siapkan akses server sebelum menerapkan aturan Firestore baru. Panduan dan hasil tes tersedia di [catatan perbaikan 1–4](docs/perbaikan-1-4-2026-10-22.md) serta [catatan perbaikan 5–8](docs/perbaikan-5-8-2026-10-22.md). Service-account key harus disimpan di luar repository dan tidak dimasukkan ke bundle frontend.
 
 ### 3. Run Development Server
 ```bash

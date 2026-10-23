@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useRef, useContext } from 'react';
+import { UILanguageContext } from './UI';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 export interface Column<T> {
@@ -25,6 +26,7 @@ export function VirtualizedTable<T extends { id?: string | number }>({
   onRowClick,
   emptyMessage = 'No records found',
 }: VirtualizedTableProps<T>) {
+  const en = useContext(UILanguageContext) === 'en';
   const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -79,6 +81,10 @@ export function VirtualizedTable<T extends { id?: string | number }>({
             return (
               <div
                 key={virtualRow.key}
+                role={onRowClick ? 'button' : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                aria-label={onRowClick ? `${en ? 'Open record' : 'Buka data'} ${item.id ?? virtualRow.index + 1}` : undefined}
+                onKeyDown={event => { if (onRowClick && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onRowClick(item); } }}
                 onClick={() => onRowClick && onRowClick(item)}
                 style={{
                   position: 'absolute',
@@ -107,8 +113,8 @@ export function VirtualizedTable<T extends { id?: string | number }>({
         </div>
       </div>
       <div className="px-4 py-2 bg-neutral-50/50 dark:bg-neutral-900/50 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center justify-between">
-        <span>Virtualized Row Buffer (60 FPS)</span>
-        <span className="font-mono">{data.length} Total Records</span>
+        <span>{en ? 'Compact view' : 'Tampilan ringkas'}</span>
+        <span className="font-mono">{data.length} {en ? 'records' : 'data'}</span>
       </div>
     </div>
   );

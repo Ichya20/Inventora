@@ -3,6 +3,20 @@
  * Generates properly formatted UTF-8 CSVs with BOM for seamless Excel compatibility.
  */
 
+export function exportTextFile(filename: string, content: string, mimeType = 'text/plain;charset=utf-8'): void {
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  const link = document.createElement('a');
+  try {
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+  } finally {
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
 export function exportToCsv(filename: string, headers: string[], rows: (string | number | boolean)[][]): void {
   const sanitizeCell = (cell: string | number | boolean | null | undefined): string => {
     if (cell === null || cell === undefined) return '""';

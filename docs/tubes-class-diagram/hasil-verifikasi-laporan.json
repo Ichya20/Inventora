@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-21",
+  "pages": 33,
+  "classes": 11,
+  "interfaces": 15,
+  "relations": 20,
+  "format": {
+    "prose": "Times New Roman 12",
+    "code": "Consolas 12",
+    "color": "000000",
+    "line_spacing": 1.5
+  },
+  "preserved_reference_parts": 16,
+  "source_hashes_match": true,
+  "toc_matches": true,
+  "code_blocks_complete": true,
+  "pdf_characters_checked": 36759,
+  "pdf_fonts": {
+    "BCDEEE+TimesNewRomanPS-BoldMT": 4957,
+    "BCDFEE+TimesNewRomanPSMT": 21153,
+    "BCDGEE+Consolas": 10649
+  },
+  "all_pages_visually_inspected": true,
+  "visual_note": "Seluruh 33 halaman diperiksa. Versi terakhir dirender ulang; halaman 7 dan 9 diperiksa ulang, dan 31 halaman lain identik byte PNG dengan halaman yang sudah diperiksa.",
+  "verification": {
+    "app_typecheck": "passed",
+    "local_regressions": {
+      "passed": 15,
+      "failed": 0
+    },
+    "skeleton_strict_typecheck": "passed",
+    "prior_firestore_emulator_checks": 18,
+    "prior_emulator_repeated_this_task": false,
+    "real_google_login": "not verified"
+  },
+  "sha256": {
+    "pdf": "442fa5ff88fa2fbdfdf569ae44acfc241ec215efe8048c98fcc7670455767f23",
+    "docx": "313c4a0730dc31b05fbc833459a85cdfcd72cf43762fbd918a5e37a12ef69c32"
+  }
+}

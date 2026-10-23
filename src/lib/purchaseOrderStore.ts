@@ -3,6 +3,8 @@ import type { PurchaseOrder } from '../types';
 import { isRole } from './authorization';
 import { assertPoTransition, paymentTotals } from './procurement';
 import type { QueuedMutation } from './useNetworkStatus';
+import { authenticatedPost } from './apiClient';
+import { validatedReceiptPatch } from './goodsReceipt';
 
 export async function persistPoTransition(id: string, patch: Partial<PurchaseOrder>, source: 'approval' | 'receipt' | 'payment', mutationId?: string, ownerId?: string) {
   const { auth, db } = await import('../firebase');
@@ -10,6 +12,10 @@ export async function persistPoTransition(id: string, patch: Partial<PurchaseOrd
   if (!user || (ownerId && ownerId !== user.uid)) throw new Error('Sesi pengguna telah berubah. Masuk kembali untuk menyinkronkan.');
   const { claims } = await user.getIdTokenResult();
   const role = isRole(claims.role) ? claims.role : null;
+  if (source === 'receipt') {
+    await authenticatedPost('/api/purchase-orders/' + encodeURIComponent(id) + '/receipt', { grn: patch.grn });
+    return;
+  }
   await runTransaction(db, async transaction => {
     const ref = doc(db, 'purchaseOrders', id);
     const snapshot = await transaction.get(ref);
@@ -20,6 +26,11 @@ export async function persistPoTransition(id: string, patch: Partial<PurchaseOrd
     assertPoTransition(current, patch.status, role, source);
     if (source === 'payment' && patch.paymentInfo?.amount !== paymentTotals(current).totalPaid) {
       throw new Error('Nominal pembayaran berbeda dengan PO terbaru. Muat ulang PO.');
+    }
+    if (source === 'payment') {
+      if (current.receiptVerification?.version !== 1 || !current.grn) throw new Error('Penerimaan barang perlu diverifikasi ulang oleh gudang.');
+      const receipt = validatedReceiptPatch({ ...current, status: 'Disetujui' }, current.grn, 'Warehouse Manager');
+      if (receipt.threeWayMatchStatus !== 'MATCHED') throw new Error('Penerimaan barang masih berselisih.');
     }
     transaction.update(ref, { ...patch, ...(mutationId ? { lastMutationId: mutationId } : {}) });
   });

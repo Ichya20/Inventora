@@ -63,6 +63,7 @@ export interface PurchaseOrder {
   id: string;
   vendor: string;
   desc: string;
+  notes?: string;
   date: string;
   deliveryDate?: string;
   total: number;
@@ -77,6 +78,7 @@ export interface PurchaseOrder {
   withholdingTaxAmount?: number;
   grn?: GoodsReceiptNote;
   threeWayMatchStatus?: ThreeWayMatchStatus;
+  receiptVerification?: { version: number; verifiedBy: string; verifiedAt: string };
   paymentInfo?: {
     paidAt: string;
     method: string;
@@ -87,6 +89,12 @@ export interface PurchaseOrder {
     receiptNo: string;
     payerName: string;
   };
+}
+
+export interface RestockDraft {
+  skuId: string;
+  name: string;
+  recommendedOrderQty: number;
 }
 
 export interface DepartmentBudget {

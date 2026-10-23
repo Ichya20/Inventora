@@ -1,3 +1,4 @@
+import { authenticatedPost } from '../lib/apiClient';
 import React, { useState } from 'react';
 import { 
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend,
@@ -61,19 +62,13 @@ export function AnalyticsView({ t, lang = 'en' }: AnalyticsViewProps) {
     setIsAiLoading(true);
     setAiAnalysis(null);
     try {
-      const res = await fetch('/api/analyst', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: promptToSend,
-          context: {
-            departmentBudgets: pieData,
-            vendorVolumes: barData,
-            cashFlowSummary: { Q1_in: 4000, Q2_in: 3000, Q3_in: 2000, Q4_in: 2780 }
-          }
-        })
+      const data = await authenticatedPost<{ result?: string; error?: string }>('/api/analyst', {
+        prompt: promptToSend, context: {
+          dataSource: 'illustrative sample chart data, not recorded business transactions',
+          departmentBudgets: pieData, vendorVolumes: barData,
+          cashFlowSummary: { Q1_in: 4000, Q2_in: 3000, Q3_in: 2000, Q4_in: 2780 },
+        },
       });
-      const data = await res.json();
       if (data.result) {
         setAiAnalysis(data.result);
       } else if (data.error) {

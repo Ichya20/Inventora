@@ -28,13 +28,13 @@ export function ShortcutsModal({ isOpen, onClose, lang = 'en' }: ShortcutsModalP
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={lang === 'en' ? 'Executive Keyboard Shortcuts' : 'Pintasan Keyboard Eksekutif'}
+      title={lang === 'en' ? 'Keyboard shortcuts' : 'Pintasan keyboard'}
     >
       <div className="space-y-4">
         <p className="text-xs text-neutral-600 dark:text-neutral-400">
           {lang === 'en'
-            ? 'Navigate and control Inventora at high velocity with sequence hotkeys.'
-            : 'Navigasi dan operasikan Inventora dengan kecepatan tinggi menggunakan kombinasi tombol.'}
+            ? 'Use these shortcuts to move between modules and open common actions.'
+            : 'Gunakan pintasan ini untuk berpindah modul dan membuka tindakan yang sering dipakai.'}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-96 overflow-y-auto pr-1">
@@ -107,7 +107,8 @@ export function useGlobalHotkeys({
       }
 
       const target = e.target as HTMLElement;
-      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
+      if (document.querySelector('dialog[open]')) return;
       if (isInput) return;
 
       const key = e.key.toLowerCase();
@@ -153,7 +154,7 @@ export function useGlobalHotkeys({
       window.removeEventListener('keydown', handleKeyDown);
       clearTimeout(timeout);
     };
-  }, [pendingSequence, onNavigate, onNewPo, onOpenHelp, onToggleCmdK]);
+  }, [pendingSequence, onNavigate, onNewPo, onOpenHelp, onToggleCmdK, onToggleCopilot]);
 
   return { pendingSequence };
 }

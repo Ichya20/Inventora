@@ -38,7 +38,8 @@ export function assertPoTransition(po: PurchaseOrder, nextStatus: string, role: 
   const valid = source === 'approval'
     ? po.status === 'Pending Approval' && ['Disetujui', 'Ditolak'].includes(nextStatus)
     : source === 'receipt'
-      ? ['Disetujui', 'Selisih Penerimaan'].includes(po.status) && ['Barang Diterima', 'Selisih Penerimaan'].includes(nextStatus)
+      ? (['Disetujui', 'Selisih Penerimaan'].includes(po.status) || (po.status === 'Barang Diterima' && !po.receiptVerification && !po.paymentInfo))
+        && ['Barang Diterima', 'Selisih Penerimaan'].includes(nextStatus)
       : po.status === 'Barang Diterima' && po.threeWayMatchStatus === 'MATCHED' && nextStatus === 'Selesai' && !po.paymentInfo;
   if (!valid) throw new Error('Perubahan status tidak valid. Gunakan persetujuan, penerimaan barang, lalu pembayaran sesuai urutan.');
 }

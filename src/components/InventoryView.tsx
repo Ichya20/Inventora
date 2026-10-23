@@ -1,22 +1,25 @@
+import { dispatchInventory, stockHealth, isInventoryList } from '../lib/inventory';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { Download, Check, Sparkles } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr } from './UI';
 import { RestockForecastCard } from './RestockForecastCard';
-import { ToastFunction } from '../types';
+import { ToastFunction, RestockDraft } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
-import { exportToCsv } from '../lib/exportUtils';
-import { loadStoredData, saveStoredData } from '../lib/storageUtils';
+import { exportToCsv, exportTextFile } from '../lib/exportUtils';
+import { readStoredArray, saveStoredData } from '../lib/storageUtils';
 
-export function InventoryView({ 
-  onToast, 
+export function InventoryView({
+  onToast,
   onNavigate,
-  t, 
-  lang = 'en' 
-}: { 
+  onRestock,
+  t,
+  lang = 'en'
+}: {
   onToast: ToastFunction;
   onNavigate?: (menu: string) => void;
+  onRestock?: (draft: RestockDraft) => void;
   t?: Translations;
   lang?: Language;
 }) {
@@ -25,7 +28,7 @@ export function InventoryView({
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [search, setSearch] = useState('');
-  
+
   const defaultItems = [
     { id: 'NV-H100-TC', name: 'NVIDIA H100 Tensor Core GPU', desc: lang === 'en' ? 'AI Engineering Infra' : 'Infrastruktur AI Engineering', stock: 142, status: lang === 'en' ? 'Safe Range' : 'Aman', color: 'blue' as const },
     { id: 'RS-W1-PRO', name: 'Rack Server Web Infrastructure', desc: lang === 'en' ? 'Server Infra' : 'Infrastruktur Server', stock: 58, status: lang === 'en' ? 'Optimal' : 'Optimal', color: 'green' as const },
@@ -41,13 +44,22 @@ export function InventoryView({
     { id: 'DS-24B-NAS', name: '24-Bay Enterprise NAS', desc: lang === 'en' ? 'Storage Infra' : 'Infrastruktur Penyimpanan', stock: 5, status: lang === 'en' ? 'Critical' : 'Kritis', color: 'red' as const }
   ];
 
-  const [items, setItems] = useState(() => {
-    return loadStoredData('inventora_inventory_v1', defaultItems);
+  const [inventoryState, setInventoryState] = useState(() => {
+    try {
+      const items = readStoredArray('inventora_inventory_v1', defaultItems);
+      if (!isInventoryList(items)) throw new Error('Invalid inventory');
+      return { items, error: false };
+    } catch { return { items: [] as typeof defaultItems, error: true }; }
   });
+  const storedItems = inventoryState.items;
 
+  const items = useMemo(() => storedItems.map(item => ({ ...item, ...stockHealth(item, lang) })), [storedItems, lang]);
   useEffect(() => {
-    saveStoredData('inventora_inventory_v1', items);
-  }, [items]);
+    if (inventoryState.error) return;
+    try {
+      if (localStorage.getItem('inventora_inventory_v1') === null) saveStoredData('inventora_inventory_v1', storedItems, true);
+    } catch { onToast(lang === 'en' ? 'Inventory is not saved. Browser storage is unavailable.' : 'Inventori belum tersimpan. Penyimpanan browser tidak tersedia.', 'error'); }
+  }, []);
 
   const [page, setPage] = useState(1);
   const itemsPerPage = 5;
@@ -82,8 +94,8 @@ export function InventoryView({
   }, [items, sortConfig]);
 
   const filteredItems = useMemo(() => {
-    return sortedItems.filter(item => 
-      item.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+    return sortedItems.filter(item =>
+      item.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       item.id.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
   }, [sortedItems, debouncedSearch]);
@@ -106,7 +118,7 @@ export function InventoryView({
       ]);
       exportToCsv(`inventora-inventory-stock-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
       onToast(
-        lang === 'en' ? "Inventory data exported as CSV" : "Data inventaris berhasil diekspor sebagai CSV", 
+        lang === 'en' ? "Inventory data exported as CSV" : "Data inventaris berhasil diekspor sebagai CSV",
         "success",
         { title: lang === 'en' ? 'CSV Export Completed' : 'Ekspor CSV Berhasil' }
       );
@@ -120,18 +132,18 @@ export function InventoryView({
   const handleGenerateReport = () => {
     setIsGenerating(true);
     try {
-      const headers = ['SKU ID', 'Item Name', 'Stock Count', 'Condition', 'Estimated Reorder Threshold', 'Audit Status'];
+      const headers = ['SKU ID', 'Item Name', 'Stock Count', 'Condition', 'Minimum Stock', 'Audit Status'];
       const rows = items.map(item => [
         item.id,
         item.name,
         item.stock,
         item.status,
-        item.stock < 15 ? 'CRITICAL - REORDER IMMEDIATELY' : item.stock < 30 ? 'MONITOR BUFFER' : 'HEALTHY BUFFER',
+        stockHealth(item).stockMin,
         'LOCAL_SIMULATION'
       ]);
       exportToCsv(`inventora-inventory-audit-report-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
       onToast(
-        activeT.inventory.reportSuccess, 
+        activeT.inventory.reportSuccess,
         "success",
         { title: lang === 'en' ? 'Audit Report Generated' : 'Laporan Audit Siap' }
       );
@@ -143,33 +155,35 @@ export function InventoryView({
   };
 
   const handleDeploy = (id: string) => {
-    setItems(currentItems => currentItems.map(item => {
-      if (item.id === id && item.stock > 0) {
-        return { ...item, stock: item.stock - 1 };
-      }
-      return item;
-    }));
-    onToast(
-      lang === 'en' ? `1 unit of ${id} dispatched from warehouse` : `1 unit ${id} berhasil dideploy dari gudang`, 
-      "success",
-      {
-        title: lang === 'en' ? 'Stock Dispatched' : 'Stok Berkurang',
-        actionLabel: lang === 'en' ? 'Audit Trail' : 'Buka Audit',
-        onAction: () => onNavigate('po')
-      }
-    );
+    try {
+      const updated = dispatchInventory('inventora_inventory_v1', storedItems, id);
+      setInventoryState({ items: updated, error: false });
+      onToast(lang === 'en' ? `1 unit of ${id} dispatched and saved` : `Pengeluaran 1 unit ${id} berhasil disimpan`, 'success', {
+        title: lang === 'en' ? 'Stock saved' : 'Stok tersimpan',
+        actionLabel: lang === 'en' ? 'Open procurement' : 'Buka pengadaan', onAction: () => onNavigate?.('po'),
+      });
+    } catch (error) {
+      onToast(lang === 'en' ? 'Stock was not changed. Check browser storage and available stock.' : 'Stok tidak berubah. Periksa penyimpanan browser dan ketersediaan stok.', 'error');
+    }
   };
 
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
       <p className="text-xs text-neutral-500">{lang === 'en' ? 'Local inventory simulation. The small trend chart is an example, not recorded stock history.' : 'Simulasi inventori lokal. Grafik tren kecil adalah contoh, bukan riwayat stok tercatat.'}</p>
+      {inventoryState.error && <div role="alert" className="text-sm border border-red-200 dark:border-red-900 rounded-lg p-4 space-y-2 text-red-700 dark:text-red-400">
+        <p>{lang === 'en' ? 'Saved inventory cannot be read. The original data is retained; restore a valid backup before changing stock.' : 'Inventori tersimpan tidak dapat dibaca. Data asli tetap disimpan; pulihkan cadangan yang valid sebelum mengubah stok.'}</p>
+        <button type="button" className="underline cursor-pointer" onClick={() => {
+          try { exportTextFile('inventora-inventory-recovery.txt', localStorage.getItem('inventora_inventory_v1') ?? '', 'text/plain'); }
+          catch { onToast(lang === 'en' ? 'Saved inventory could not be downloaded.' : 'Data inventori belum dapat diunduh.', 'error'); }
+        }}>{lang === 'en' ? 'Download saved data' : 'Unduh data tersimpan'}</button>
+      </div>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
         <Card>
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.totalUnits}</p>
               <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-                {items.reduce((acc, item) => acc + item.stock, 0).toLocaleString(numLocale)}
+                {inventoryState.error ? '—' : items.reduce((acc, item) => acc + item.stock, 0).toLocaleString(numLocale)}
               </h3>
               <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
                 {lang === 'en' ? 'Calculated from the current local inventory' : 'Dihitung dari inventori lokal saat ini'}
@@ -215,32 +229,29 @@ export function InventoryView({
           </div>
           <div>
             <h4 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">{lang === 'en' ? 'Local stock overview' : 'Ringkasan stok lokal'}</h4>
-            <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{items.filter(item => item.color === 'red' || item.color === 'orange').length} {lang === 'en' ? 'SKUs flagged for review in the inventory directory.' : 'SKU ditandai untuk ditinjau dalam direktori inventori.'}</p>
+            <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{inventoryState.error ? '—' : items.filter(item => item.color === 'red' || item.color === 'orange').length} {lang === 'en' ? 'SKUs flagged for review in the inventory directory.' : 'SKU ditandai untuk ditinjau dalam direktori inventori.'}</p>
           </div>
         </div>
-        <Button variant="primary" onClick={handleGenerateReport} isLoading={isGenerating}>
+        <Button variant="primary" onClick={handleGenerateReport} isLoading={isGenerating} disabled={inventoryState.error}>
           {activeT.inventory.generateReport}
         </Button>
       </div>
 
       {/* Gemini AI Predictive Restock & Demand Forecaster */}
-      <RestockForecastCard
+      {!inventoryState.error && items.length > 0 && <RestockForecastCard
         inventory={items}
         onGeneratePo={(forecast) => {
-          if (onNavigate) {
-            onNavigate('purchase');
-            onToast(lang === 'en' ? `Drafting restock PO for ${forecast.name}` : `Menyiapkan PO restok untuk ${forecast.name}`, 'info');
-          }
+          onRestock?.(forecast);
         }}
         lang={lang}
-      />
+      />}
 
-      <TableWrapper 
-        title={activeT.inventory.tableTitle} 
+      <TableWrapper
+        title={activeT.inventory.tableTitle}
         placeholder={activeT.inventory.searchPlaceholder}
         searchValue={search}
         onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
-        onExport={handleExport}
+        onExport={inventoryState.error ? undefined : handleExport}
         isExporting={isExporting}
         currentPage={page}
         totalPages={totalPages || 1}
@@ -248,10 +259,10 @@ export function InventoryView({
       >
         <thead className="sticky top-0 z-10">
           <tr>
-            <Th sortable onSort={() => handleSort('id')}>{activeT.inventory.skuCol}</Th>
-            <Th sortable onSort={() => handleSort('name')}>{activeT.inventory.deviceNameCol}</Th>
-            <Th sortable onSort={() => handleSort('stock')}>{activeT.inventory.stockCol}</Th>
-            <Th sortable onSort={() => handleSort('status')}>{activeT.inventory.conditionCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('id')}>{activeT.inventory.skuCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('name')}>{activeT.inventory.deviceNameCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'stock' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('stock')}>{activeT.inventory.stockCol}</Th>
+            <Th sortable sortDirection={sortConfig?.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('status')}>{activeT.inventory.conditionCol}</Th>
             <Th align="right">{activeT.inventory.quickActionCol}</Th>
           </tr>
         </thead>
@@ -267,7 +278,7 @@ export function InventoryView({
                 <Td><span className="tabular-nums">{item.stock} Units</span></Td>
                 <Td><Badge color={item.color}>{item.status}</Badge></Td>
                 <Td align="right">
-                  <Button variant="secondary" onClick={() => handleDeploy(item.id)} disabled={item.stock === 0}>
+                  <Button variant="secondary" onClick={() => handleDeploy(item.id)} disabled={!Number.isSafeInteger(item.stock) || item.stock <= 0}>
                     {activeT.inventory.deployBtn}
                   </Button>
                 </Td>

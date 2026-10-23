@@ -24,6 +24,22 @@ export function saveStoredData<T>(key: string, value: T, required = false): void
   }
 }
 
+export function readStoredArray<T>(key: string, fallback: T[], validItem?: (item: unknown) => boolean): T[] {
+  const raw = localStorage.getItem(key);
+  const value: unknown = raw === null ? fallback : JSON.parse(raw);
+  if (!Array.isArray(value) || (validItem && !value.every(validItem))) {
+    throw new Error('Struktur data tersimpan tidak valid. Data asli tetap disimpan untuk pemulihan.');
+  }
+  return value;
+}
+
+export function commitStoredArray<T>(key: string, fallback: T[], change: (current: T[]) => T[]): T[] {
+  const current = readStoredArray(key, fallback);
+  const updated = change(current);
+  saveStoredData(key, updated, true);
+  return updated;
+}
+
 export function clearAllInventoraStorage(): void {
   const preferences = new Set(['inventora_language', 'inventora_lang', 'inventora_theme']);
   const keys = Object.keys(localStorage).filter(key => key.startsWith('inventora_') && !preferences.has(key));

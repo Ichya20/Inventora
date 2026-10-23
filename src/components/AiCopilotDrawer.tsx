@@ -1,3 +1,5 @@
+import { authenticatedPost } from '../lib/apiClient';
+import { apiErrorMessage } from '../lib/apiError';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, Send, Bot, User, CornerDownLeft, RefreshCw, AlertCircle, ShieldCheck, ChevronRight, Copy, Check } from 'lucide-react';
@@ -19,12 +21,16 @@ interface AiCopilotDrawerProps {
   lang?: 'en' | 'id';
 }
 
-const QUICK_PROMPTS = [
-  { label: 'Pending PO Risk Summary', query: 'Summarize all pending POs, total committed capital, and any high-risk vendor exposures.' },
-  { label: 'Critical Restock Alerts', query: 'Which SKUs are closest to depleting their safety buffer this week?' },
-  { label: 'Draft Executive Memo', query: 'Draft a short executive approval memo for the procurement committee regarding this month’s IT capital expenditures.' },
-  { label: 'Cash Flow Synthesis', query: 'Provide a high-level analysis of current month cash collections vs outstanding vendor obligations.' },
-];
+const prompts = {
+  en: [
+    { label: 'Order summary', query: 'Summarize the available purchase order counts and recorded PO value. State which data is unavailable.' },
+    { label: 'Stock to review', query: 'Explain the available stock metrics and which next steps I should check in the inventory module. Do not assume SKU-level data.' },
+  ],
+  id: [
+    { label: 'Ringkasan PO', query: 'Ringkas jumlah PO dan nilai PO tercatat yang tersedia. Sebutkan data yang belum tersedia.' },
+    { label: 'Tinjau stok', query: 'Jelaskan metrik stok yang tersedia dan langkah yang perlu diperiksa di modul inventori. Jangan mengasumsikan data per SKU.' },
+  ],
+};
 
 export function AiCopilotDrawer({
   isOpen,
@@ -38,8 +44,8 @@ export function AiCopilotDrawer({
       id: 'welcome',
       sender: 'assistant',
       text: lang === 'en'
-        ? `Hello! I am your Inventora Executive Copilot powered by Gemini. I have real-time visibility into current inventories, pending Purchase Orders, vendor settlements, and workforce payroll. How can I assist your operations today?`
-        : `Halo! Saya adalah Executive Copilot Inventora berbasis Gemini. Saya memiliki akses real-time ke data stok gudang, Purchase Order tertunda, pembayaran vendor, dan payroll SDM. Ada yang bisa saya bantu hari ini?`,
+        ? `Ask about the dashboard metrics available to your account. Detailed revenue, settlements, and payroll are not included in this conversation.`
+        : `Tanyakan metrik dashboard yang tersedia bagi akunmu. Rincian pendapatan, pembayaran, dan payroll tidak disertakan dalam percakapan ini.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -47,6 +53,7 @@ export function AiCopilotDrawer({
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -55,15 +62,10 @@ export function AiCopilotDrawer({
   }, [messages, isLoading]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    const dialog = dialogRef.current;
+    if (isOpen && dialog && !dialog.open) dialog.showModal();
+    if (!isOpen && dialog?.open) dialog.close();
+  }, [isOpen]);
 
   const handleSend = async (textToSend?: string) => {
     const q = (textToSend || input).trim();
@@ -86,22 +88,9 @@ export function AiCopilotDrawer({
         text: m.text
       }));
 
-      const res = await fetch('/api/copilot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: q,
-          context: {
-            ...erpContext,
-            currentRole,
-            lang,
-            timestamp: new Date().toISOString()
-          },
-          history: historyPayload
-        })
+      const data = await authenticatedPost<{ reply: string }>('/api/copilot', {
+        message: q, context: { ...erpContext, currentRole, lang }, history: historyPayload,
       });
-
-      const data = await res.json();
       const assistantMsg: Message = {
         id: `msg-${Date.now()}-ai`,
         sender: 'assistant',
@@ -115,9 +104,7 @@ export function AiCopilotDrawer({
         {
           id: `msg-${Date.now()}-err`,
           sender: 'assistant',
-          text: lang === 'en'
-            ? `Inventora Executive Telemetry\n\n• Live Operations: 45 Active POs (12 pending authorizations), 1,104 Infrastructure units deployed.\n• Liquidity Status: Current collections +18.4% above benchmark targets.\n• Supply Chain: 2 hardware storage SKUs approaching safety margins; restock orders recommended.`
-            : `Telemetri Eksekutif Inventora\n\n• Operasional Aktif: 45 PO terdaftar (12 menunggu persetujuan), 1.104 unit infrastruktur aktif.\n• Status Likuiditas: Penerimaan berjalan +18.4% di atas target acuan.\n• Rantai Pasok: 2 SKU penyimpanan mendekati batas stok minimum; disarankan pembuatan PO restok.`,
+          text: apiErrorMessage(err, lang),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -133,47 +120,36 @@ export function AiCopilotDrawer({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
-          />
-
+    <dialog ref={dialogRef} className="ui-drawer" aria-labelledby="copilot-title" onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right) onClose(); } }}>
+      {isOpen && (<>
           {/* Drawer Panel */}
           <motion.aside
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="relative w-full max-w-lg bg-white dark:bg-[#111] h-full shadow-2xl border-l border-neutral-200 dark:border-neutral-800 flex flex-col z-10"
+            transition={{ duration: .24, ease: [.2, .8, .2, 1] }}
+            className="relative w-full bg-[var(--ws-surface)] h-full flex flex-col"
           >
             {/* Drawer Header */}
             <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/50 dark:bg-[#161616]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-linear-to-tr from-[#0070f3] to-indigo-600 flex items-center justify-center text-white shadow-xs">
+                <div className="w-8 h-8 rounded-lg bg-[#0864d9] flex items-center justify-center text-white shadow-xs">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
-                    <span>Inventora Copilot</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-[#0070f3] dark:text-[#3291ff] font-mono font-bold">
-                      GEMINI 3.8
-                    </span>
+                  <h2 id="copilot-title" className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                    <span>{lang === 'en' ? 'Inventora Assistant' : 'Asisten Inventora'}</span>
+
                   </h2>
                   <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    {lang === 'en' ? 'Enterprise Intelligence & Decision Support' : 'Kecerdasan & Analisis Keputusan Enterprise'}
+                    {lang === 'en' ? 'Ask about your workspace metrics' : 'Tanyakan metrik ruang kerjamu'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
+                aria-label={lang === 'en' ? 'Close assistant' : 'Tutup asisten'}
                 className="p-1.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -213,8 +189,8 @@ export function AiCopilotDrawer({
                           <button
                             type="button"
                             onClick={() => copyToClipboard(m.id, m.text)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 inline-flex items-center gap-1 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
-                            title="Copy response"
+                            className="opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity ml-2 inline-flex items-center gap-1 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+                            title={lang === 'en' ? 'Copy response' : 'Salin jawaban'}
                           >
                             {copiedId === m.id ? (
                               <Check className="w-3 h-3 text-emerald-500" />
@@ -244,7 +220,7 @@ export function AiCopilotDrawer({
                     <span className="w-1.5 h-1.5 rounded-full bg-[#0070f3] animate-bounce delay-100" />
                     <span className="w-1.5 h-1.5 rounded-full bg-[#0070f3] animate-bounce delay-200" />
                     <span className="text-[11px] text-neutral-500 ml-1">
-                      {lang === 'en' ? 'Synthesizing ERP telemetry...' : 'Menganalisis telemetri ERP...'}
+                      {lang === 'en' ? 'Preparing a response…' : 'Menyiapkan jawaban…'}
                     </span>
                   </div>
                 </div>
@@ -254,11 +230,12 @@ export function AiCopilotDrawer({
             {/* Quick Prompt Chips */}
             <div className="px-4 py-2 bg-neutral-50/80 dark:bg-[#141414] border-t border-neutral-100 dark:border-neutral-800/80">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {QUICK_PROMPTS.map((qp, idx) => (
+                {prompts[lang].map((qp, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => handleSend(qp.query)}
+                    disabled={isLoading}
                     className="shrink-0 text-[11px] px-2.5 py-1 rounded-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:border-[#0070f3] dark:hover:border-[#0070f3] text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer"
                   >
                     {qp.label}
@@ -280,11 +257,13 @@ export function AiCopilotDrawer({
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={lang === 'en' ? 'Ask Copilot about POs, cashflow, stock risks...' : 'Tanya Copilot tentang PO, arus kas, risiko stok...'}
+                  aria-label={lang === 'en' ? 'Message for assistant' : 'Pesan untuk asisten'}
+                  placeholder={lang === 'en' ? 'Ask about your dashboard…' : 'Tanyakan tentang dashboard…'}
                   disabled={isLoading}
                   className="w-full pl-3.5 pr-10 py-2.5 text-xs bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0070f3] text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400"
                 />
                 <button
+                  aria-label={lang === 'en' ? 'Send message' : 'Kirim pesan'}
                   type="submit"
                   disabled={!input.trim() || isLoading}
                   className="absolute right-2 p-1.5 rounded-lg bg-[#0070f3] text-white disabled:opacity-40 hover:bg-[#0060df] transition-all cursor-pointer shadow-xs"
@@ -295,14 +274,14 @@ export function AiCopilotDrawer({
               <div className="mt-2 flex items-center justify-between text-[10px] text-neutral-400">
                 <span className="flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                  <span>Enterprise Privacy Guard active</span>
+                  <span>{lang === 'en' ? 'Uses metrics available to this account' : 'Menggunakan metrik yang dapat diakses akun ini'}</span>
                 </span>
-                <span>Press Enter to send</span>
+                <span>{lang === 'en' ? 'Enter to send' : 'Enter untuk mengirim'}</span>
               </div>
             </div>
           </motion.aside>
-        </div>
+        </>
       )}
-    </AnimatePresence>
+    </dialog>
   );
 }

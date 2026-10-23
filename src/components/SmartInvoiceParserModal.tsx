@@ -1,3 +1,4 @@
+import { authenticatedPost } from '../lib/apiClient';
 import React, { useState } from 'react';
 import { Sparkles, FileText, CheckCircle2, RefreshCw, ArrowRight, CornerDownLeft, AlertCircle } from 'lucide-react';
 import { Modal } from './UI';
@@ -48,13 +49,7 @@ export function SmartInvoiceParserModal({
     setError(null);
     setParsed(null);
     try {
-      const res = await fetch('/api/ai/parse-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: rawText })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to parse invoice text');
+      const data = await authenticatedPost<ParsedInvoiceData>('/api/ai/parse-invoice', { text: rawText });
       setParsed(validateParsedInvoice(data));
     } catch (e: any) {
       setParsed(null);

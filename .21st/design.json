@@ -1,0 +1,64 @@
+{
+  "project": "Inventora",
+  "scope": "Inventory and procurement workspace",
+  "direction": "Framed sheet: blue-grey application frame with a white working surface, operational overview, and compact data tables.",
+  "preserve": [
+    "Original four-square Inventora logo",
+    "Plus Jakarta Sans",
+    "Blue brand accent",
+    "Existing role permissions and business workflows"
+  ],
+  "colors": {
+    "frame": "#eef2f6",
+    "sheet": "#ffffff",
+    "ink": "#182230",
+    "muted": "#627082",
+    "accent": "#0864d9"
+  },
+  "motion": {
+    "pageEntryMs": 240,
+    "dialogMs": 180,
+    "drawerMs": 240,
+    "reducedMotion": "Follow system preference; disable movement and decorative loops"
+  },
+  "dashboard": [
+    "Recorded metrics with explicit data sources",
+    "Filterable PO stage distribution",
+    "Latest orders",
+    "Stock attention list",
+    "Workspace activity"
+  ],
+  "references": [
+    {
+      "url": "https://21st.dev/community/components?search=animated%20tabs",
+      "use": "Public catalogue reference for animated tab indicators; local implementation using existing Motion dependency."
+    },
+    {
+      "url": "https://21st.dev/community/components?search=sheet",
+      "use": "Public catalogue reference for side-sheet details; reused native project dialog primitive."
+    },
+    {
+      "url": "https://21st.dev/community/components?search=tooltip",
+      "use": "Public catalogue reference for contextual explanations; local accessible tooltip implementation."
+    }
+  ],
+  "implementation": "Local React, Tailwind, Lucide, and motion/react; no hosted generation or source upload",
+  "review": "62 application tests passed, TypeScript and production build checked. Public catalogue HTTP reads only; no component download or hosted source review. Browser interaction and visual QA unavailable in this session.",
+  "decisions": [
+    {
+      "date": "2026-10-23",
+      "scope": "Dashboard procurement",
+      "choice": "Animated underline tabs and directly labelled horizontal distribution bars share one status filter; order rows open a native detail drawer without navigation."
+    },
+    {
+      "date": "2026-10-23",
+      "scope": "Typography",
+      "choice": "Keep Plus Jakarta Sans. Use standard 400/500/600/700 weights, sentence-case labels, 12–14px dashboard labels and body copy, tabular figures, and modest heading tracking. No new display font."
+    },
+    {
+      "date": "2026-10-23",
+      "scope": "Interaction",
+      "choice": "Tooltips support pointer, keyboard focus, touch, Escape, and outside dismissal. Drawer entrance and exit follow reduced-motion preferences. Existing logo and permissions retained."
+    }
+  ]
+}

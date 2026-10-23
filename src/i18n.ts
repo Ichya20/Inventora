@@ -543,9 +543,9 @@ export const translations: Record<Language, Translations> = {
       statusCol: 'Status',
       actionCol: 'Aksi',
       receiptBtn: 'Receipt',
-      sendWarningBtn: 'Kirim Peringatan',
+      sendWarningBtn: 'Siapkan Pengingat',
       noInvoices: 'Tidak ada invoice yang cocok.',
-      warningSent: 'Email peringatan otomatis telah dikirim ke klien',
+      warningSent: 'Draf pengingat siap diperiksa sebelum dikirim',
       paidBadge: 'Lunas',
       overdueBadge: 'Overdue',
       pendingBadge: 'Pending'
@@ -845,9 +845,9 @@ export const translations: Record<Language, Translations> = {
       statusCol: 'Status',
       actionCol: 'Action',
       receiptBtn: 'Receipt',
-      sendWarningBtn: 'Send Warning',
+      sendWarningBtn: 'Prepare Reminder',
       noInvoices: 'No matching invoices found.',
-      warningSent: 'Automated warning email sent to client',
+      warningSent: 'Reminder draft ready for review before sending',
       paidBadge: 'Paid',
       overdueBadge: 'Overdue',
       pendingBadge: 'Pending'

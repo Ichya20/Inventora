@@ -1,0 +1,92 @@
+{
+  "checkedAt": "2026-10-22T04:19:57.185Z",
+  "scope": "Current source callbacks and isolated Firestore emulator; no production or live browser checks",
+  "results": [
+    {
+      "id": "AI_AUTH",
+      "confirmed": true,
+      "anonymousStatus": 200,
+      "mockedPaidServiceCalls": 1
+    },
+    {
+      "id": "AI_FALLBACK",
+      "confirmed": true,
+      "input": {
+        "activePosCount": 0,
+        "pendingApprovalsCount": 0,
+        "recordedPoValue": 0,
+        "totalHeadcount": 0,
+        "infrastructureUnits": 0
+      },
+      "returnedStatus": 200,
+      "returnedText": "Executive Procurement Briefing\n\n• Active Purchase Orders: Currently tracking 45 POs, with 12 awaiting management approval totaling approximately Rp 1.450.000.000.\n• Risk Status: All POs under Rp 300M are pre-screened as low risk. Cisco Systems Indonesia (PO-2026-1041) is approved and pending payment release.\n• Next Action: Review pending POs in the Procurement tab or approve directly via the hotkey menu (G then P)."
+    },
+    {
+      "id": "INVENTORY_SAVE",
+      "confirmed": true,
+      "displayedStock": 0,
+      "reloadedStock": 1,
+      "toast": [
+        "1 unit AUDIT-SKU berhasil dideploy dari gudang",
+        "success"
+      ]
+    },
+    {
+      "id": "INVENTORY_STATUS",
+      "confirmed": true,
+      "stock": 0,
+      "label": "Optimal",
+      "color": "green"
+    },
+    {
+      "id": "FINANCE_SAVE",
+      "confirmed": true,
+      "displayedStatus": "Lunas",
+      "reloadedStatus": "Pending",
+      "toast": [
+        "Faktur AUDIT-INV berhasil ditandai Lunas. Kuitansi resmi sekarang tersedia.",
+        "success"
+      ]
+    },
+    {
+      "id": "EMAIL_NOOP",
+      "confirmed": true,
+      "toast": "Email peringatan otomatis telah dikirim ke Audit Client untuk faktur AUDIT-INV",
+      "note": "Actual callback completes with only setActiveModal and onToast supplied; no mail request or queue exists."
+    },
+    {
+      "id": "NOTIFICATION_SCOPE",
+      "confirmed": true,
+      "currentRole": "HR Manager",
+      "inheritedPaymentAmount": 111000000
+    },
+    {
+      "id": "GRN_SYNTHETIC_ITEMS",
+      "confirmed": true,
+      "originalItemsPresent": false,
+      "generatedItem": {
+        "sku": "SKU-GEN-01",
+        "name": "Missing order details",
+        "orderedQty": 10,
+        "receivedQty": 10,
+        "condition": "GOOD",
+        "notes": ""
+      }
+    },
+    {
+      "id": "RULES_GRN_MISMATCH",
+      "confirmed": true,
+      "orderedQty": 10,
+      "receivedQty": 0,
+      "condition": "SHORTAGE",
+      "acceptedMatchLabel": "MATCHED",
+      "finalStatus": "Selesai"
+    },
+    {
+      "id": "RULES_ITEMS_SHAPE",
+      "confirmed": true,
+      "acceptedItemsType": "string",
+      "receiptError": "source.map is not a function"
+    }
+  ]
+}

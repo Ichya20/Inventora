@@ -9,13 +9,13 @@ import { downloadPayslipPdf, PayslipData } from '../lib/pdfGenerator';
 import { assertPayrollAvailable, findPayrollRecord, payrollPeriodKey, historicalPayrollBreakdown } from '../lib/payrollHistory';
 import { businessDate, BUSINESS_TIME_ZONE, dateLabel, isMonthKey, monthLabel } from '../lib/businessDates';
 import { playNotificationChime } from './InteractiveToaster';
-import { 
-  CreditCard, 
-  Download, 
-  ArrowLeft, 
-  CheckCircle2, 
-  Building2, 
-  ShieldCheck, 
+import {
+  CreditCard,
+  Download,
+  ArrowLeft,
+  CheckCircle2,
+  Building2,
+  ShieldCheck,
   Send,
   Clock,
   History,
@@ -113,14 +113,14 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
   const debouncedHistorySearch = useDebounce(historySearch, 180);
 
   const defaultEmployees: Employee[] = [
-    { 
-      id: 'EMP-10024', 
-      name: 'Budi Santoso', 
-      email: 'budi.s@inventora.com', 
-      dept: 'Engineering', 
-      role: 'Senior AI Engineer', 
-      status: lang === 'en' ? 'Active' : 'Aktif', 
-      color: 'green' as const, 
+    {
+      id: 'EMP-10024',
+      name: 'Budi Santoso',
+      email: 'budi.s@inventora.com',
+      dept: 'Engineering',
+      role: 'Senior AI Engineer',
+      status: lang === 'en' ? 'Active' : 'Aktif',
+      color: 'green' as const,
       joined: '12 Jan 2022',
       taxId: '09.342.189.4-012.000',
       salary: {
@@ -138,14 +138,14 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
         disbursementRef: 'TRX-PAY-202608-8831'
       }
     },
-    { 
-      id: 'EMP-10088', 
-      name: 'Siti Rahmawati', 
-      email: 'siti.r@inventora.com', 
-      dept: 'Finance', 
-      role: 'Financial Controller', 
-      status: lang === 'en' ? 'Annual Leave' : 'Cuti Tahunan', 
-      color: 'gray' as const, 
+    {
+      id: 'EMP-10088',
+      name: 'Siti Rahmawati',
+      email: 'siti.r@inventora.com',
+      dept: 'Finance',
+      role: 'Financial Controller',
+      status: lang === 'en' ? 'Annual Leave' : 'Cuti Tahunan',
+      color: 'gray' as const,
       joined: '04 Mar 2023',
       taxId: '12.871.902.1-015.000',
       salary: {
@@ -163,14 +163,14 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
         disbursementRef: 'TRX-PAY-202608-9942'
       }
     },
-    { 
-      id: 'EMP-10091', 
-      name: 'Andi Wijaya', 
-      email: 'andi.w@inventora.com', 
-      dept: 'Operations', 
-      role: 'Ops Manager', 
-      status: lang === 'en' ? 'Active' : 'Aktif', 
-      color: 'green' as const, 
+    {
+      id: 'EMP-10091',
+      name: 'Andi Wijaya',
+      email: 'andi.w@inventora.com',
+      dept: 'Operations',
+      role: 'Ops Manager',
+      status: lang === 'en' ? 'Active' : 'Aktif',
+      color: 'green' as const,
       joined: '15 Aug 2021',
       taxId: '21.503.712.9-021.000',
       salary: {
@@ -187,14 +187,14 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
         lastDisbursed: '25 Aug 2026'
       }
     },
-    { 
-      id: 'EMP-10105', 
-      name: 'Rina Kusuma', 
-      email: 'rina.k@inventora.com', 
-      dept: 'HR', 
-      role: 'HR Specialist', 
-      status: lang === 'en' ? 'Sick Leave' : 'Sakit', 
-      color: 'red' as const, 
+    {
+      id: 'EMP-10105',
+      name: 'Rina Kusuma',
+      email: 'rina.k@inventora.com',
+      dept: 'HR',
+      role: 'HR Specialist',
+      status: lang === 'en' ? 'Sick Leave' : 'Sakit',
+      color: 'red' as const,
       joined: '10 Feb 2024',
       taxId: '34.192.831.0-032.000',
       salary: {
@@ -211,14 +211,14 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
         lastDisbursed: '25 Aug 2026'
       }
     },
-    { 
-      id: 'EMP-10112', 
-      name: 'Joko Anwar', 
-      email: 'joko.a@inventora.com', 
-      dept: 'Engineering', 
-      role: 'Backend Engineer', 
-      status: lang === 'en' ? 'Active' : 'Aktif', 
-      color: 'green' as const, 
+    {
+      id: 'EMP-10112',
+      name: 'Joko Anwar',
+      email: 'joko.a@inventora.com',
+      dept: 'Engineering',
+      role: 'Backend Engineer',
+      status: lang === 'en' ? 'Active' : 'Aktif',
+      color: 'green' as const,
       joined: '01 Nov 2023',
       taxId: '45.819.201.8-041.000',
       salary: {
@@ -382,7 +382,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       if (!debouncedSearch.trim()) return true;
       const q = debouncedSearch.toLowerCase();
       return (
-        emp.name.toLowerCase().includes(q) || 
+        emp.name.toLowerCase().includes(q) ||
         emp.id.toLowerCase().includes(q) ||
         emp.dept.toLowerCase().includes(q) ||
         emp.role.toLowerCase().includes(q)
@@ -399,7 +399,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
   const filteredHistory = useMemo(() => {
     if (!debouncedHistorySearch.trim()) return payrollHistory;
     const q = debouncedHistorySearch.toLowerCase();
-    return payrollHistory.filter(h => 
+    return payrollHistory.filter(h =>
       h.empName.toLowerCase().includes(q) ||
       h.empId.toLowerCase().includes(q) ||
       h.referenceNumber.toLowerCase().includes(q) ||
@@ -445,19 +445,19 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
     setIsExportingHistory(true);
     try {
       const headers = [
-        'Reference No', 
-        'Employee ID', 
-        'Employee Name', 
-        'Department', 
-        'Role', 
-        'Payroll Period', 
-        'Disbursed Timestamp', 
-        'Gross (IDR)', 
-        'Deductions (IDR)', 
-        'Take-Home Pay (IDR)', 
-        'Bank Name', 
-        'Account Number', 
-        'Disbursed By', 
+        'Reference No',
+        'Employee ID',
+        'Employee Name',
+        'Department',
+        'Role',
+        'Payroll Period',
+        'Disbursed Timestamp',
+        'Gross (IDR)',
+        'Deductions (IDR)',
+        'Take-Home Pay (IDR)',
+        'Bank Name',
+        'Account Number',
+        'Disbursed By',
         'Status'
       ];
       const rows = filteredHistory.map(rec => [
@@ -478,7 +478,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       ]);
       exportToCsv(`inventora-payroll-history-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
       onToast(
-        lang === 'en' ? "Payroll disbursement history exported to CSV" : "Riwayat pencairan gaji berhasil diekspor ke CSV", 
+        lang === 'en' ? "Payroll disbursement history exported to CSV" : "Riwayat pencairan gaji berhasil diekspor ke CSV",
         "success"
       );
     } catch {
@@ -514,7 +514,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(event)
       });
-      
+
       let res = await send();
       if (res.status === 401) {
         token = await getAccessToken(true);
@@ -522,10 +522,10 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
         res = await send();
       }
       if (!res.ok) throw new Error('Failed to create calendar event');
-      
+
       onToast(
-        lang === 'en' 
-          ? `Onboarding event for ${emp.name} created in Calendar` 
+        lang === 'en'
+          ? `Onboarding event for ${emp.name} created in Calendar`
           : `Jadwal onboarding untuk ${emp.name} berhasil dibuat di Calendar`,
         "success"
       );
@@ -542,7 +542,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
     const trans = s?.transportAllowance || 0;
     const bonus = currentBonus;
     const gross = base + pos + trans + bonus;
-    
+
     // BPJS Kesehatan (1% employee)
     const bpjsKes = s?.bpjsKesehatan ?? Math.round(base * 0.01);
     // BPJS Ketenagakerjaan (3% employee: JHT 2% + JP 1%)
@@ -765,7 +765,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
               <Filter className="w-3.5 h-3.5" />
               <span>{lang === 'en' ? 'Filter by Payroll Status:' : 'Filter Status Payroll:'}</span>
             </div>
-            
+
             <div className="flex items-center gap-1.5 bg-neutral-200/60 dark:bg-neutral-800/80 p-1 rounded-lg text-xs">
               <button
                 type="button"
@@ -805,8 +805,8 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
             </div>
           </div>
 
-          <TableWrapper 
-            title={activeT.hr.tableTitle} 
+          <TableWrapper
+            title={activeT.hr.tableTitle}
             placeholder={activeT.hr.searchPlaceholder}
             searchValue={search}
             onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
@@ -818,12 +818,12 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
           >
             <thead>
               <Tr>
-                <Th sortable onSort={() => handleSort('id')}>{activeT.hr.empIdCol}</Th>
-                <Th sortable onSort={() => handleSort('name')}>{activeT.hr.empNameCol}</Th>
-                <Th sortable onSort={() => handleSort('dept')}>{activeT.hr.deptCol}</Th>
-                <Th sortable onSort={() => handleSort('role')}>{activeT.hr.roleCol}</Th>
+                <Th sortable sortDirection={sortConfig?.key === 'id' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('id')}>{activeT.hr.empIdCol}</Th>
+                <Th sortable sortDirection={sortConfig?.key === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('name')}>{activeT.hr.empNameCol}</Th>
+                <Th sortable sortDirection={sortConfig?.key === 'dept' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('dept')}>{activeT.hr.deptCol}</Th>
+                <Th sortable sortDirection={sortConfig?.key === 'role' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('role')}>{activeT.hr.roleCol}</Th>
                 <Th>{lang === 'en' ? `Payroll Status (${periodLabel})` : `Status Payroll (${periodLabel})`}</Th>
-                <Th sortable onSort={() => handleSort('status')}>{activeT.hr.statusCol}</Th>
+                <Th sortable sortDirection={sortConfig?.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('status')}>{activeT.hr.statusCol}</Th>
                 <Th align="right">{activeT.hr.actionCol}</Th>
               </Tr>
             </thead>
@@ -842,7 +842,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                       </Td>
                       <Td><span className="font-medium text-xs">{emp.dept}</span></Td>
                       <Td><span className="text-xs text-neutral-700 dark:text-neutral-300">{emp.role}</span></Td>
-                      
+
                       {/* Live Payroll Status Column */}
                       <Td>
                         {isDisbursed ? (
@@ -869,24 +869,24 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                       </Td>
 
                       <Td><Badge color={emp.color}>{emp.status}</Badge></Td>
-                      
+
                       <Td align="right">
                         <div className="flex justify-end gap-1.5 flex-wrap">
-                          <Button 
-                            variant="secondary" 
+                          <Button
+                            variant="secondary"
                             onClick={() => handleOnboardToCalendar(emp)}
                             title={lang === 'en' ? 'Sync onboarding to Google Calendar' : 'Sinkron jadwal onboarding ke Google Calendar'}
                           >
                             {activeT.hr.scheduleOnboardBtn}
                           </Button>
-                          <Button 
-                            variant="secondary" 
+                          <Button
+                            variant="secondary"
                             onClick={() => setActiveProfile(emp)}
                             title={lang === 'en' ? 'View employee profile' : 'Lihat profil pegawai'}
                           >
                             {activeT.hr.profileBtn}
                           </Button>
-                          
+
                           {/* Distinct Action based on Disbursement Status */}
                           {isDisbursed ? (
                             <div className="flex items-center gap-1">
@@ -941,8 +941,8 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       {/* ========================================================================= */}
       {hrTab === 'history' && (
         <div className="space-y-4">
-          <TableWrapper 
-            title={lang === 'en' ? "Payroll Disbursement History & Bank Audit" : "Riwayat Pencairan Gaji & Audit Bank"} 
+          <TableWrapper
+            title={lang === 'en' ? "Payroll Disbursement History & Bank Audit" : "Riwayat Pencairan Gaji & Audit Bank"}
             placeholder={lang === 'en' ? "Search reference number, employee name, ID..." : "Cari no referensi, nama pegawai, ID..."}
             searchValue={historySearch}
             onSearchChange={(v: string) => { setHistorySearch(v); setHistoryPage(1); }}
@@ -1040,9 +1040,9 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       {/* ========================================================================= */}
       {/* MODAL 1: Employee General Profile */}
       {/* ========================================================================= */}
-      <Modal 
-        isOpen={activeProfile !== null} 
-        onClose={() => setActiveProfile(null)} 
+      <Modal
+        isOpen={activeProfile !== null}
+        onClose={() => setActiveProfile(null)}
         title={lang === 'en' ? "Employee Profile" : "Profil Karyawan"}
       >
         {activeProfile && (
@@ -1070,7 +1070,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                 </div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
               <div>
                 <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{activeT.hr.empIdCol}</p>
@@ -1105,8 +1105,8 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                 <ArrowLeft className="w-4 h-4 mr-1" />
                 <span>{lang === 'en' ? 'Back' : 'Kembali'}</span>
               </Button>
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 onClick={() => {
                   const targetEmp = activeProfile;
                   setActiveProfile(null);
@@ -1158,13 +1158,13 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                 </button>
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${
-                    isPaid 
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' 
+                    isPaid
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
                       : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                   }`}>
                     {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                     <span>
-                      {isPaid 
+                      {isPaid
                         ? (lang === 'en' ? `Recorded for ${periodLabel}` : `Tercatat untuk ${periodLabel}`)
                         : (lang === 'en' ? `Pending for ${periodLabel}` : `Belum dicatat untuk ${periodLabel}`)}
                     </span>
@@ -1185,7 +1185,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                     </span>
                   </div>
                   <p className="text-emerald-700 dark:text-emerald-400 text-[11px] leading-relaxed">
-                    {lang === 'en' 
+                    {lang === 'en'
                       ? `Payroll simulation of Rp ${calc.netPay.toLocaleString('en-US')} was recorded on ${record?.disbursedDateFormatted}. The archived payslip is available below. This period cannot be recorded twice.`
                       : `Simulasi payroll Rp ${calc.netPay.toLocaleString('id-ID')} tercatat pada ${record?.disbursedDateFormatted}. Slip arsip tersedia di bawah. Periode ini tidak dapat dicatat dua kali.`}
                   </p>
@@ -1217,7 +1217,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                     Rp {calc.gross.toLocaleString(lang === 'en' ? 'en-US' : 'id-ID')}
                   </span>
                 </div>
-                
+
                 <div className="bg-white dark:bg-[#121212] border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 space-y-2">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-neutral-600 dark:text-neutral-400">{lang === 'en' ? 'Basic Salary' : 'Gaji Pokok'}</span>

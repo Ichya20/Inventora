@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Printer, X, Building2, CheckCircle2, ShieldCheck, Download, ArrowLeft } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { downloadPurchaseOrderPdf } from '../lib/pdfGenerator';
+import { paymentTotals } from '../lib/procurement';
 
 interface PrintableVoucherProps {
   po: PurchaseOrder | null;
@@ -27,11 +28,7 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
     window.print();
   };
 
-  const amount = typeof po.total === 'number' 
-    ? po.total 
-    : (parseInt(String(po.total).replace(/[^0-9]/g, ''), 10) || 0);
-  const tax = Math.round(amount * 0.11);
-  const grandTotal = amount + tax;
+  const { amount, taxAmount: tax, withholdingTaxAmount, totalPaid: grandTotal } = paymentTotals(po);
 
   const formatIdr = (num: number) => {
     return 'Rp ' + num.toLocaleString('id-ID');
@@ -177,6 +174,11 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
             </tbody>
           </table>
 
+          {po.notes && <div className="mb-6 text-xs">
+            <p className="font-semibold mb-1">{lang === 'en' ? 'Procurement notes / delivery instructions' : 'Catatan pengadaan / instruksi pengiriman'}</p>
+            <p className="whitespace-pre-wrap break-words">{po.notes}</p>
+          </div>}
+
           {/* Calculation Breakdown */}
           <div className="flex justify-end mb-10">
             <div className="w-64 space-y-2 text-xs">
@@ -185,9 +187,10 @@ export function PrintableVoucher({ po, onClose, lang = 'en' }: PrintableVoucherP
                 <span className="font-mono font-medium text-neutral-900">{formatIdr(amount)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-neutral-200 text-neutral-600">
-                <span>PPN (11% Tax):</span>
+                <span>PPN:</span>
                 <span className="font-mono font-medium text-neutral-900">{formatIdr(tax)}</span>
               </div>
+              {withholdingTaxAmount > 0 && <div className="flex justify-between py-1 border-b border-neutral-200 text-neutral-600"><span>PPh:</span><span className="font-mono">- {formatIdr(withholdingTaxAmount)}</span></div>}
               <div className="flex justify-between py-2 border-t-2 border-neutral-900 text-sm font-bold text-neutral-900">
                 <span>Grand Total:</span>
                 <span className="font-mono text-[#0070f3]">{formatIdr(grandTotal)}</span>

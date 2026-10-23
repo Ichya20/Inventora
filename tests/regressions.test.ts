@@ -11,6 +11,9 @@ import type { QueuedMutation } from '../src/lib/useNetworkStatus';
 import { addMonths, billingWindow, businessDate, monthLabel } from '../src/lib/businessDates';
 import { assertPayrollAvailable, findPayrollRecord, payrollPeriodKey } from '../src/lib/payrollHistory';
 import { summarizePurchaseOrders } from '../src/lib/workspaceSummary';
+import { receiptOrderItems, validatedReceiptPatch } from '../src/lib/goodsReceipt';
+import { notificationStorageKey, readNotifications, visibleNotifications } from '../src/lib/notificationStore';
+import type { AppNotification, GoodsReceiptNote } from '../src/types';
 
 function memoryStorage(entries: Record<string, string> = {}): Storage {
   return Object.assign(Object.create({
@@ -172,4 +175,50 @@ test('critical local writes report storage failure instead of acknowledging succ
     Object.defineProperty(globalThis, 'localStorage', { value: { setItem() { throw Error('Quota exceeded'); } }, configurable: true });
     assert.throws(() => saveStoredData('inventora_test', {}, true), /Quota exceeded/);
   } finally { console.warn = warn; }
+});
+
+const receiptPo: PurchaseOrder = { ...po, status: 'Disetujui', items: [{ id: 'line-1', sku: 'SERVER-1', name: 'Server', qty: 10, unitPrice: 10000000, subtotal: 100000000 }] };
+const receipt: GoodsReceiptNote = {
+  id: 'GRN-1', grnNumber: 'GRN-1', poId: po.id, receivedDate: '2026-10-22', receivedBy: 'Petugas Gudang', suratJalanNumber: 'SJ-1',
+  items: [{ sku: 'SERVER-1', name: 'Server', orderedQty: 10, receivedQty: 10, condition: 'GOOD' }], status: 'MATCHED',
+};
+
+test('GRN rejects false match labels, missing lines, changed quantities and invalid conditions', () => {
+  assert.equal(validatedReceiptPatch(receiptPo, receipt, 'Warehouse Manager').status, 'Barang Diterima');
+  assert.throws(() => validatedReceiptPatch(receiptPo, { ...receipt, items: [{ ...receipt.items[0], receivedQty: 0, condition: 'SHORTAGE' }] }, 'Warehouse Manager'), /Status pencocokan/);
+  assert.throws(() => validatedReceiptPatch(receiptPo, { ...receipt, items: [] }, 'Warehouse Manager'));
+  for (const changed of [{ sku: 'WRONG' }, { orderedQty: 0, receivedQty: 0 }, { receivedQty: NaN }, { receivedQty: 1.5 }, { receivedQty: -1 }, { condition: 'UNKNOWN' }]) {
+    assert.throws(() => validatedReceiptPatch(receiptPo, { ...receipt, items: [{ ...receipt.items[0], ...changed }] } as GoodsReceiptNote, 'Warehouse Manager'));
+  }
+  assert.throws(() => validatedReceiptPatch(receiptPo, receipt, 'Finance Manager'), /izin/);
+  assert.throws(() => validatedReceiptPatch(receiptPo, { ...receipt, receivedBy: '' }, 'Warehouse Manager'));
+});
+
+test('GRN records shortage or damage as a discrepancy and never fabricates missing order quantities', () => {
+  const short = { ...receipt, status: 'DISCREPANCY' as const, items: [{ ...receipt.items[0], receivedQty: 0 }] };
+  assert.equal(validatedReceiptPatch(receiptPo, short, 'Warehouse Manager').status, 'Selisih Penerimaan');
+  const damaged = { ...receipt, status: 'DISCREPANCY' as const, items: [{ ...receipt.items[0], condition: 'DAMAGED' as const }] };
+  assert.equal(validatedReceiptPatch(receiptPo, damaged, 'Warehouse Manager').threeWayMatchStatus, 'DISCREPANCY');
+  assert.throws(() => receiptOrderItems({ ...po, items: [] }), /belum lengkap/);
+  assert.throws(() => receiptOrderItems({ ...po, items: 'broken' as any, lineItems: 'broken' as any }));
+  assert.equal(receiptOrderItems(receiptPo)[0].receivedQty, 0);
+});
+
+test('legacy received orders can be reverified but verified or completed receipts cannot be rewritten', () => {
+  assert.doesNotThrow(() => validatedReceiptPatch({ ...receiptPo, status: 'Barang Diterima' }, receipt, 'Warehouse Manager'));
+  assert.throws(() => validatedReceiptPatch({ ...receiptPo, status: 'Barang Diterima', receiptVerification: { version: 1, verifiedBy: 'warehouse', verifiedAt: 'now' } }, receipt, 'Warehouse Manager'));
+  assert.throws(() => validatedReceiptPatch({ ...receiptPo, status: 'Selesai' }, receipt, 'Warehouse Manager'));
+});
+
+test('notification storage isolates users, demo mode and roles without adopting unowned legacy data', () => {
+  const key = notificationStorageKey(false, 'user-1', 'Finance Manager')!;
+  const payment: AppNotification = { id: 'n1', type: 'payment', title: 'Payment', message: 'PO-1 Rp111000000', timestamp: 'now', read: false, metadata: { poId: 'PO-1', amount: 111000000 } };
+  const storage = memoryStorage({ [key]: JSON.stringify([payment]), inventora_notifications: JSON.stringify([payment]) });
+  assert.equal(readNotifications(storage, key, 'Finance Manager').length, 1);
+  assert.equal(readNotifications(storage, notificationStorageKey(false, 'user-2', 'Finance Manager'), 'Finance Manager').length, 0);
+  assert.equal(readNotifications(storage, notificationStorageKey(true, 'user-1', 'Finance Manager'), 'Finance Manager').length, 0);
+  assert.equal(readNotifications(storage, notificationStorageKey(false, 'user-1', 'HR Manager'), 'HR Manager').length, 0);
+  assert.deepEqual(visibleNotifications([payment], 'HR Manager'), []);
+  assert.deepEqual(visibleNotifications([payment], null), []);
+  assert.equal(notificationStorageKey(false, null, 'Finance Manager'), null);
 });

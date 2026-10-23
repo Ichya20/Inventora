@@ -1,0 +1,290 @@
+@startuml
+skinparam monochrome true
+skinparam classAttributeIconSize 0
+hide empty methods
+interface POLineItem {
+  + id: string
+  + sku?: string
+  + name: string
+  + qty: number
+  + unitPrice: number
+  + subtotal: number
+}
+interface GoodsReceiptItem {
+  + sku?: string
+  + name: string
+  + orderedQty: number
+  + receivedQty: number
+  + condition: 'EXCELLENT' | 'GOOD' | 'DAMAGED' | 'SHORTAGE'
+  + notes?: string
+}
+interface GoodsReceiptNote {
+  + id: string
+  + grnNumber: string
+  + poId: string
+  + receivedDate: string
+  + receivedBy: string
+  + suratJalanNumber: string
+  + items: GoodsReceiptItem[]
+  + status: 'MATCHED' | 'DISCREPANCY' | 'PENDING'
+  + inspectorNotes?: string
+}
+interface PurchaseOrder {
+  + id: string
+  + vendor: string
+  + desc: string
+  + date: string
+  + deliveryDate?: string
+  + total: number
+  + status: POStatus | string
+  + color: 'orange' | 'green' | 'blue' | 'red' | string
+  + department?: 'IT Infrastructure' | 'Operations & Logistics' | 'Engineering & R&D' | 'HR & GA'
+  + items?: POLineItem[]
+  + lineItems?: any[]
+  + subtotal?: number
+  + discountAmount?: number
+  + taxAmount?: number
+  + withholdingTaxAmount?: number
+  + grn?: GoodsReceiptNote
+  + threeWayMatchStatus?: ThreeWayMatchStatus
+  + paymentInfo?: PaymentInfo
+}
+interface PaymentInfo {
+  + paidAt: string
+  + method: string
+  + txId: string
+  + reference: string
+  + amount: number
+  + accountOrCard: string
+  + receiptNo: string
+  + payerName: string
+}
+interface DepartmentBudget {
+  + id: string
+  + name: string
+  + code: string
+  + quarter: string
+  + allocated: number
+  + spent: number
+  + committed: number
+  + currency: string
+}
+interface PaymentTransaction {
+  + id: string
+  + poId: string
+  + vendor: string
+  + amount: number
+  + taxAmount: number
+  + withholdingTaxAmount?: number
+  + totalPaid: number
+  + method: 'bank_transfer' | 'virtual_account' | 'credit_card' | 'qris'
+  + methodLabel: string
+  + accountReference: string
+  + status: 'SUCCESS' | 'PENDING' | 'FAILED'
+  + timestamp: string
+  + receiptNumber: string
+  + notes?: string
+}
+interface EmployeeSalary {
+  + baseSalary: number
+  + positionAllowance: number
+  + transportAllowance: number
+  + bonus: number
+  + bpjsKesehatan: number
+  + bpjsKetenagakerjaan: number
+  + pph21: number
+  + bankName: string
+  + accountNumber: string
+  + disbursementStatus: 'Disbursed' | 'Scheduled' | 'Pending Approval'
+  + lastDisbursed?: string
+  + disbursementRef?: string
+}
+interface Employee {
+  + id: string
+  + name: string
+  + email: string
+  + dept: string
+  + role: string
+  + status: string
+  + color: 'green' | 'gray' | 'red'
+  + joined: string
+  + taxId?: string
+  + salary: EmployeeSalary
+}
+interface PayrollDisbursementRecord {
+  + id: string
+  + referenceNumber: string
+  + empId: string
+  + empName: string
+  + dept: string
+  + role: string
+  + taxId?: string
+  + period: string
+  + periodKey?: string
+  + disbursedAt: string
+  + disbursedDateFormatted: string
+  + baseSalary: number
+  + allowances: number
+  + positionAllowance?: number
+  + transportAllowance?: number
+  + bpjsKesehatan?: number
+  + bpjsKetenagakerjaan?: number
+  + bonus: number
+  + gross: number
+  + deductions: number
+  + pph21: number
+  + bpjs: number
+  + netPay: number
+  + bankName: string
+  + accountNumber: string
+  + actor: string
+  + status: 'SUCCESS' | 'SCHEDULED'
+}
+interface UserSession {
+  + uid: string
+  + email: string | null
+  + displayName: string | null
+  + role: Role | null
+  + isDemo: boolean
+}
+interface InventoryItem {
+  + id: string
+  + name: string
+  + desc: string
+  + stock: number
+  + status: string
+  + color: 'orange' | 'green' | 'blue' | 'red'
+}
+interface InvoiceRecord {
+  + id: string
+  + client: string
+  + desc: string
+  + date: string
+  + total: number
+  + status: string
+  + color: 'orange' | 'green' | 'blue' | 'red'
+  + isOverdue: boolean
+}
+interface SubscriptionInvoice {
+  + id: string
+  + date: string
+  + total: number
+  + period: string
+  + status: string
+  + client: string
+  + planName: string
+  + paymentMethod: string
+}
+interface SubscriptionRecord {
+  + planId: SubscriptionTier
+  + cycle: BillingCycle
+  + anchorDate: string
+  + autoRenew: boolean
+  + invoices: SubscriptionInvoice[]
+}
+class AuthService {
+  - provider: GoogleAuthProvider
+  - cachedAccessToken: string | null
+  - auth: Auth
+  + constructor(auth: Auth)
+  + signIn(): Promise<UserSession | null>
+  + observe(listener: SessionListener): Unsubscribe
+  + getGoogleAccessToken(forceRefresh?: boolean): Promise<string | null>
+  + signOut(): Promise<void>
+  - mapUser(user: User, role: Role | null): UserSession
+}
+class AuthorizationPolicy {
+  + isRole(value: unknown): value is Role
+  + canAccessMenu(role: Role | null, menu: string): boolean
+  + canPerformPoAction(role: Role | null, action: PoAction): boolean
+}
+class LoginController {
+  - session: UserSession | null
+  - authService: AuthService
+  - policy: AuthorizationPolicy
+  + constructor(authService: AuthService, policy: AuthorizationPolicy)
+  + loginWithGoogle(): Promise<UserSession | null>
+  + logout(): Promise<void>
+  + canEnterDashboard(): boolean
+}
+class PurchaseOrderModel {
+  - data: PurchaseOrder
+  + constructor(data: PurchaseOrder)
+  + getData(): Readonly<PurchaseOrder>
+  + calculateTotal(): number
+  + approve(role: Role): void
+  + reject(role: Role): void
+  + receive(note: GoodsReceiptNote, role: Role): void
+  + recordPayment(info: PaymentInfo, role: Role): void
+}
+class GoodsReceiptModel {
+  - data: GoodsReceiptNote
+  + constructor(data: GoodsReceiptNote)
+  + getData(): Readonly<GoodsReceiptNote>
+  + hasDiscrepancy(): boolean
+}
+class PurchaseOrderRepository {
+  - db: Firestore
+  + constructor(db: Firestore)
+  + create(po: PurchaseOrder): Promise<void>
+  + findById(id: string): Promise<PurchaseOrder | null>
+  + listen(listener: PurchaseOrderListener): Unsubscribe
+  + transition(id: string, patch: Partial<PurchaseOrder>, source: MutationSource, mutationId?: string): Promise<void>
+}
+class ProcurementService {
+  - repository: PurchaseOrderRepository
+  - policy: AuthorizationPolicy
+  + constructor(repository: PurchaseOrderRepository, policy: AuthorizationPolicy)
+  + create(po: PurchaseOrder, role: Role): Promise<void>
+  + approve(id: string, role: Role): Promise<void>
+  + reject(id: string, role: Role): Promise<void>
+  + receive(id: string, note: GoodsReceiptNote, role: Role): Promise<void>
+  + pay(id: string, info: PaymentInfo, role: Role): Promise<void>
+}
+class InventoryService {
+  - storage: Storage
+  + constructor(storage: Storage)
+  + list(): InventoryItem[]
+  + deploy(sku: string, qty: number): void
+}
+class PayrollService {
+  - storage: Storage
+  + constructor(storage: Storage)
+  + listEmployees(): Employee[]
+  + getRecord(empId: string, periodKey: string): PayrollDisbursementRecord | undefined
+  + record(empId: string, periodKey: string): PayrollDisbursementRecord
+}
+class FinanceService {
+  - storage: Storage
+  + constructor(storage: Storage)
+  + listInvoices(): InvoiceRecord[]
+  + markAsPaid(id: string): InvoiceRecord
+}
+class BillingService {
+  - storage: Storage
+  + constructor(storage: Storage)
+  + getSubscription(): SubscriptionRecord
+  + changePlan(planId: SubscriptionTier, cycle: BillingCycle): SubscriptionRecord
+  + setAutoRenew(enabled: boolean): void
+}
+PurchaseOrder "1" *-- "0..*" POLineItem
+PurchaseOrder "1" *-- "0..1" GoodsReceiptNote
+PurchaseOrder "1" *-- "0..1" PaymentInfo
+GoodsReceiptNote "1" *-- "0..*" GoodsReceiptItem
+PurchaseOrder "1" -- "0..*" PaymentTransaction
+Employee "1" *-- "1" EmployeeSalary
+Employee "1" -- "0..*" PayrollDisbursementRecord
+SubscriptionRecord "1" *-- "0..*" SubscriptionInvoice
+LoginController ..> AuthService
+LoginController ..> AuthorizationPolicy
+AuthService ..> UserSession
+PurchaseOrderModel "1" -- "1" PurchaseOrder
+GoodsReceiptModel "1" -- "1" GoodsReceiptNote
+ProcurementService ..> PurchaseOrderRepository
+ProcurementService ..> AuthorizationPolicy
+InventoryService ..> InventoryItem
+PayrollService ..> Employee
+PayrollService ..> PayrollDisbursementRecord
+FinanceService ..> InvoiceRecord
+BillingService ..> SubscriptionRecord
+@enduml

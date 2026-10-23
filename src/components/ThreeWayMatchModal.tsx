@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { PurchaseOrder, GoodsReceiptNote, GoodsReceiptItem, ThreeWayMatchStatus } from '../types';
 import { Modal, Button, Badge } from './UI';
+import { receiptOrderItems, receiptMatchStatus, validatedReceiptPatch } from '../lib/goodsReceipt';
+import { businessDate } from '../lib/businessDates';
 
 interface ThreeWayMatchModalProps {
   isOpen: boolean;
@@ -13,46 +15,6 @@ interface ThreeWayMatchModalProps {
   onSaveGrn: (poId: string, grn: GoodsReceiptNote, newMatchStatus: ThreeWayMatchStatus) => Promise<void>;
   canEdit?: boolean;
   lang?: 'en' | 'id';
-}
-
-// Helper to extract line items safely from either lineItems or items or fallback
-function getInitialItems(targetPo: PurchaseOrder | null, lang: 'en' | 'id' = 'en'): GoodsReceiptItem[] {
-  if (!targetPo) return [];
-
-  if (targetPo.grn?.items && targetPo.grn.items.length > 0) {
-    return targetPo.grn.items.map(it => ({ ...it }));
-  }
-
-  const source = (targetPo.lineItems && targetPo.lineItems.length > 0)
-    ? targetPo.lineItems
-    : (targetPo.items && targetPo.items.length > 0)
-    ? targetPo.items
-    : null;
-
-  if (source && source.length > 0) {
-    return source.map((it: any, idx: number) => {
-      const qty = Number(it.qty || it.quantity || 1);
-      return {
-        sku: it.sku || `SKU-${idx + 1}`,
-        name: it.name || it.desc || targetPo.desc || `Item #${idx + 1}`,
-        orderedQty: qty,
-        receivedQty: qty,
-        condition: 'GOOD' as const,
-        notes: ''
-      };
-    });
-  }
-
-  return [
-    {
-      sku: 'SKU-GEN-01',
-      name: targetPo.desc || (lang === 'en' ? 'General Hardware Requisition' : 'Pengadaan Perangkat Keras Umum'),
-      orderedQty: 10,
-      receivedQty: 10,
-      condition: 'GOOD' as const,
-      notes: ''
-    }
-  ];
 }
 
 export function ThreeWayMatchModal({
@@ -74,14 +36,14 @@ export function ThreeWayMatchModal({
   useEffect(() => {
     if (isOpen && po) {
       setSuratJalan(po.grn?.suratJalanNumber || `SJ-${po.id.replace('PO-', '')}-WH1`);
-      setReceivedBy(po.grn?.receivedBy || 'Budi Santoso (Warehouse Lead)');
-      setInspectorNotes(
-        po.grn?.inspectorNotes || 
-        (lang === 'en' 
-          ? 'Physical inspection and serial number scan completed at Dock 4.' 
-          : 'Pemeriksaan fisik dan pemindaian nomor seri selesai di Dock 4.')
-      );
-      setItems(getInitialItems(po, lang));
+      setReceivedBy(po.grn?.receivedBy || '');
+      setInspectorNotes(po.grn?.inspectorNotes || '');
+      setSaveError(null);
+      try {
+        const expected = receiptOrderItems(po);
+        setItems(Array.isArray(po.grn?.items) && po.grn.items.length ? po.grn.items.map(item => ({ ...item })) : expected);
+      } catch (error) { setItems([]); setSaveError(String(error)); }
+
     }
   }, [isOpen, po, lang]);
 
@@ -139,12 +101,8 @@ export function ThreeWayMatchModal({
   };
 
   // Compute 3-way matching status
-  const hasDiscrepancy = items.some(it => 
-    it.receivedQty !== it.orderedQty || 
-    it.condition === 'DAMAGED' || 
-    it.condition === 'SHORTAGE'
-  );
-  const matchStatus: ThreeWayMatchStatus = hasDiscrepancy ? 'DISCREPANCY' : 'MATCHED';
+  const matchStatus: ThreeWayMatchStatus = receiptMatchStatus(items);
+  const hasDiscrepancy = matchStatus === 'DISCREPANCY';
 
   // Planned target PO status
   const targetPoStatus = matchStatus === 'MATCHED'
@@ -160,15 +118,15 @@ export function ThreeWayMatchModal({
       id: existingGrn?.id || `GRN-${Date.now().toString().slice(-6)}`,
       grnNumber: existingGrn?.grnNumber || `GRN-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       poId: po.id,
-      receivedDate: new Date().toISOString().split('T')[0],
-      receivedBy: receivedBy.trim() || 'Warehouse Officer',
-      suratJalanNumber: suratJalan.trim() || `SJ-${po.id.replace('PO-', '')}-WH1`,
+      receivedDate: businessDate(),
+      receivedBy: receivedBy.trim(),
+      suratJalanNumber: suratJalan.trim(),
       items,
       status: matchStatus === 'MATCHED' ? 'MATCHED' : 'DISCREPANCY',
       inspectorNotes
     };
 
-    try { await onSaveGrn(po.id, grnRecord, matchStatus); onClose(); }
+    try { validatedReceiptPatch(po, grnRecord, 'Warehouse Manager'); await onSaveGrn(po.id, grnRecord, matchStatus); onClose(); }
     catch (error) { setSaveError(String(error)); }
     finally { setIsSaving(false); }
   };
@@ -253,7 +211,7 @@ export function ThreeWayMatchModal({
             )}
             <div>
               <div className="font-semibold text-xs flex items-center gap-2">
-                <span>{hasDiscrepancy ? (lang === 'en' ? 'Physical Discrepancy Detected' : 'Terdeteksi Selisih Fisik Penerimaan') : (lang === 'en' ? '100% 3-Way Match Verified' : 'Kesesuaian 3 Arah Sempurna (100% Match)')}</span>
+                <span>{hasDiscrepancy ? (lang === 'en' ? 'Physical Discrepancy Detected' : 'Terdeteksi Selisih Fisik Penerimaan') : (lang === 'en' ? 'Quantity and condition match' : 'Jumlah dan kondisi barang sesuai')}</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/70 dark:bg-black/30 border border-current">
                   {matchStatus}
                 </span>
@@ -437,7 +395,7 @@ export function ThreeWayMatchModal({
               {lang === 'en' ? 'Cancel' : 'Batal'}
             </Button>
             {saveError && <p role="alert" className="text-xs text-red-600">{saveError}</p>}
-            <Button disabled={!canEdit || isSaving}
+            <Button disabled={!canEdit || isSaving || !items.length || !receivedBy.trim() || !suratJalan.trim()}
               variant="primary" 
               onClick={handleConfirmGrn}
               className={hasDiscrepancy ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}
