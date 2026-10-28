@@ -3,9 +3,11 @@ import { ApiError } from '../lib/apiError';
 import { validatePurchaseOrderCreate } from '../lib/purchaseOrderValidation';
 import { businessDate } from '../lib/businessDates';
 import React, { useState, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Sparkles, FileText, Plus, Trash2, CheckCircle2, Calculator, Percent, ArrowLeft, Building2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Button } from './UI';
+import { ChangeHighlight, SuccessMark } from './MotionFeedback';
+import { workspaceMotion } from '../lib/motion';
 import { translations, Language, Translations } from '../i18n';
 import { SmartInvoiceParserModal, ParsedInvoiceData } from './SmartInvoiceParserModal';
 import { checkDepartmentBudgetLimit } from './DepartmentBudgetCard';
@@ -54,6 +56,8 @@ export function PurchaseUnitView({
 }: PurchaseUnitViewProps) {
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
+  const reduced = useReducedMotion();
+  const [addedLineId, setAddedLineId] = useState('');
 
   const [step, setStep] = useState<'form' | 'success'>('form');
   const submitting = useRef(false);
@@ -105,7 +109,7 @@ export function PurchaseUnitView({
   const handleAddItem = () => {
     setImportedTaxAmount(null);
     const newItem: RequisitionItem = {
-      id: `item-${Date.now()}`,
+      id: `item-${crypto.randomUUID()}`,
       sku: '',
       name: '',
       qty: 1,
@@ -113,6 +117,7 @@ export function PurchaseUnitView({
       total: 0
     };
     setItems(prev => [...prev, newItem]);
+    setAddedLineId(newItem.id);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -136,6 +141,10 @@ export function PurchaseUnitView({
 
   const handleSelectCatalogItem = (rowId: string, sku: string) => {
     setImportedTaxAmount(null);
+    if (!sku) {
+      setItems(current => current.map(item => item.id === rowId ? { ...item, sku: '', name: '', unitPrice: '', total: 0 } : item));
+      return;
+    }
     const cat = POPULAR_CATALOG.find(c => c.sku === sku);
     if (!cat) return;
     setItems(prev => prev.map(item => {
@@ -188,7 +197,7 @@ export function PurchaseUnitView({
     e.preventDefault();
     if (submitting.current) return;
     if (!canPerformPoAction(role, 'create') || !vendor.trim() || !deliveryDate || !Number.isFinite(grandTotal) || grandTotal <= 0 || discountPercent < 0 || discountPercent > 100 ||
-      items.some(item => !item.name.trim() || item.qty === '' || !Number.isSafeInteger(item.qty) || item.qty <= 0 || item.unitPrice === '' || !Number.isFinite(item.unitPrice) || item.unitPrice < 0)) {
+      items.some(item => !item.sku.trim() || !item.name.trim() || item.qty === '' || !Number.isSafeInteger(item.qty) || item.qty <= 0 || item.unitPrice === '' || !Number.isFinite(item.unitPrice) || item.unitPrice < 0)) {
       onToast?.(lang === 'en' ? 'Check access, vendor, delivery date and positive item amounts.' : 'Periksa hak akses, vendor, tanggal kirim, serta jumlah dan harga barang.', 'error');
       return;
     }
@@ -303,20 +312,18 @@ export function PurchaseUnitView({
     return (
       <section className="p-4 md:p-8 flex-1 flex flex-col items-center justify-center overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          initial={reduced ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reduced ? 0 : workspaceMotion.success, ease: workspaceMotion.ease }}
           className="bg-white dark:bg-[#111] p-8 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] text-center max-w-md w-full"
         >
-          <div className="w-12 h-12 rounded-full bg-[#10b981]/10 flex items-center justify-center text-[#10b981] mx-auto mb-4">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
+          <SuccessMark className="mx-auto mb-4" />
           <h2 className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-2">
             {activeT.purchase.confirmedTitle}
           </h2>
           <p className="text-sm text-[#666] dark:text-[#a1a1aa] mb-4">
             {activeT.purchase.confirmedDesc}{' '}
-            <span className="font-mono text-[#0070f3] dark:text-[#3291ff] font-bold block text-base mt-1">
+            <span className="tabular-nums text-[#0070f3] dark:text-[#3291ff] font-bold block text-base mt-1">
               {createdPoNumber || 'PO-2026-IT-1043'}
             </span>
           </p>
@@ -332,7 +339,7 @@ export function PurchaseUnitView({
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500">{lang === 'en' ? 'Grand Total:' : 'Total Nilai:'}</span>
-              <span className="font-mono font-bold text-neutral-900 dark:text-neutral-100">
+              <span className="tabular-nums font-bold text-neutral-900 dark:text-neutral-100">
                 Rp {grandTotal.toLocaleString(numLocale)}
               </span>
             </div>
@@ -356,21 +363,23 @@ export function PurchaseUnitView({
   }
 
   return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col overflow-y-auto">
+    <section className="po-form-workspace p-4 md:p-8 flex-1 flex flex-col overflow-y-auto">
       <div className="flex items-center justify-between mb-6 shrink-0 flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <button
             onClick={() => onNavigate('po')}
+            disabled={isSubmitting}
+            aria-label={lang === 'en' ? 'Back to purchase orders' : 'Kembali ke daftar PO'}
             className="text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed] transition-colors shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] bg-white dark:bg-[#1a1a1a] w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#fafafa] dark:hover:bg-[#333] cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">
-              {lang === 'en' ? 'Multi-Line Purchase Requisition Builder' : 'Penyusun Formulir Pengadaan Multi-Baris'}
+              {lang === 'en' ? 'Create purchase order' : 'Buat purchase order'}
             </h2>
             <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">
-              {lang === 'en' ? 'Draft purchase orders with automated tax calculation, budget ceiling verification, and live catalog' : 'Susun PO dengan kalkulasi PPN/PPh otomatis, validasi plafon anggaran, dan katalog terpadu'}
+              {lang === 'en' ? 'Choose products and review the order total.' : 'Pilih barang dan periksa total pesanan.'}
             </p>
           </div>
         </div>
@@ -382,53 +391,16 @@ export function PurchaseUnitView({
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0864d9] hover:bg-[#0758bf] text-white text-xs font-semibold shadow-xs cursor-pointer transition-all hover:shadow"
         >
           <Sparkles className="w-4 h-4" />
-          <span>{lang === 'en' ? 'AI Auto-Fill from Quote / Invoice' : 'AI Ekstrak dari Dokumen / Quote'}</span>
+          <span>{lang === 'en' ? 'Fill from quote text' : 'Isi dari teks penawaran'}</span>
         </button>
       </div>
 
-      <div className="max-w-5xl space-y-6">
-        {/* Real-time Department Budget Ceiling Indicator */}
-        <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-          budgetCheck.isExceeded
-            ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
-            : budgetCheck.isNearCap
-            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
-            : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            {budgetCheck.isExceeded ? (
-              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-            ) : budgetCheck.isNearCap ? (
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-            ) : (
-              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-            )}
-            <div>
-              <div className="font-semibold text-xs flex items-center gap-2">
-                <span>{budgetCheck.departmentBudget?.name} ({budgetCheck.departmentBudget?.quarter})</span>
-                <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10">
-                  {budgetCheck.departmentBudget?.code}
-                </span>
-              </div>
-              <p className="text-[11px] opacity-90 mt-0.5">
-                {budgetCheck.isExceeded
-                  ? (lang === 'en' ? `Requisition total of Rp ${grandTotal.toLocaleString(numLocale)} exceeds remaining budget by Rp ${(grandTotal - budgetCheck.availableBefore).toLocaleString(numLocale)}!` : `Total pengadaan Rp ${grandTotal.toLocaleString(numLocale)} melebihi sisa plafon anggaran sebesar Rp ${(grandTotal - budgetCheck.availableBefore).toLocaleString(numLocale)}!`)
-                  : (lang === 'en' ? `Available budget before PO: Rp ${(budgetCheck.availableBefore).toLocaleString(numLocale)} • Projected utilization: ${budgetCheck.projectedPercentage}%` : `Sisa anggaran sebelum PO: Rp ${(budgetCheck.availableBefore).toLocaleString(numLocale)} • Proyeksi pemakaian: ${budgetCheck.projectedPercentage}%`)}
-              </p>
-            </div>
-          </div>
-          <div className="text-right shrink-0">
-            <span className="text-xs font-mono font-bold">
-              {budgetCheck.projectedPercentage}% {lang === 'en' ? 'Used' : 'Terpakai'}
-            </span>
-            <div className="w-32 bg-black/10 dark:bg-white/10 h-1.5 rounded-full overflow-hidden mt-1">
-              <div
-                className={`h-full ${budgetCheck.isExceeded ? 'bg-rose-500' : budgetCheck.isNearCap ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                style={{ width: `${Math.min(100, budgetCheck.projectedPercentage)}%` }}
-              />
-            </div>
-          </div>
-        </div>
+      <div className="w-full max-w-7xl space-y-6">
+        <details className="po-budget-summary">
+          <summary>{lang === 'en' ? 'Sample department budget' : 'Anggaran departemen contoh'} <span>{budgetCheck.projectedPercentage}% {lang === 'en' ? 'projected utilization' : 'proyeksi pemakaian'}</span></summary>
+          <p>{budgetCheck.departmentBudget?.name} · {lang === 'en' ? 'Available before this PO' : 'Sisa sebelum PO'}: Rp {budgetCheck.availableBefore.toLocaleString(numLocale)}</p>
+          {budgetCheck.isExceeded && <p className="po-budget-warning">{lang === 'en' ? 'This order exceeds the sample budget by' : 'Pesanan melebihi anggaran contoh sebesar'} Rp {(grandTotal-budgetCheck.availableBefore).toLocaleString(numLocale)}.</p>}
+        </details>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {awaitingConfirmation && !isSubmitting && <p role="alert" className="text-xs text-amber-700 dark:text-amber-400">{lang === 'en' ? `PO ${createdPoNumber} has not been confirmed. Retry to check the same order; its details are held until confirmation.` : `PO ${createdPoNumber} belum mendapat konfirmasi. Coba kembali untuk memeriksa pesanan yang sama; rinciannya dipertahankan sampai terkonfirmasi.`}</p>}
@@ -438,7 +410,7 @@ export function PurchaseUnitView({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300" htmlFor="po-department">
-                  {lang === 'en' ? 'Charging Department (Cost Center)' : 'Departemen Pengaju (Cost Center)'}
+                  {lang === 'en' ? 'Department' : 'Departemen'}
                 </label>
                 <div className="relative">
                   <select
@@ -497,116 +469,48 @@ export function PurchaseUnitView({
               <div>
                 <h3 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                   <Calculator className="w-4 h-4 text-[#0070f3]" />
-                  <span>{lang === 'en' ? 'Requisition Line Items' : 'Daftar Rincian Item Barang'}</span>
+                  <span>{lang === 'en' ? 'Order items' : 'Rincian barang'}</span>
                 </h3>
                 <p className="text-[11px] text-neutral-500">
-                  {lang === 'en' ? 'Select SKU from hardware catalog or enter custom description' : 'Pilih SKU dari katalog perangkat atau masukkan rincian kustom'}
+                  {lang === 'en' ? 'Choose a catalogue item or enter product details.' : 'Pilih dari katalog atau isi barang sendiri.'}
                 </p>
               </div>
               <Button type="button" variant="secondary" onClick={handleAddItem} className="text-xs h-8">
                 <Plus className="w-3.5 h-3.5" />
-                <span>{lang === 'en' ? 'Add Row' : 'Tambah Baris'}</span>
+                <span>{lang === 'en' ? 'Add item' : 'Tambah barang'}</span>
               </Button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-neutral-100/50 dark:bg-neutral-900/40 text-neutral-600 dark:text-neutral-400 font-semibold border-b border-neutral-200 dark:border-neutral-800">
-                    <th className="py-2.5 px-3 w-12 text-center">#</th>
-                    <th className="py-2.5 px-3 min-w-[200px]">{lang === 'en' ? 'Item SKU & Description' : 'SKU & Deskripsi Barang'}</th>
-                    <th className="py-2.5 px-3 w-28">{lang === 'en' ? 'Qty' : 'Jumlah'}</th>
-                    <th className="py-2.5 px-3 w-40">{lang === 'en' ? 'Unit Price (Rp)' : 'Harga Satuan (Rp)'}</th>
-                    <th className="py-2.5 px-3 w-44 text-right">{lang === 'en' ? 'Subtotal (Rp)' : 'Total (Rp)'}</th>
-                    <th className="py-2.5 px-3 w-12 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                  {items.map((row, index) => (
-                    <tr key={row.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900/20">
-                      <td className="py-2.5 px-3 text-center text-neutral-400 font-mono">
-                        {index + 1}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <div className="space-y-1.5">
-                          <div className="flex gap-2">
-                            <select
-                              aria-label={`${lang === 'en' ? 'Choose catalog item' : 'Pilih barang katalog'} ${index + 1}`}
-                              onChange={(e) => handleSelectCatalogItem(row.id, e.target.value)}
-                              defaultValue=""
-                              className="text-[11px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-1 outline-none text-neutral-600 dark:text-neutral-400 cursor-pointer"
-                            >
-                              <option value="">{lang === 'en' ? '— Quick Catalog Autocomplete —' : '— Pilih dari Katalog Cepat —'}</option>
-                              {POPULAR_CATALOG.map(c => (
-                                <option key={c.sku} value={c.sku}>
-                                  {c.sku} - {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <input
-                              type="text"
-                              required
-                              aria-label={`${lang === 'en' ? 'SKU' : 'SKU'} ${index + 1}`}
-                              value={row.sku}
-                              onChange={(e) => handleItemChange(row.id, 'sku', e.target.value)}
-                              placeholder="SKU (e.g. NV-H100)"
-                              className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[#0070f3]"
-                            />
-                            <input
-                              type="text"
-                              required
-                              aria-label={`${lang === 'en' ? 'Item name' : 'Nama barang'} ${index + 1}`}
-                              value={row.name}
-                              onChange={(e) => handleItemChange(row.id, 'name', e.target.value)}
-                              placeholder="Item Name / Description"
-                              className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-[#0070f3]"
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 align-top">
-                        <input
-                          type="number"
-                          min="1"
-                          required
-                          aria-label={`${lang === 'en' ? 'Quantity' : 'Jumlah'} ${index + 1}`}
-                              value={row.qty}
-                          onChange={(e) => handleItemChange(row.id, 'qty', e.target.value)}
-                          className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-[#0070f3] font-mono"
-                        />
-                      </td>
-                      <td className="py-2.5 px-3 align-top">
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          required
-                          aria-label={`${lang === 'en' ? 'Unit price in rupiah' : 'Harga satuan dalam rupiah'} ${index + 1}`}
-                              value={row.unitPrice}
-                          onChange={(e) => handleItemChange(row.id, 'unitPrice', e.target.value)}
-                          className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-[#0070f3] font-mono"
-                        />
-                      </td>
-                      <td className="py-2.5 px-3 text-right align-top font-mono font-semibold text-neutral-800 dark:text-neutral-200">
-                        Rp {row.total.toLocaleString(numLocale)}
-                      </td>
-                      <td className="py-2.5 px-3 text-center align-top">
-                        <button
-                          type="button"
-                          disabled={items.length <= 1}
-                          aria-label={`${lang === 'en' ? 'Remove item' : 'Hapus barang'} ${index + 1}`}
-                          onClick={() => handleRemoveItem(row.id)}
-                          className="text-neutral-400 hover:text-rose-600 disabled:opacity-30 disabled:hover:text-neutral-400 transition-colors p-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="po-form-lines">
+              {items.map((row, index) => <article key={row.id} className="po-form-line" aria-label={`${lang === 'en' ? 'Order item' : 'Barang pesanan'} ${index+1}`}>
+                {row.id === addedLineId && !reduced && <span className="feedback-flash" aria-hidden="true" />}
+                <div className="po-line-product">
+                  <label htmlFor={`${row.id}-catalog`}>{lang === 'en' ? 'Catalogue' : 'Katalog'}
+                    <select id={`${row.id}-catalog`} value={POPULAR_CATALOG.some(item => item.sku === row.sku) ? row.sku : ''}
+                      onChange={event => handleSelectCatalogItem(row.id, event.target.value)}>
+                      <option value="">{lang === 'en' ? 'Enter your own product' : 'Isi barang sendiri'}</option>
+                      {POPULAR_CATALOG.map(item => <option key={item.sku} value={item.sku}>{item.name}</option>)}
+                    </select>
+                  </label>
+                  <label htmlFor={`${row.id}-name`}>{lang === 'en' ? 'Product name' : 'Nama barang'}
+                    <textarea id={`${row.id}-name`} required rows={2} maxLength={500} value={row.name}
+                      onChange={event => handleItemChange(row.id, 'name', event.target.value)} />
+                  </label>
+                  <label htmlFor={`${row.id}-sku`}>SKU
+                    <input id={`${row.id}-sku`} required maxLength={100} value={row.sku} onChange={event => handleItemChange(row.id, 'sku', event.target.value)} />
+                  </label>
+                </div>
+                <div className="po-line-numbers">
+                  <label htmlFor={`${row.id}-qty`}>{lang === 'en' ? 'Quantity' : 'Jumlah'}
+                    <input id={`${row.id}-qty`} type="number" min="1" step="1" required value={row.qty} onChange={event => handleItemChange(row.id, 'qty', event.target.value)} />
+                  </label>
+                  <label htmlFor={`${row.id}-price`}>{lang === 'en' ? 'Unit price Rp' : 'Harga satuan Rp'}
+                    <input id={`${row.id}-price`} type="number" min="0" step="1" required value={row.unitPrice} onChange={event => handleItemChange(row.id, 'unitPrice', event.target.value)} />
+                  </label>
+                  <div className="po-line-subtotal"><span>Subtotal</span><ChangeHighlight value={row.total}><strong>Rp {row.total.toLocaleString(numLocale)}</strong></ChangeHighlight></div>
+                  <button type="button" disabled={items.length <= 1} onClick={() => handleRemoveItem(row.id)} aria-label={`${lang === 'en' ? 'Remove' : 'Hapus'} ${row.name || index+1}`}><Trash2 size={16}/><span>{lang === 'en' ? 'Remove' : 'Hapus'}</span></button>
+                </div>
+              </article>)}
             </div>
 
             {/* Financial Summary & Tax Toggles */}
@@ -648,7 +552,7 @@ export function PurchaseUnitView({
                       max="50"
                       value={discountPercent}
                       onChange={(e) => { setDiscountPercent(Number(e.target.value) || 0); setImportedTaxAmount(null); }}
-                      className="w-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-0.5 text-xs font-mono"
+                      className="w-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-0.5 text-xs tabular-nums"
                     />
                   </div>
                 </div>
@@ -657,29 +561,29 @@ export function PurchaseUnitView({
               <div className="w-full md:w-80 space-y-2 text-xs">
                 <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
                   <span>Subtotal:</span>
-                  <span className="font-mono">Rp {subtotal.toLocaleString(numLocale)}</span>
+                  <span className="tabular-nums">Rp {subtotal.toLocaleString(numLocale)}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                     <span>Discount ({discountPercent}%):</span>
-                    <span className="font-mono">- Rp {discountAmount.toLocaleString(numLocale)}</span>
+                    <span className="tabular-nums">- Rp {discountAmount.toLocaleString(numLocale)}</span>
                   </div>
                 )}
                 {applyVat && (
                   <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
                     <span>{importedTaxAmount !== null ? 'PPN (invoice)' : 'PPN 11%'}:</span>
-                    <span className="font-mono">+ Rp {vatAmount.toLocaleString(numLocale)}</span>
+                    <span className="tabular-nums">+ Rp {vatAmount.toLocaleString(numLocale)}</span>
                   </div>
                 )}
                 {applyPph && (
                   <div className="flex justify-between text-blue-600 dark:text-blue-400">
                     <span>PPh 22 (1.5% Withholding):</span>
-                    <span className="font-mono">- Rp {pphAmount.toLocaleString(numLocale)}</span>
+                    <span className="tabular-nums">- Rp {pphAmount.toLocaleString(numLocale)}</span>
                   </div>
                 )}
                 <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 flex justify-between text-sm font-bold text-neutral-900 dark:text-neutral-100">
                   <span>{lang === 'en' ? 'Grand Total:' : 'Total Akhir:'}</span>
-                  <span className="font-mono text-base text-[#0070f3] dark:text-[#3291ff]">
+                  <span className="tabular-nums text-base text-[#0070f3] dark:text-[#3291ff]">
                     Rp {grandTotal.toLocaleString(numLocale)}
                   </span>
                 </div>
@@ -698,13 +602,13 @@ export function PurchaseUnitView({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={activeT.purchase.notesPlaceholder}
-              className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 text-xs outline-none focus:border-[#0070f3] text-neutral-800 dark:text-neutral-200 resize-none font-mono"
+              className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-3 text-xs outline-none focus:border-[#0070f3] text-neutral-800 dark:text-neutral-200 resize-none tabular-nums"
             />
           </div>
           </fieldset>
 
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button onClick={() => onNavigate('po')} variant="secondary" type="button">
+          <div className="po-form-submit">
+            <Button onClick={() => onNavigate('po')} disabled={isSubmitting} variant="secondary" type="button">
               {activeT.purchase.cancelBtn}
             </Button>
             <Button type="submit" disabled={isSubmitting || items.length === 0} variant="primary">
@@ -717,7 +621,7 @@ export function PurchaseUnitView({
                   {activeT.purchase.processing}
                 </div>
               ) : (
-                awaitingConfirmation ? (lang === 'en' ? 'Retry Same Order' : 'Coba Pesanan yang Sama') : lang === 'en' ? 'Submit Requisition & Issue PO' : 'Ajukan Pengadaan & Terbitkan PO'
+                awaitingConfirmation ? (lang === 'en' ? 'Retry Same Order' : 'Coba Pesanan yang Sama') : lang === 'en' ? 'Submit order' : 'Ajukan pesanan'
               )}
             </Button>
           </div>

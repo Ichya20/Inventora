@@ -1,0 +1,16 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Pengguna" as P0
+participant "Komponen AI" as P1
+participant "Express API" as P2
+participant "Gemini" as P3
+P0 -> P1: Kirim pertanyaan / analisis
+P1 -> P2: POST konteks sesuai izin
+P2 -> P2: Verifikasi token dan role
+P2 -> P2: Terapkan batas permintaan
+P2 -> P3: generateAiContent()
+P3 --> P2: Hasil atau gangguan layanan
+P2 --> P1: Respons hasil / kode error
+P1 --> P0: Tampilkan hasil atau error
+@enduml

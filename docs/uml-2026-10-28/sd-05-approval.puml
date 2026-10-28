@@ -1,0 +1,18 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Finance / Admin" as P0
+participant "ProcurementView" as P1
+participant "Store transisi PO" as P2
+participant "Firestore" as P3
+P0 -> P1: Pilih setuju atau tolak
+P1 -> P2: persistPoTransition()
+P2 -> P2: Baca klaim role
+P2 -> P3: runTransaction dan get PO
+P3 --> P2: Status PO terbaru
+P2 -> P2: assertPoTransition()
+P2 -> P3: Update Disetujui / Ditolak
+P3 --> P2: Commit berhasil
+P2 --> P1: Konfirmasi simpan
+P1 --> P0: Status dan notifikasi
+@enduml

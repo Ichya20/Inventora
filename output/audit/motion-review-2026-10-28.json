@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "suggestions": 2
+  },
+  "filesReviewed": 9,
+  "findings": [
+    {
+      "ruleId": "design-hardcoded-color",
+      "severity": "info",
+      "category": "design-system",
+      "file": "src\\components\\OpeningSequence.css",
+      "line": 10,
+      "column": 59,
+      "message": "Hardcoded color may drift from project design tokens.",
+      "confidence": 0.9,
+      "autofix": false,
+      "fixable": false
+    },
+    {
+      "ruleId": "design-hardcoded-color",
+      "severity": "info",
+      "category": "design-system",
+      "file": "src\\components\\OpeningSequence.css",
+      "line": 11,
+      "column": 35,
+      "message": "Hardcoded color may drift from project design tokens.",
+      "confidence": 0.9,
+      "autofix": false,
+      "fixable": false
+    },
+    {
+      "ruleId": "responsive-fixed-width",
+      "severity": "warning",
+      "category": "responsive",
+      "file": "src\\components\\UI.tsx",
+      "line": 31,
+      "column": 119,
+      "message": "Large fixed width may overflow on smaller viewports.",
+      "confidence": 0.9,
+      "autofix": false,
+      "fixable": false
+    },
+    {
+      "ruleId": "responsive-min-width",
+      "severity": "warning",
+      "category": "responsive",
+      "file": "src\\components\\UI.tsx",
+      "line": 31,
+      "column": 115,
+      "message": "Large minimum width may force horizontal overflow.",
+      "confidence": 0.9,
+      "autofix": false,
+      "fixable": false
+    }
+  ],
+  "fixed": []
+}

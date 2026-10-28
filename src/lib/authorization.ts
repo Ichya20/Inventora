@@ -8,11 +8,11 @@ export function isRole(value: unknown): value is Role {
 
 export function canAccessMenu(role: Role | null, menu: string): boolean {
   if (!role) return false;
-  const menus = ['overview', 'stok', 'po', 'purchase', 'new-po', 'keuangan', 'analytics', 'billing', 'sdm', 'settings'];
+  const menus = ['overview', 'stok', 'pos', 'po', 'purchase', 'new-po', 'keuangan', 'analytics', 'billing', 'sdm', 'settings'];
   if (!menus.includes(menu)) return false;
   if (role === 'Super Admin') return true;
-  if (role === 'Warehouse Manager') return ['overview', 'stok', 'po', 'purchase', 'new-po'].includes(menu);
-  if (role === 'Finance Manager') return ['overview', 'po', 'keuangan', 'analytics', 'billing'].includes(menu);
+  if (role === 'Warehouse Manager') return ['overview', 'stok', 'pos', 'po', 'purchase', 'new-po'].includes(menu);
+  if (role === 'Finance Manager') return ['overview', 'pos', 'po', 'keuangan', 'analytics', 'billing'].includes(menu);
   return role === 'HR Manager' && ['overview', 'sdm'].includes(menu);
 }
 

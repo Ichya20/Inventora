@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, Plus, Package, CheckCircle2, Clock3, CircleAlert, Users } from 'lucide-react';
+import { ArrowUpRight, Plus, Package, CheckCircle2, Clock3, CircleAlert, Users, Receipt } from 'lucide-react';
 import type { AppNotification, Language, Role } from '../types';
 import type { Translations } from '../i18n';
 import type { useWorkspaceSummary } from '../lib/useWorkspaceSummary';
@@ -49,7 +49,6 @@ export function OverviewView({ onNavigate, lang, summary, role, isDemo, notifica
         <button type="button" className="metric-value-link" onClick={() => onNavigate(metric.menu)} aria-label={`${metric.label}: ${metric.value}. ${say('Buka modul', 'Open module')}`}>
           <strong className={metric.value.length > 17 ? 'metric-value metric-value-long' : 'metric-value'}>{metric.value}</strong><ArrowUpRight size={15} aria-hidden="true" />
         </button>
-        <span className="metric-detail">{metric.detail}</span>
       </div>)}
     </div>
 
@@ -60,6 +59,7 @@ export function OverviewView({ onNavigate, lang, summary, role, isDemo, notifica
         <article className="dashboard-panel attention-panel"><div className="panel-heading"><div><p className="eyebrow">{say('Langkah berikutnya', 'Next steps')}</p><h3>{say('Perlu ditindaklanjuti', 'Needs your attention')}</h3></div><CircleAlert size={19} className="attention-icon" aria-hidden="true"/></div>
           {can('po') && <button className="attention-row" onClick={() => onNavigate('po')}><span className="attention-symbol"><Clock3 size={17}/></span><span><strong>{say('Tinjau persetujuan PO', 'Review order approvals')}</strong><small>{summary.pendingApprovalsCount === null ? say('Periksa di modul pengadaan', 'Check the procurement module') : `${count(summary.pendingApprovalsCount)} ${say('pesanan menunggu', 'orders waiting')}`}</small></span><ArrowUpRight size={16}/></button>}
           {can('stok') && <button className="attention-row" onClick={() => onNavigate('stok')}><span className="attention-symbol stock"><Package size={17}/></span><span><strong>{say('Periksa ketersediaan stok', 'Check stock availability')}</strong><small>{summary.lowStockCount === null ? say('Muat data inventori terlebih dahulu', 'Load inventory data first') : `${count(summary.lowStockCount)} ${say('item perlu ditinjau', 'items to review')}`}</small></span><ArrowUpRight size={16}/></button>}
+          {can('pos') && <button className="attention-row" onClick={() => onNavigate('pos')}><span className="attention-symbol"><Receipt size={17}/></span><span><strong>{say('Buka kasir penjualan', 'Open Point of Sale')}</strong><small>{say('Checkout tunai dengan inventori lokal', 'Cash checkout with local inventory')}</small></span><ArrowUpRight size={16}/></button>}
           {can('sdm') && <button className="attention-row" onClick={() => onNavigate('sdm')}><span className="attention-symbol"><Users size={17}/></span><span><strong>{say('Direktori tim', 'People directory')}</strong><small>{say('Kelola data dan status anggota tim', 'Manage team records and status')}</small></span><ArrowUpRight size={16}/></button>}
         </article>
         {can('stok') && <article className="dashboard-panel stock-panel"><div className="panel-heading"><div><p className="eyebrow">{say('Inventori', 'Inventory')}</p><h3>{say('Pantauan stok', 'Stock watch')}</h3></div><button className="text-action" onClick={() => onNavigate('stok')} aria-label={say('Buka inventori', 'Open inventory')}><ArrowUpRight size={17}/></button></div>

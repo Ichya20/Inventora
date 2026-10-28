@@ -1,0 +1,17 @@
+.inventora-brand { display:flex; flex-direction:column; align-items:center; text-align:center; color:var(--ws-text); font-family:var(--font-sans); }
+.inventora-brand-emblem { display:grid; place-items:center; width:136px; height:136px; perspective:800px; margin-bottom:20px; }
+.inventora-brand-stage { filter:drop-shadow(0 5px 4px rgb(24 34 48 / .09)); }
+.dark .inventora-brand-stage { filter:drop-shadow(0 5px 6px rgb(0 0 0 / .25)); }
+.inventora-brand-name { margin:0; font-size:clamp(36px,5vw,40px); line-height:1.2; font-weight:600; letter-spacing:-.035em; }
+.inventora-brand-description { max-width:310px; margin:12px auto 0; font-size:14px; line-height:1.7; color:var(--ws-muted); text-wrap:balance; }
+.inventora-brand-compact .inventora-brand-emblem { width:80px; height:80px; margin-bottom:16px; }
+.inventora-brand-compact .inventora-brand-name { font-size:24px; letter-spacing:-.025em; }
+.inventora-brand-compact .inventora-brand-stage { filter:drop-shadow(0 3px 3px rgb(24 34 48 / .08)); }
+.dark .inventora-brand-compact .inventora-brand-stage { filter:drop-shadow(0 3px 4px rgb(0 0 0 / .2)); }
+.inventora-loading { position:fixed; inset:0; z-index:50; display:grid; place-items:center; overflow-y:auto; padding:24px; background:var(--ws-frame); color:var(--ws-text); font-family:var(--font-sans); }
+.inventora-loading-content { display:flex; flex-direction:column; align-items:center; padding:32px 24px; text-align:center; }
+.inventora-loading-status { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:24px; font-size:13px; line-height:1.7; color:var(--ws-muted); }
+.inventora-loading-spinner { flex-shrink:0; color:var(--ws-accent); animation:inventora-loading-spin .9s linear infinite; }
+@keyframes inventora-loading-spin { to { transform:rotate(360deg); } }
+@media(max-height:600px) and (min-width:600px) { .inventora-brand:not(.inventora-brand-compact) .inventora-brand-emblem { width:104px; height:104px; margin-bottom:12px; }.inventora-brand:not(.inventora-brand-compact) .inventora-mark { width:88px; height:88px; }.inventora-brand:not(.inventora-brand-compact) .inventora-brand-name { font-size:36px; } }
+@media(prefers-reduced-motion:reduce) { .inventora-brand-stage { transform:none!important; }.inventora-brand-identity { opacity:1!important; transform:none!important; }.inventora-brand .inventora-mark rect { opacity:1!important; transform:none!important; }.inventora-loading-spinner { animation:none; } }

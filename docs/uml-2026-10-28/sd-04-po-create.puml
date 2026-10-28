@@ -1,0 +1,20 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Gudang / Admin" as P0
+participant "Form PO" as P1
+participant "Express API" as P2
+participant "Firestore Admin" as P3
+P0 -> P1: Isi vendor dan barang
+P1 -> P1: Hitung total dan validasi
+P0 -> P1: Kirim pengajuan PO
+P1 -> P2: POST /api/purchase-orders
+P2 -> P2: Verifikasi token dan role
+P2 -> P2: Validasi nilai serta item
+P2 -> P3: Transaksi baca ID PO
+P3 --> P2: PO belum ada / retry sama
+P2 -> P3: Create PO Pending Approval
+P3 --> P2: Commit berhasil
+P2 --> P1: 201 dan PO tersimpan
+P1 --> P0: Konfirmasi pengajuan
+@enduml

@@ -1,0 +1,17 @@
+@startuml
+left to right direction
+skinparam monochrome true
+rectangle "Inventora Pemrosesan PO" {
+  usecase "UC-08\nMemantau dan mengekspor PO" as UC8
+  usecase "UC-09\nMenyetujui atau menolak PO" as UC9
+  usecase "UC-10\nMencatat penerimaan barang" as UC10
+  usecase "UC-11\nMembayar PO secara simulasi" as UC11
+}
+actor "Warehouse Manager atau Super Admin" as left0
+left0 -- UC8
+left0 -- UC10
+actor "Finance Manager atau Super Admin" as right0
+right0 -- UC8
+right0 -- UC9
+right0 -- UC11
+@enduml

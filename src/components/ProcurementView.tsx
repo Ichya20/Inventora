@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { CreditCard, CheckCircle2, Printer, History, Layers, FileText, PackageCheck, AlertTriangle, Plus } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { Role, ToastType, PaymentTransaction, AppNotification, PurchaseOrder, GoodsReceiptNote, ThreeWayMatchStatus } from '../types';
@@ -19,11 +19,18 @@ import { assertPoTransition, normalizePurchaseOrder, paymentInfoFromTransaction,
 import { persistPoTransition } from '../lib/purchaseOrderStore';
 import { businessDate } from '../lib/businessDates';
 import { canPerformPoAction } from '../lib/authorization';
+import { PurchaseOrderItems } from './PurchaseOrderItems';
+import { poStatusLabel, poStatusTone } from '../lib/dashboard';
+import { ChangeHighlight } from './MotionFeedback';
+import { ViewSkeleton } from './ViewSkeleton';
+import { workspaceMotion } from '../lib/motion';
 import { collection, onSnapshot } from 'firebase/firestore';
 
 const PaymentGatewayModal = lazy(() => import('./PaymentGatewayModal').then(m => ({ default: m.PaymentGatewayModal })));
 
 interface ProcurementViewProps {
+  initialPoId?: string | null;
+  onInitialPoHandled?: () => void;
   role: Role;
   isDemo: boolean;
   ownerId: string;
@@ -43,10 +50,14 @@ export function ProcurementView({
   t,
   lang = 'en',
   isOnline = true,
-  onQueueOffline, role, isDemo, ownerId
+  onQueueOffline, role, isDemo, ownerId, initialPoId, onInitialPoHandled
 }: ProcurementViewProps) {
   const storageKey = poStorageKey(isDemo, ownerId);
+  const reduced = useReducedMotion();
   const saving = useRef(false);
+  const [transitionBusy, setTransitionBusy] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(!isDemo);
+  const [ordersError, setOrdersError] = useState(false);
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
@@ -210,10 +221,13 @@ export function ProcurementView({
     let unsubscribe = () => {};
     import('../firebase').then(({ db }) => {
       if (cancelled) return;
-      unsubscribe = onSnapshot(collection(db, 'purchaseOrders'), snapshot => {
+      unsubscribe = onSnapshot(collection(db, 'purchaseOrders'), { includeMetadataChanges: true }, snapshot => {
+        // Keep the last confirmed status visible while a local write is pending.
+        if (snapshot.metadata.hasPendingWrites) return;
         setPos(snapshot.docs.map(doc => normalizePurchaseOrder({ ...doc.data(), id: doc.id } as PurchaseOrder)));
-      }, error => onToast('Database tidak dapat diakses: ' + error.message, 'error'));
-    }).catch(error => onToast(String(error), 'error'));
+        setOrdersLoading(snapshot.metadata.fromCache); setOrdersError(false);
+      }, error => { setOrdersLoading(false); setOrdersError(true); onToast('Database tidak dapat diakses: ' + error.message, 'error'); });
+    }).catch(error => { setOrdersLoading(false); setOrdersError(true); onToast(String(error), 'error'); });
     return () => { cancelled = true; unsubscribe(); };
   }, [isDemo, ownerId]);
 
@@ -228,6 +242,7 @@ export function ProcurementView({
       patch = validated;
     }
     saving.current = true;
+    setTransitionBusy(true);
     try {
       if (!isDemo) {
         if (!isOnline) throw new Error('Tindakan ini memerlukan koneksi ke server.');
@@ -237,7 +252,7 @@ export function ProcurementView({
         saveStoredData(storageKey, updated, true);
         setPos(updated);
       }
-    } finally { saving.current = false; }
+    } finally { saving.current = false; setTransitionBusy(false); }
   };
 
   const updateStatus = async (id: string, status: string, color: string) => {
@@ -286,7 +301,27 @@ export function ProcurementView({
         metadata: { poId: tx.poId, amount: tx.totalPaid, vendor: tx.vendor, txId: tx.id, receiptNumber: tx.receiptNumber, method: tx.methodLabel } });
     } catch (error) { onToast(String(error), 'error'); throw error; }
   };
-  const [activeModal, setActiveModal] = useState<{ type: 'review' | 'detail', data: any } | null>(null);
+  const [activeModal, setActiveModal] = useState<{ type: 'review' | 'detail', data: PurchaseOrder } | null>(null);
+  useEffect(() => {
+    setActiveModal(current => {
+      if (!current) return null;
+      const latest = pos.find(order => order.id === current.data.id);
+      return latest ? { ...current, data: latest } : null;
+    });
+  }, [pos]);
+  useEffect(() => {
+    if (!initialPoId) return;
+    const target = pos.find(order => order.id === initialPoId);
+    if (!target && ordersLoading) return;
+    if (target && !ordersError) {
+      setActiveModal({ type: 'detail', data: target });
+    } else {
+      onToast(ordersError
+        ? (lang === 'en' ? 'The order could not be loaded. Check your connection and retry.' : 'PO belum dapat dimuat. Periksa koneksi lalu coba kembali.')
+        : (lang === 'en' ? `Order ${initialPoId} is no longer available.` : `PO ${initialPoId} tidak lagi tersedia.`), 'error');
+    }
+    onInitialPoHandled?.();
+  }, [initialPoId, ordersLoading, ordersError, pos, onInitialPoHandled]);
   const [page, setPage] = useState(1);
   const itemsPerPage = 4;
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -408,8 +443,11 @@ export function ProcurementView({
     return activeT.procurement.pendingApproval;
   };
 
+  if (ordersLoading && !pos.length && !ordersError) return <section className="procurement-workspace p-4 md:p-8 flex-1 overflow-y-auto"><ViewSkeleton title={lang === 'en' ? 'Purchase orders' : 'Purchase order'} lang={lang} /></section>;
+
   return (
-    <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
+    <section className="procurement-workspace p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
+      {initialPoId && ordersLoading && <p role="status" className="text-sm text-[var(--ws-muted)]">{lang === 'en' ? 'Loading the selected order…' : 'Memuat pesanan yang dipilih…'}</p>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
         <Card>
           <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
@@ -482,9 +520,9 @@ export function ProcurementView({
           </button>
           <Button variant="secondary" onClick={() => { setAuditPoFilter(null); setIsAuditOpen(true); }}>
             <History className="w-3.5 h-3.5" />
-            <span>Audit Trail</span>
+            <span>{lang === 'en' ? 'Activity' : 'Aktivitas'}</span>
           </Button>
-          <Button variant="primary" onClick={() => onNavigate('purchase')}>
+          <Button variant="primary" disabled={!canPerformPoAction(role, 'create')} onClick={() => onNavigate('purchase')}>
             <Plus className="w-3.5 h-3.5 mr-1" />
             {activeT.procurement.createPoBtn}
           </Button>
@@ -511,7 +549,7 @@ export function ProcurementView({
                 { key: 'vendor', header: activeT.procurement.vendor, width: '25%', render: (item) => <span className="font-medium">{item.vendor}</span> },
                 { key: 'date', header: activeT.procurement.date, width: '15%', render: (item) => <span className="text-neutral-500">{item.date}</span> },
                 { key: 'total', header: activeT.procurement.amount, width: '20%', render: (item) => <span className="font-mono font-medium">Rp {item.total.toLocaleString(numLocale)}</span> },
-                { key: 'status', header: activeT.procurement.status, width: '20%', render: (item) => <Badge color={item.color as any}>{item.status}</Badge> }
+                { key: 'status', header: activeT.procurement.status, width: '20%', render: (item) => <ChangeHighlight value={item.status}><Badge color={item.color as any}>{item.status}</Badge></ChangeHighlight> }
               ]}
               onRowClick={(item) => setActiveModal({ type: 'detail', data: item })}
             />
@@ -535,7 +573,7 @@ export function ProcurementView({
               <Th sortable sortDirection={sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('date')}>{activeT.procurement.date}</Th>
               <Th sortable sortDirection={sortConfig?.key === 'total' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('total')}>{activeT.procurement.amount}</Th>
               <Th sortable sortDirection={sortConfig?.key === 'status' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : undefined} onSort={() => handleSort('status')}>{activeT.procurement.status}</Th>
-              <Th>3-Way Match</Th>
+              <Th>{lang === 'en' ? 'Receipt' : 'Penerimaan'}</Th>
               <Th align="right">{activeT.procurement.actions}</Th>
             </tr>
           </thead>
@@ -543,7 +581,7 @@ export function ProcurementView({
             {paginatedPos.length > 0 ? (
               paginatedPos.map((po, idx) => (
                 <Tr key={po.id} index={idx}>
-                  <Td><span className="font-mono text-xs text-[#666] dark:text-[#a1a1aa] font-semibold">{po.id}</span></Td>
+                  <Td><span className="text-xs text-[#666] dark:text-[#a1a1aa] font-medium">{po.id}</span></Td>
                   <Td>
                     <div className="font-medium tracking-tight text-neutral-900 dark:text-neutral-100">{po.vendor}</div>
                     <div className="text-[11px] text-[#666] dark:text-[#a1a1aa] mt-0.5 flex items-center gap-1.5">
@@ -555,7 +593,7 @@ export function ProcurementView({
                   </Td>
                   <Td><span className="tabular-nums text-xs">{po.date}</span></Td>
                   <Td><span className="tabular-nums font-mono font-medium text-xs">Rp {po.total.toLocaleString(numLocale)}</span></Td>
-                  <Td><Badge color={po.color}>{getStatusBadgeText(po.status)}</Badge></Td>
+                  <Td><ChangeHighlight value={po.status}><Badge color={po.color}>{getStatusBadgeText(po.status)}</Badge></ChangeHighlight></Td>
                   <Td>
                     {po.threeWayMatchStatus === 'MATCHED' ? (
                       <button
@@ -585,7 +623,7 @@ export function ProcurementView({
                         title={lang === 'en' ? 'Inspect and record GRN' : 'Periksa dan catat penerimaan GRN'}
                       >
                         <PackageCheck className="w-3.5 h-3.5 text-blue-500" />
-                        <span>{lang === 'en' ? 'Inspect GRN' : 'Periksa GRN'}</span>
+                        <span>{lang === 'en' ? 'Inspect' : 'Periksa'}</span>
                       </button>
                     )}
                   </Td>
@@ -595,7 +633,7 @@ export function ProcurementView({
                         type="button"
                         onClick={() => setThreeWayPo(po)}
                         className="p-1.5 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                        title={lang === 'en' ? 'Inspect 3-Way Matching & GRN' : 'Periksa 3-Way Match & GRN'}
+                        aria-label={lang === 'en' ? `Inspect receipt ${po.id}` : `Periksa penerimaan ${po.id}`} title={lang === 'en' ? 'Inspect receipt' : 'Periksa penerimaan'}
                       >
                         <PackageCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       </button>
@@ -660,14 +698,14 @@ export function ProcurementView({
                 <Badge color={col.color}>{columnPos.length}</Badge>
               </div>
               <div className="p-3 flex-1 overflow-y-auto space-y-3">
-                <AnimatePresence>
+                <AnimatePresence initial={false}>
                   {columnPos.map(po => (
                     <motion.div
                       key={po.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
+                      initial={reduced ? false : { opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, transition: { duration: reduced ? 0 : workspaceMotion.exit } }}
+                      transition={{ duration: reduced ? 0 : workspaceMotion.feedback, ease: workspaceMotion.ease }}
                       draggable
                       onDragStart={(e: any) => onDragStart(e, po.id)}
                       className="bg-white dark:bg-[#1a1a1a] p-4 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),0_0_0_1px_rgba(255,255,255,0.1)] cursor-grab active:cursor-grabbing hover:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.08)] transition-shadow"
@@ -883,194 +921,52 @@ export function ProcurementView({
         </div>
       )}
 
-      <Modal
-        isOpen={activeModal !== null}
-        onClose={() => setActiveModal(null)}
-        title={activeModal?.type === 'review' ? activeT.procurement.reviewModalTitle : activeT.procurement.detailModalTitle}
-      >
-        {activeModal && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{activeT.procurement.poNumber}</p>
-                <p className="font-mono text-[#171717] dark:text-[#ededed]">{activeModal.data.id}</p>
-              </div>
-              <div>
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{activeT.procurement.date}</p>
-                <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.date}</p>
-                {activeModal.data.deliveryDate && <p className="text-xs mt-1">{lang === 'en' ? 'Target delivery' : 'Target kirim'}: {activeModal.data.deliveryDate}</p>}
-              </div>
-              <div className="col-span-2">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{activeT.procurement.vendor}</p>
-                <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.vendor}</p>
-                <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{activeModal.data.desc}</p>
-              </div>
-              {activeModal.data.notes && <div className="col-span-2">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1">{lang === 'en' ? 'Procurement notes / delivery instructions' : 'Catatan pengadaan / instruksi pengiriman'}</p>
-                <p className="text-xs whitespace-pre-wrap break-words">{activeModal.data.notes}</p>
-              </div>}
-              <div className="col-span-2 p-4 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg shadow-inner dark:shadow-none dark:border dark:border-[#333]">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 text-xs uppercase tracking-wider">{activeT.procurement.amount}</p>
-                <p className="text-2xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed]">
-                  Rp {Number(activeModal.data.total).toLocaleString(numLocale)}
-                </p>
-              </div>
-
-              {/* Department Pre-Approval Budget Ceilings */}
-              {(() => {
-                const bCheck = checkDepartmentBudgetLimit(activeModal.data.department || 'IT Infrastructure', activeModal.data.total);
-                return (
-                  <div className={`col-span-2 p-3.5 rounded-lg border text-xs flex items-center justify-between gap-3 ${
-                    bCheck.isExceeded
-                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
-                      : bCheck.isNearCap
-                      ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
-                      : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                  }`}>
-                    <div>
-                      <div className="font-semibold flex items-center gap-1.5">
-                        {bCheck.isExceeded ? <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-                        <span>
-                          {bCheck.isExceeded
-                            ? (lang === 'en' ? 'Budget Cap Exceeded Alert' : 'Peringatan Plafon Anggaran Terlampaui')
-                            : (lang === 'en' ? 'Budget Verification Verified' : 'Verifikasi Anggaran Lolos')}
-                        </span>
-                      </div>
-                      <p className="text-[11px] opacity-85 mt-0.5">
-                        {bCheck.departmentBudget?.name}: Rp {(bCheck.availableBefore / 1000000).toLocaleString(numLocale)} Jt {lang === 'en' ? 'remaining' : 'tersisa'} &bull; {bCheck.projectedPercentage}% {lang === 'en' ? 'projected cap' : 'proyeksi plafon'}
-                      </p>
-                    </div>
-                    <span className="font-mono font-bold text-xs shrink-0">
-                      {bCheck.projectedPercentage}%
-                    </span>
-                  </div>
-                );
-              })()}
-
-              {activeModal.data.status === 'Selesai' && (
-                <div className="col-span-2 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    {activeT.procurement.paidViaGatewayBanner}
-                  </span>
-                  <span className="font-mono font-semibold">PAID / SETTLED</span>
-                </div>
-              )}
-
-              {/* Goods Receipt Note (GRN) Card */}
-              {activeModal.data.grn && (
-                <div className="col-span-2 p-3.5 bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 rounded-lg text-xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
-                      <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      {lang === 'en' ? 'Goods Receipt Note (GRN) Verified' : 'Penerimaan Barang (GRN) Terverifikasi'}
-                    </span>
-                    <span className={`font-mono font-bold text-[10px] px-2 py-0.5 rounded ${
-                      activeModal.data.threeWayMatchStatus === 'MATCHED'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
-                    }`}>
-                      {activeModal.data.grn.grnNumber}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-neutral-600 dark:text-neutral-400 pt-1">
-                    <div>
-                      <span className="text-neutral-400 block">{lang === 'en' ? 'Surat Jalan / Delivery No' : 'No. Surat Jalan'}:</span>
-                      <span className="font-mono font-medium text-neutral-800 dark:text-neutral-200">{activeModal.data.grn.suratJalanNumber}</span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block">{lang === 'en' ? 'Inspector / Receiver' : 'Petugas Penerima'}:</span>
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">{activeModal.data.grn.receivedBy}</span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400 block">{lang === 'en' ? 'Received Date' : 'Tanggal Diterima'}:</span>
-                      <span className="font-mono text-neutral-800 dark:text-neutral-200">{activeModal.data.grn.receivedDate}</span>
-                    </div>
-                  </div>
-                  {activeModal.data.grn.inspectorNotes && (
-                    <p className="text-[11px] text-neutral-500 italic pt-1 border-t border-neutral-200/60 dark:border-neutral-800/60">
-                      "{activeModal.data.grn.inspectorNotes}"
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Gemini AI Risk & Anomaly Assessment */}
-              <div className="col-span-2">
-                <PoRiskCard po={activeModal.data} lang={lang} />
-              </div>
-            </div>
-
-            <div className="flex gap-2.5 justify-end pt-4 border-t border-[#eaeaea] dark:border-[#333] flex-wrap">
-              <button
-                type="button"
-                onClick={() => {
-                  const target = activeModal.data;
-                  setActiveModal(null);
-                  setThreeWayPo(target);
-                }}
-                className="bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-              >
-                <PackageCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>3-Way Match (GRN)</span>
-              </button>
-
-              {activeModal.type === 'review' && canPerformPoAction(role, 'approve') && (
-                <>
-                  <Button variant="secondary" onClick={() => setActiveModal(null)}>
-                    {activeT.common.close}
-                  </Button>
-                  <Button variant="secondary" onClick={() => handleReject(activeModal.data.id)}>
-                    {activeT.procurement.rejectBtn}
-                  </Button>
-                  <Button variant="primary" onClick={() => handleApprove(activeModal.data.id)}>
-                    {activeT.procurement.approveBtn}
-                  </Button>
-                </>
-              )}
-              {canPerformPoAction(role, 'pay') && activeModal.data.status === 'Barang Diterima' && activeModal.data.threeWayMatchStatus === 'MATCHED' && (isDemo || activeModal.data.receiptVerification?.version === 1) && !activeModal.data.paymentInfo && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = activeModal.data;
-                    setActiveModal(null);
-                    setSelectedPoForPayment(target);
-                  }}
-                  className="bg-[#0070f3] hover:bg-[#0060df] text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>{activeT.procurement.openGatewayBtn}</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setPoForPrint(activeModal.data);
-                }}
-                className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-              >
-                <Printer className="w-3.5 h-3.5 text-neutral-500" />
-                <span>{lang === 'en' ? 'Print Voucher' : 'Cetak Voucher'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuditPoFilter(activeModal.data.id);
-                  setIsAuditOpen(true);
-                }}
-                className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-              >
-                <History className="w-3.5 h-3.5 text-neutral-500" />
-                <span>Audit</span>
-              </button>
-              {activeModal.type !== 'review' && (
-                <Button variant="secondary" onClick={() => setActiveModal(null)}>
-                  {activeT.common.close}
-                </Button>
-              )}
-            </div>
+      <Modal isOpen={activeModal !== null} onClose={() => setActiveModal(null)} size="xl" closeDisabled={transitionBusy}
+        title={activeModal?.type === 'review' ? (lang === 'en' ? 'Review purchase order' : 'Tinjau purchase order') : (lang === 'en' ? 'Purchase order details' : 'Detail purchase order')}
+        footer={activeModal && <div className="po-review-footer">
+          <Button variant="secondary" disabled={transitionBusy} onClick={() => setActiveModal(null)}>{activeT.common.close}</Button>
+          {activeModal.data.status === 'Pending Approval' && canPerformPoAction(role, 'approve') && <>
+            <Button variant="secondary" disabled={transitionBusy} onClick={() => handleReject(activeModal.data.id)}>{activeT.procurement.rejectBtn}</Button>
+            <Button isLoading={transitionBusy} onClick={() => handleApprove(activeModal.data.id)}>{activeT.procurement.approveBtn}</Button>
+          </>}
+          {canPerformPoAction(role, 'pay') && activeModal.data.status === 'Barang Diterima' && activeModal.data.threeWayMatchStatus === 'MATCHED' && (isDemo || activeModal.data.receiptVerification?.version === 1) && !activeModal.data.paymentInfo &&
+            <Button onClick={() => { const target = activeModal.data; setActiveModal(null); setSelectedPoForPayment(target); }}>
+              <CreditCard size={16}/>{lang === 'en' ? 'Simulate payment' : 'Simulasi pembayaran'}
+            </Button>}
+        </div>}>
+        {activeModal && <div className="po-review">
+          <div className="po-review-identity"><div><p className="po-review-id">{activeModal.data.id}</p><h4>{activeModal.data.vendor}</h4></div>
+            <ChangeHighlight value={activeModal.data.status}><span className={`order-status status-${poStatusTone(activeModal.data.status)}`}>{poStatusLabel(activeModal.data.status, lang)}</span></ChangeHighlight>
           </div>
-        )}
+          <dl className="po-review-metadata">
+            <div><dt>{lang === 'en' ? 'Order date' : 'Tanggal pesanan'}</dt><dd>{activeModal.data.date}</dd></div>
+            <div><dt>{lang === 'en' ? 'Expected delivery' : 'Target kirim'}</dt><dd>{activeModal.data.deliveryDate || '—'}</dd></div>
+            <div><dt>{lang === 'en' ? 'Department' : 'Departemen'}</dt><dd>{activeModal.data.department || '—'}</dd></div>
+          </dl>
+          <PurchaseOrderItems order={activeModal.data} lang={lang}/>
+          <div className="po-review-actions">
+            <Button variant="secondary" disabled={transitionBusy} onClick={() => { const target=activeModal.data; setActiveModal(null); setThreeWayPo(target); }}>
+              <PackageCheck size={15}/>{lang === 'en' ? 'Goods receipt' : 'Penerimaan barang'}
+            </Button>
+            <Button variant="secondary" disabled={transitionBusy} onClick={() => { const target=activeModal.data; setActiveModal(null); setPoForPrint(target); }}><Printer size={15}/>{lang === 'en' ? 'Print PO' : 'Cetak PO'}</Button>
+            <Button variant="secondary" disabled={transitionBusy} onClick={() => { setAuditPoFilter(activeModal.data.id); setActiveModal(null); setIsAuditOpen(true); }}><History size={15}/>{lang === 'en' ? 'Activity' : 'Aktivitas'}</Button>
+          </div>
+          {(activeModal.data.notes || activeModal.data.desc) && <details className="po-extra"><summary>{lang === 'en' ? 'Order notes' : 'Catatan pesanan'}</summary>
+            <p className="po-review-notes">{activeModal.data.notes || activeModal.data.desc}</p>
+          </details>}
+          {activeModal.data.grn && <details className="po-extra"><summary>{lang === 'en' ? 'Receipt details' : 'Rincian penerimaan'} · {activeModal.data.grn.grnNumber}</summary>
+            <dl className="po-review-metadata">
+              <div><dt>{lang === 'en' ? 'Delivery note' : 'Surat jalan'}</dt><dd>{activeModal.data.grn.suratJalanNumber}</dd></div>
+              <div><dt>{lang === 'en' ? 'Receiver' : 'Penerima'}</dt><dd>{activeModal.data.grn.receivedBy}</dd></div>
+              <div><dt>{lang === 'en' ? 'Result' : 'Hasil'}</dt><dd>{activeModal.data.grn.status === 'MATCHED' ? (lang === 'en' ? 'Matched' : 'Sesuai') : (lang === 'en' ? 'Discrepancy' : 'Ada selisih')}</dd></div>
+            </dl><p className="po-review-notes">{activeModal.data.grn.inspectorNotes}</p>
+          </details>}
+          {activeModal.data.status === 'Selesai' && <p className="po-review-muted">{lang === 'en' ? 'Simulated payment recorded. No bank transfer was made.' : 'Pembayaran simulasi tercatat. Tidak ada transfer dana bank.'}</p>}
+          <details className="po-extra"><summary>{lang === 'en' ? 'Budget and risk' : 'Anggaran dan risiko'}</summary>
+            <p className="po-review-muted">{lang === 'en' ? 'Sample department budget utilization' : 'Pemakaian anggaran departemen contoh'}: {checkDepartmentBudgetLimit(activeModal.data.department || 'IT Infrastructure', activeModal.data.total).projectedPercentage}%</p>
+            <PoRiskCard po={activeModal.data} lang={lang}/>
+          </details>
+        </div>}
       </Modal>
 
       {/* 3-Way Match Modal & Goods Receipt Inspector */}

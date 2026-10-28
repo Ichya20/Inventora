@@ -10,11 +10,13 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/regressions.test.ts tests/api.test.ts tests/remainingFixes.test.ts tests/ai.test.ts tests/workflowFixes.test.ts tests/dashboard.test.tsx",
+    "test": "tsx --test tests/regressions.test.ts tests/api.test.ts tests/remainingFixes.test.ts tests/ai.test.ts tests/workflowFixes.test.ts tests/dashboard.test.tsx tests/pos.test.ts tests/navigation.test.ts tests/nonPoActions.test.ts tests/poInterface.test.ts",
     "test:rules": "tsx --test tests/firestore.rules.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
+    "@lottiefiles/dotlottie-react": "^0.20.0",
+    "@lottiefiles/dotlottie-web": "^0.81.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tanstack/react-virtual": "^3.14.13",
     "@vitejs/plugin-react": "^5.0.4",

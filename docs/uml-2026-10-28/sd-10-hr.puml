@@ -1,0 +1,15 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "HR / Admin" as P0
+participant "HRView" as P1
+participant "Otorisasi Google" as P2
+participant "Google Calendar" as P3
+P0 -> P1: Pilih pegawai dan jadwal
+P1 -> P2: getAccessToken()
+P2 -> P2: Periksa token / otorisasi ulang
+P2 --> P1: Access token atau batal
+P1 -> P3: POST calendars/primary/events
+P3 --> P1: 201 / respons gagal
+P1 --> P0: Konfirmasi hanya jika sukses
+@enduml

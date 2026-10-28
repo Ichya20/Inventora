@@ -1,0 +1,18 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Pengguna berizin" as P0
+participant "Finance / Billing" as P1
+participant "localStorage" as P2
+participant "Pembuat dokumen" as P3
+P0 -> P1: Pilih invoice / konfigurasi
+P1 -> P2: Baca data tersimpan
+P2 --> P1: Record lokal
+P0 -> P1: Tandai lunas / simpan paket
+P1 -> P2: Simpan perubahan lokal
+P2 --> P1: Berhasil atau gagal
+P1 --> P0: Konfirmasi setelah simpan
+P0 -> P1: Unduh invoice / draf
+P1 -> P3: Bangun dari record tersimpan
+P3 --> P0: Berkas PDF atau EML
+@enduml

@@ -16,9 +16,13 @@
     "accent": "#0864d9"
   },
   "motion": {
-    "pageEntryMs": 240,
+    "pageEntryMs": 200,
     "dialogMs": 180,
     "drawerMs": 240,
+    "logoAssemblyMs": 2400,
+    "feedbackMs": 160,
+    "chartMs": 380,
+    "logoPlayback": "Play on each opening, then use a gentle six-second idle cycle with a pause control; never block the login action",
     "reducedMotion": "Follow system preference; disable movement and decorative loops"
   },
   "dashboard": [
@@ -43,8 +47,38 @@
     }
   ],
   "implementation": "Local React, Tailwind, Lucide, and motion/react; no hosted generation or source upload",
-  "review": "62 application tests passed, TypeScript and production build checked. Public catalogue HTTP reads only; no component download or hosted source review. Browser interaction and visual QA unavailable in this session.",
+  "review": "80 application tests, TypeScript and production build pass after the motion changes. Server rendering checks original logo geometry, first/repeat opening, immediate login link, bilingual skeletons and native dialog markup; POS render audit passes. Local 21st motion-component review has no errors and retains intentional scroll-table and brand-color findings. The illustrative video decodes all 624 frames and its storyboard was inspected. Live browser interaction and screenshot QA have not been performed. CLI search requires login; no source upload or hosted generation.",
   "decisions": [
+    {
+      "date": "2026-10-28",
+      "scope": "Splash pacing and idle",
+      "choice": "Slow the original dotLottie introduction to 2.4 seconds and play it each time the opening is mounted, including repeat visits. After completion, stop the canvas timeline and apply a gentle six-second CSS idle to the logo only: 5px vertical movement and 1.2% scale. Remove replay text and session gating. A small icon in the logo panel pauses/resumes both the introduction and idle; resuming idle does not restart the intro. Keep login immediately available and retain a static logo for reduced motion."
+    },
+    {
+      "date": "2026-10-28",
+      "scope": "dotLottie splash screen",
+      "choice": "Use a full-height charcoal and white split stage with the original four-square mark enlarged on the left and one Inventora heading, one description and one immediate login action on the right. Stack the mark above the content on phones. Preserve Plus Jakarta Sans, original geometry and diagonal opacity; use the existing inverse logo color on charcoal. A custom 72-frame, 1.2-second dotLottie animation briefly separates the tiles then settles to the identical starting mark. Lazy-load the React player and same-origin WASM; keep the SVG visible until the renderer loads, and keep it on failure or reduced motion. Retain bilingual controls, session-limited autoplay and replay without remounting the login action. Concept follows the split-stage direction, seed 1437071693; its photographic and multi-section suggestions are omitted because this is a single app opening. 21st CLI catalogue search still requires login; existing primitives are reused. Native WASM frame rendering and server markup are verified; live browser layout and playback are not verified."
+    },
+    {
+      "date": "2026-10-28",
+      "scope": "Splash screen refinement",
+      "choice": "Use one original monochrome logo and one brand name on a white framed surface over the existing blue-grey frame. Assemble tiles from offsets of about 9px at 112px size, with 55ms stagger and 320ms easing without overshoot. Settle perspective from 5 degrees; reveal the name and login action within 700ms. Preserve immediate navigation and visible keyboard focus. Remove repeated branding, corner ornaments and decorative underline. Share the brand component with the real loading state at 64px; keep the indicator tied to actual loading, without a timer or percentage. Preserve Plus Jakarta Sans, theme tokens and reduced motion."
+    },
+    {
+      "date": "2026-10-28",
+      "scope": "Brand opening and workspace motion",
+      "choice": "Reveal the original four SVG squares with a short stagger, a settling perspective and a restrained shadow. Keep Plus Jakarta Sans and original logo geometry/opacity. Reuse Motion for dialogs, cart lines and confirmation ticks; highlight changed amounts/status without remounting inputs or counting financial values. Keep rows still and honor reduced motion. Demo login has no artificial loading delay. Mobile modals become bottom sheets. A separate 26-second illustrative video uses sample data and explicitly labels browser-local POS storage. No live browser capture or source upload."
+    },
+    {
+      "date": "2026-10-28",
+      "scope": "PO forms and workspace copy",
+      "choice": "Put product names, SKU and item amounts first. Use a wide receipt dialog with one scrolling body and persistent actions; stack item fields on narrow screens. Explain required fields through a native form. Keep secondary notes, sample budgets and AI details collapsed. Shorten module copy while retaining local-data and simulation labels. Reuse project controls and retain the Inventora logo and Plus Jakarta Sans."
+    },
+    {
+      "date": "2026-10-28",
+      "scope": "Point of Sale",
+      "choice": "Keep the workspace type, tokens and shared controls. Use a searchable SKU catalogue beside a cash checkout form; label browser-local persistence and optional simulated tax explicitly. Show receipts only after the inventory and sales snapshot is saved. Public catalogue checkout patterns were consulted; no hosted generation or source upload."
+    },
     {
       "date": "2026-10-23",
       "scope": "Dashboard procurement",

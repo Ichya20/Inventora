@@ -1,0 +1,13 @@
+@startuml
+left to right direction
+skinparam monochrome true
+rectangle "Inventora Sumber daya manusia" {
+  usecase "UC-15\nMengelola data dan payroll karyawan" as UC15
+  usecase "UC-16\nMenjadwalkan onboarding" as UC16
+}
+actor "HR Manager atau Super Admin" as left0
+left0 -- UC15
+left0 -- UC16
+actor "Google Calendar" as right0
+right0 -- UC16
+@enduml

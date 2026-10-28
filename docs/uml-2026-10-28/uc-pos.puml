@@ -1,0 +1,11 @@
+@startuml
+left to right direction
+skinparam monochrome true
+rectangle "Inventora POS Penjualan" {
+  usecase "UC-18\nCheckout penjualan POS tunai" as UC18
+  usecase "UC-19\nMelihat riwayat dan mencetak ulang struk" as UC19
+}
+actor "Operator POS" as left0
+left0 -- UC18
+left0 -- UC19
+@enduml

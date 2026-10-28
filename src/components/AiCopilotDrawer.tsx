@@ -52,8 +52,12 @@ export function AiCopilotDrawer({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState('');
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -113,10 +117,17 @@ export function AiCopilotDrawer({
     }
   };
 
-  const copyToClipboard = (id: string, text: string) => {
-    navigator.clipboard.writeText(stripAiClutter(text));
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const copyToClipboard = async (id: string, text: string) => {
+    setCopyError('');
+    try {
+      await navigator.clipboard.writeText(stripAiClutter(text));
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      setCopiedId(id);
+      copyTimer.current = setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      setCopiedId(null);
+      setCopyError(lang === 'en' ? 'Could not copy. Select the response text to copy it manually.' : 'Belum dapat disalin. Pilih teks jawaban untuk menyalin secara manual.');
+    }
   };
 
   return (
@@ -188,7 +199,8 @@ export function AiCopilotDrawer({
                         {isAssistant && (
                           <button
                             type="button"
-                            onClick={() => copyToClipboard(m.id, m.text)}
+                            onClick={() => void copyToClipboard(m.id, m.text)}
+                            aria-label={copiedId === m.id ? (lang === 'en' ? 'Response copied' : 'Jawaban disalin') : (lang === 'en' ? 'Copy response' : 'Salin jawaban')}
                             className="opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity ml-2 inline-flex items-center gap-1 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
                             title={lang === 'en' ? 'Copy response' : 'Salin jawaban'}
                           >
@@ -246,6 +258,7 @@ export function AiCopilotDrawer({
 
             {/* Input Form */}
             <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#111]">
+              {copyError && <p role="alert" className="mb-3 text-xs text-rose-600 dark:text-rose-400">{copyError}</p>}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

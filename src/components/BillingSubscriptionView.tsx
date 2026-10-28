@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  CreditCard, ShieldCheck, Zap, CheckCircle2, Download, 
-  ArrowUpRight, Users, HardDrive, Cpu, AlertCircle, 
-  Building2, ChevronRight, Check, RefreshCw, X, Sparkles,
-  Receipt, FileText, Lock, Plus, ExternalLink
+  CreditCard, ShieldCheck, CheckCircle2, Download,
+  ArrowUpRight, Users, HardDrive, AlertCircle, Check, Sparkles,
+  Receipt, FileText, Plus
 } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
@@ -39,69 +38,54 @@ interface PlanDefinition {
 const PLANS: PlanDefinition[] = [
   {
     id: 'starter',
-    name: 'Starter Operations',
+    name: 'Starter',
     monthlyPrice: 750000,
     annualMonthlyPrice: 600000,
-    description: 'Essential procurement & stock control for single-facility businesses.',
+    description: 'Example plan for small teams.',
     userLimit: 3,
     aiReportLimit: 50,
     poLimit: 150,
     storageGb: 10,
-    features: [
-      'Single-warehouse inventory management',
-      'Basic Purchase Order generation',
-      'Standard PDF invoices & receipts',
-      'CSV data export & offline caching',
-      'Standard community support'
-    ]
+    features: ['3 team seats', '150 POs / month (example)', '10 GB storage (example)']
   },
   {
     id: 'business',
-    name: 'Business Scale',
-    badge: 'Popular for Mid-Market',
+    name: 'Business',
+    badge: '15 seats',
     monthlyPrice: 2250000,
     annualMonthlyPrice: 1800000,
-    description: 'Example plan for procurement, simulated payments & 3-way matching.',
+    description: 'Example plan for growing teams.',
     userLimit: 15,
     aiReportLimit: 250,
     poLimit: 1000,
     storageGb: 50,
-    features: [
-      'Multi-warehouse & location tracking',
-      'Automated 3-Way matching compliance',
-      'Local payment simulation',
-      'Role-based Access Control (4 roles)',
-      'Google Calendar HR onboarding sync',
-      'Sample capacity limits for planning'
-    ]
+    features: ['15 team seats', '1,000 POs / month (example)', '50 GB storage (example)']
   },
   {
     id: 'enterprise',
-    name: 'Enterprise AI & Autonomous Treasury',
-    badge: 'Example Enterprise Plan',
+    name: 'Enterprise',
+    badge: '50 seats',
     recommended: true,
     monthlyPrice: 5950000,
     annualMonthlyPrice: 4760000,
-    description: 'Example capacity tier with AI tools requiring configured services.',
+    description: 'Example plan for larger teams.',
     userLimit: 50,
     aiReportLimit: 'Unlimited',
     poLimit: 'Unlimited',
     storageGb: 250,
-    features: [
-      'Gemini AI tools (server API key required)',
-      'Server-side request limits',
-      'Local payment and payroll simulations',
-      'Local transaction and payroll history',
-      'Sample PDF invoices and payslips',
-      'Sample usage and capacity limits',
-      '50 sample user seats; optional seat add-ons'
-    ]
+    features: ['50 team seats', 'Unlimited POs (example)', '250 GB storage (example)']
   }
 ];
 
 export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubscriptionViewProps) {
   const activeT = t || defaultTranslations[lang] || defaultTranslations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
+  const planDescription = (plan: PlanDefinition) => lang === 'en' ? plan.description : ({
+    starter: 'Contoh paket untuk tim kecil.', business: 'Contoh paket untuk tim berkembang.', enterprise: 'Contoh paket untuk tim besar.'
+  })[plan.id];
+  const planFeatures = (plan: PlanDefinition) => lang === 'en' ? plan.features : [
+    `${plan.userLimit} anggota tim`, `${plan.poLimit === 'Unlimited' ? 'PO tanpa batas' : `${plan.poLimit.toLocaleString('id-ID')} PO / bulan`} (contoh)`, `${plan.storageGb} GB penyimpanan (contoh)`
+  ];
 
   // State: Add-on counters
   const [addons, setAddons] = useState(() => {
@@ -111,6 +95,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       dedicatedDatabase: false
     });
   });
+  const [addonDraft, setAddonDraft] = useState(addons);
 
   // State: Payment Method
   const [paymentMethod, setPaymentMethod] = useState(() => {
@@ -146,7 +131,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       period: '15 Sep 2026 - 14 Oct 2026',
       status: 'Lunas',
       client: 'PT INVENTORA NUSANTARA TEKNOLOGI',
-      planName: 'Enterprise AI & Autonomous Treasury',
+      planName: 'Enterprise',
       paymentMethod: 'Mastercard •••• 8824'
     },
     {
@@ -156,7 +141,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       period: '15 Aug 2026 - 14 Sep 2026',
       status: 'Lunas',
       client: 'PT INVENTORA NUSANTARA TEKNOLOGI',
-      planName: 'Enterprise AI & Autonomous Treasury',
+      planName: 'Enterprise',
       paymentMethod: 'Mastercard •••• 8824'
     },
     {
@@ -166,7 +151,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       period: '15 Jul 2026 - 14 Aug 2026',
       status: 'Lunas',
       client: 'PT INVENTORA NUSANTARA TEKNOLOGI',
-      planName: 'Enterprise AI & Autonomous Treasury',
+      planName: 'Enterprise',
       paymentMethod: 'Mastercard •••• 8824'
     }
   ]));
@@ -195,15 +180,22 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
   useEffect(() => { saveStoredData('inventora_subscription_v2', subscription); }, [subscription]);
 
   useEffect(() => {
-    saveStoredData('inventora_billing_addons_v1', addons);
-  }, [addons]);
-
-  useEffect(() => {
     saveStoredData('inventora_billing_pm_v1', paymentMethod);
   }, [paymentMethod]);
 
   const activePlan = PLANS.find(p => p.id === currentPlanId) || PLANS[2];
   const activePrice = subscription.cycle === 'annual' ? activePlan.annualMonthlyPrice : activePlan.monthlyPrice;
+
+  const handleSaveAddons = () => {
+    try {
+      saveStoredData('inventora_billing_addons_v1', addonDraft, true);
+      setAddons(addonDraft);
+      setIsAddonModalOpen(false);
+      onToast(lang === 'en' ? 'Sample capacity saved locally.' : 'Contoh kapasitas tersimpan lokal.', 'success');
+    } catch {
+      onToast(lang === 'en' ? 'Capacity could not be saved. No change applied.' : 'Kapasitas belum tersimpan. Perubahan belum diterapkan.', 'error');
+    }
+  };
 
   const handleConfirmPlanChange = (tier: SubscriptionTier) => {
     const newPlan = PLANS.find(p => p.id === tier);
@@ -264,22 +256,22 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-neutral-200 dark:border-neutral-800 pb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-500/10 text-[#0070f3] dark:text-[#3291ff] border border-blue-500/20 uppercase tracking-wider">
-              {lang === 'en' ? 'Billing Simulation' : 'Simulasi Tagihan & Langganan'}
+            <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-500/10 text-[#0070f3] dark:text-[#3291ff] border border-blue-500/20 ">
+              {lang === 'en' ? 'Local simulation' : 'Simulasi lokal'}
             </span>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-            {lang === 'en' ? 'Cloud Subscription & Capacity Management' : 'Kelola Paket Langganan & Kuota Cloud'}
+          <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
+            {lang === 'en' ? 'Subscription & billing' : 'Langganan dan tagihan'}
           </h2>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
             {lang === 'en' 
-              ? 'Simulate subscription plans and download sample invoices. Usage figures below are examples; no charges are made.'
-              : 'Simulasikan paket langganan dan unduh contoh invoice. Angka penggunaan di bawah adalah contoh; tidak ada pembayaran ditagih.'}
+              ? 'Example plans and invoices. No charges are made.'
+              : 'Contoh paket dan invoice. Tidak ada pembayaran ditagih.'}
           </p>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => setIsChangePlanOpen(true)}
@@ -302,24 +294,20 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       {/* Hero Active Plan Overview Banner */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Active Plan Detail Box */}
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-[#161616] dark:to-[#0f0f0f] text-white shadow-xl relative overflow-hidden border border-neutral-700/40">
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-            <Zap className="w-48 h-48 text-[#0070f3]" />
-          </div>
-
+        <div className="lg:col-span-2 p-6 rounded-2xl bg-neutral-900 dark:bg-[#161616] text-white shadow-sm relative overflow-hidden border border-neutral-700/40">
           <div className="relative z-10 space-y-6">
             <div className="flex items-start justify-between flex-wrap gap-3">
               <div>
                 <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#0070f3] text-white inline-flex items-center gap-1 mb-3">
                   <ShieldCheck className="w-3 h-3" />
-                  {activePlan.badge || 'Current Active Tier'}
+                  {activePlan.badge || 'Current plan'}
                 </span>
-                <h3 className="text-2xl font-bold tracking-tight text-white">{activePlan.name}</h3>
-                <p className="text-xs text-neutral-300 mt-1 max-w-lg">{activePlan.description}</p>
+                <h3 className="text-xl font-semibold tracking-tight text-white">{activePlan.name}</h3>
+                <p className="text-xs text-neutral-300 mt-1 max-w-lg">{planDescription(activePlan)}</p>
               </div>
 
               <div className="text-right">
-                <span className="text-3xl font-extrabold text-white tracking-tight">
+                <span className="text-3xl font-semibold text-white tracking-tight">
                   Rp {activePrice.toLocaleString(numLocale)}
                 </span>
                 <span className="text-xs text-neutral-400 block mt-0.5">
@@ -331,20 +319,20 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
             {/* Quick Specs Pill Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               <div className="p-3 rounded-xl bg-white/5 backdrop-blur-xs border border-white/10">
-                <span className="text-[11px] text-neutral-400 block uppercase font-medium">{lang === 'en' ? 'User Seats' : 'Lisensi Tim'}</span>
-                <span className="text-base font-bold text-white mt-0.5 block">{activePlan.userLimit + addons.extraSeats} Seats</span>
+                <span className="text-[11px] text-neutral-400 block font-medium">{lang === 'en' ? 'Team seats' : 'Anggota tim'}</span>
+                <span className="text-base font-semibold text-white mt-0.5 block">{activePlan.userLimit + addons.extraSeats} Seats</span>
               </div>
               <div className="p-3 rounded-xl bg-white/5 backdrop-blur-xs border border-white/10">
-                <span className="text-[11px] text-neutral-400 block uppercase font-medium">{lang === 'en' ? 'AI Inferences' : 'AI Copilot'}</span>
-                <span className="text-base font-bold text-white mt-0.5 block">{activePlan.aiReportLimit}</span>
+                <span className="text-[11px] text-neutral-400 block font-medium">{lang === 'en' ? 'AI reports' : 'Laporan AI'}</span>
+                <span className="text-base font-semibold text-white mt-0.5 block">{activePlan.aiReportLimit}</span>
               </div>
               <div className="p-3 rounded-xl bg-white/5 backdrop-blur-xs border border-white/10">
-                <span className="text-[11px] text-neutral-400 block uppercase font-medium">{lang === 'en' ? 'Doc Storage' : 'Kapasitas Cloud'}</span>
-                <span className="text-base font-bold text-white mt-0.5 block">{activePlan.storageGb} GB</span>
+                <span className="text-[11px] text-neutral-400 block font-medium">{lang === 'en' ? 'Storage' : 'Penyimpanan'}</span>
+                <span className="text-base font-semibold text-white mt-0.5 block">{activePlan.storageGb} GB</span>
               </div>
               <div className="p-3 rounded-xl bg-white/5 backdrop-blur-xs border border-white/10">
-                <span className="text-[11px] text-neutral-400 block uppercase font-medium">{lang === 'en' ? 'Example SLA Target' : 'Contoh Target SLA'}</span>
-                <span className="text-base font-bold text-emerald-400 mt-0.5 block">99.95% (example)</span>
+                <span className="text-[11px] text-neutral-400 block font-medium">{lang === 'en' ? 'Example SLA Target' : 'Contoh Target SLA'}</span>
+                <span className="text-base font-semibold text-emerald-400 mt-0.5 block">99.95% (example)</span>
               </div>
             </div>
 
@@ -373,8 +361,8 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
         <div className="p-6 rounded-2xl bg-white dark:bg-[#151515] border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                {lang === 'en' ? 'Payment Method on File' : 'Metode Pembayaran Aktif'}
+              <span className="text-xs font-semibold text-neutral-500">
+                {lang === 'en' ? 'Payment method' : 'Metode pembayaran'}
               </span>
               <Badge color="gray">{lang === 'en' ? 'Test label' : 'Label uji'}</Badge>
             </div>
@@ -387,7 +375,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                 <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {paymentMethod.brand} •••• {paymentMethod.last4}
                 </p>
-                <p className="text-xs text-neutral-500">Expires {paymentMethod.exp} • {paymentMethod.holder}</p>
+                <p className="text-xs text-neutral-500">{lang === 'en' ? 'Expires' : 'Berlaku hingga'} {paymentMethod.exp} · {paymentMethod.holder}</p>
               </div>
               <button
                 type="button"
@@ -399,15 +387,15 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
             </div>
 
             <div className="text-xs space-y-2 text-neutral-600 dark:text-neutral-400 pt-1">
-              <div className="flex justify-between">
+              <div className="flex flex-wrap justify-between gap-2">
                 <span>{lang === 'en' ? 'Billing Contact' : 'Kontak Penagihan'}:</span>
                 <span className="font-medium text-neutral-800 dark:text-neutral-200">{paymentMethod.billingEmail}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex flex-wrap justify-between gap-2">
                 <span>{lang === 'en' ? 'Tax Identification' : 'Identitas Pajak'}:</span>
                 <span className="text-neutral-800 dark:text-neutral-200">{lang === 'en' ? 'Not verified' : 'Belum diverifikasi'}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex flex-wrap justify-between gap-2">
                 <span>{lang === 'en' ? 'Tax Exemption Status' : 'Status Pajak'}:</span>
                 <span className="text-neutral-800 dark:text-neutral-200 font-medium">{lang === 'en' ? 'Sample PPN 11%' : 'Contoh PPN 11%'}</span>
               </div>
@@ -417,23 +405,22 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           <div className="pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-800">
             <button
               type="button"
-              onClick={() => setIsAddonModalOpen(true)}
+              onClick={() => { setAddonDraft(addons); setIsAddonModalOpen(true); }}
               className="w-full py-2 px-3 text-xs font-semibold rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 text-[#0070f3]" />
-              <span>{lang === 'en' ? 'Manage Add-on Capacity Packs' : 'Tambah Kuota Ekstra'}</span>
+              <span>{lang === 'en' ? 'Capacity add-ons' : 'Tambahan kapasitas'}</span>
             </button>
           </div>
         </div>
       </div>
 
+      <details className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <summary className="cursor-pointer text-sm font-medium">{lang === 'en' ? 'Example usage' : 'Contoh penggunaan'}</summary>
       {/* Operational Quota Consumption Meters */}
-      <div className="space-y-4">
+      <div className="space-y-4 pt-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-[#0070f3]" />
-            <span>{lang === 'en' ? 'Example Quota & Capacity Usage' : 'Penggunaan Kuota & Kapasitas Operasional'}</span>
-          </h3>
+
           <span className="text-xs text-neutral-500 font-mono">{lang === 'en' ? 'Quota example resets' : 'Reset contoh kuota'}: {quotaReset}</span>
         </div>
 
@@ -442,7 +429,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           <div className="p-4 rounded-xl bg-white dark:bg-[#151515] border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-xs font-semibold text-neutral-500 uppercase">{lang === 'en' ? 'Team Member Seats' : 'Lisensi Anggota Tim'}</span>
+                <span className="text-xs font-semibold text-neutral-500">{lang === 'en' ? 'Team seats' : 'Anggota tim'}</span>
                 <h4 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mt-0.5">5 / {activePlan.userLimit + addons.extraSeats}</h4>
               </div>
               <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-[#0070f3]">
@@ -461,7 +448,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           <div className="p-4 rounded-xl bg-white dark:bg-[#151515] border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-xs font-semibold text-neutral-500 uppercase">{lang === 'en' ? 'Monthly PO Flow' : 'Volume Nilai PO Bulanan'}</span>
+                <span className="text-xs font-semibold text-neutral-500">{lang === 'en' ? 'PO volume' : 'Nilai PO'}</span>
                 <h4 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mt-0.5">Rp 1.48B</h4>
               </div>
               <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">
@@ -480,7 +467,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           <div className="p-4 rounded-xl bg-white dark:bg-[#151515] border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-xs font-semibold text-neutral-500 uppercase">{lang === 'en' ? 'Gemini AI Inferences' : 'Inferensi AI Copilot'}</span>
+                <span className="text-xs font-semibold text-neutral-500">{lang === 'en' ? 'Gemini AI reports' : 'Inferensi Laporan AI'}</span>
                 <h4 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mt-0.5">
                   142 {activePlan.aiReportLimit === 'Unlimited' ? '/ ∞' : `/ ${activePlan.aiReportLimit}`}
                 </h4>
@@ -493,7 +480,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
               <div className="h-full rounded-full bg-purple-500" style={{ width: '28%' }} />
             </div>
             <span className="text-[11px] text-neutral-500 block">
-              {lang === 'en' ? 'Executive analytics & reorder predictions' : 'Analisis eksekutif & prakiraan reorder'}
+              {lang === 'en' ? 'Analysis and restock forecasts' : 'Analisis dan perkiraan restock'}
             </span>
           </div>
 
@@ -501,7 +488,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           <div className="p-4 rounded-xl bg-white dark:bg-[#151515] border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-xs font-semibold text-neutral-500 uppercase">{lang === 'en' ? 'Document Storage' : 'Penyimpanan Dokumen'}</span>
+                <span className="text-xs font-semibold text-neutral-500">{lang === 'en' ? 'Document Storage' : 'Penyimpanan Dokumen'}</span>
                 <h4 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mt-0.5">18.4 / {activePlan.storageGb} GB</h4>
               </div>
               <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600">
@@ -518,15 +505,17 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
         </div>
       </div>
 
+      </details>
+
+      <details className="border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <summary className="cursor-pointer text-sm font-medium">{lang === 'en' ? 'Compare plans' : 'Bandingkan paket'}</summary>
       {/* Plan Comparison & Tiers */}
-      <div className="space-y-6 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+      <div className="space-y-6 pt-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">
-              {lang === 'en' ? 'Compare Operational Plans' : 'Pilihan Paket Operasional'}
-            </h3>
+
             <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              {lang === 'en' ? 'Scale your license tier based on headcount, supply chain footprint, and AI automation.' : 'Sesuaikan skala lisensi sesuai jumlah personil, jangkauan gudang, dan otomatisasi AI.'}
+              {lang === 'en' ? 'Compare sample capacity and prices.' : 'Bandingkan contoh kapasitas dan harga.'}
             </p>
           </div>
 
@@ -577,7 +566,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                 <div className="space-y-4">
                   {/* Top Badge */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                    <span className="text-xs font-semibold text-neutral-500">
                       {plan.name}
                     </span>
                     {isCurrent ? (
@@ -594,17 +583,17 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                   {/* Pricing */}
                   <div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-extrabold text-neutral-900 dark:text-neutral-100">
+                      <span className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
                         Rp {price.toLocaleString(numLocale)}
                       </span>
                       <span className="text-xs text-neutral-500">/ {lang === 'en' ? 'mo' : 'bln'}</span>
                     </div>
-                    <p className="text-xs text-neutral-500 mt-1">{plan.description}</p>
+                    <p className="text-xs text-neutral-500 mt-1">{planDescription(plan)}</p>
                   </div>
 
                   {/* Features List */}
                   <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 space-y-2.5">
-                    {plan.features.map((feat, i) => (
+                    {planFeatures(plan).map((feat, i) => (
                       <div key={i} className="flex items-start gap-2 text-xs text-neutral-700 dark:text-neutral-300">
                         <Check className="w-3.5 h-3.5 text-[#0070f3] shrink-0 mt-0.5" />
                         <span>{feat}</span>
@@ -620,7 +609,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                       className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 select-none flex items-center justify-center gap-1.5 border border-neutral-200 dark:border-neutral-700/60"
                     >
                       <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>{lang === 'en' ? 'Active Subscription' : 'Paket Langganan Aktif'}</span>
+                      <span>{lang === 'en' ? 'Current plan' : 'Paket aktif'}</span>
                     </div>
                   ) : (
                     <button
@@ -646,18 +635,20 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
         </div>
       </div>
 
+      </details>
+
       {/* Subscription Invoices History Table */}
       <div className="space-y-4 pt-4 border-t border-neutral-200 dark:border-neutral-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
               <FileText className="w-4 h-4 text-[#0070f3]" />
               <span>{lang === 'en' ? 'Subscription Invoice Records' : 'Riwayat Invoice Langganan'}</span>
             </h3>
             <p className="text-xs text-neutral-600 dark:text-neutral-400">
               {lang === 'en' 
-                ? 'Sample PDF invoices for local records. These are not signed tax invoices.'
-                : 'Contoh invoice PDF untuk arsip lokal. Dokumen ini bukan faktur pajak bertanda tangan digital.'}
+                ? 'Local sample invoices · not tax invoices.'
+                : 'Contoh invoice lokal · bukan faktur pajak.'}
             </p>
           </div>
           <button
@@ -734,26 +725,9 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
         </TableWrapper>
       </div>
 
-      {/* Enterprise Custom SLA Banner */}
-      <div className="p-6 rounded-2xl bg-neutral-100 dark:bg-[#181818] border border-neutral-200 dark:border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="space-y-1 text-center md:text-left">
-          <h4 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center justify-center md:justify-start gap-1.5">
-            <Building2 className="w-4 h-4 text-[#0070f3]" />
-            <span>{lang === 'en' ? 'Need Multi-Entity Holding ERP or Custom Data Residency?' : 'Butuh ERP Konsolidasi Holding atau Data Residency Khusus?'}</span>
-          </h4>
-          <p className="text-xs text-neutral-600 dark:text-neutral-400 max-w-2xl">
-            {lang === 'en'
-              ? 'Record requirements for a future implementation. Custom hosting, banking integrations and service agreements require separate setup.'
-              : 'Catat kebutuhan untuk implementasi berikutnya. Hosting kustom, integrasi perbankan dan perjanjian layanan memerlukan penyiapan terpisah.'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsContactSalesOpen(true)}
-          className="px-4 py-2 text-xs font-semibold rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-[#0070f3] dark:hover:bg-[#0070f3] hover:text-white dark:hover:text-white transition-colors cursor-pointer shrink-0"
-        >
-          {lang === 'en' ? 'Draft Requirements' : 'Draf Kebutuhan'}
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 dark:border-neutral-800 pt-4">
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">{lang === 'en' ? 'Additional requirements' : 'Kebutuhan tambahan'}</p>
+        <Button variant="secondary" onClick={() => setIsContactSalesOpen(true)}>{lang === 'en' ? 'Draft requirements' : 'Draf kebutuhan'}</Button>
       </div>
 
       {/* ========================================================================= */}
@@ -765,13 +739,13 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           setIsChangePlanOpen(false);
           setSelectedPlanForUpgrade(null);
         }}
-        title={lang === 'en' ? 'Confirm Plan Modification' : 'Konfirmasi Perubahan Paket'}
+        title={lang === 'en' ? 'Change plan' : 'Ubah paket'}
       >
         <div className="space-y-5">
           <p className="text-xs text-neutral-600 dark:text-neutral-400">
             {lang === 'en' 
-              ? 'Choose a simulated plan. Confirmation starts a new full cycle today; annual invoices cover 12 months. No proration or real charge is performed.'
-              : 'Pilih paket simulasi. Konfirmasi memulai siklus penuh hari ini; invoice tahunan mencakup 12 bulan. Tidak ada prorata atau tagihan nyata.'}
+              ? 'Start a new simulation cycle today. Annual invoices cover 12 months; no charges or proration.'
+              : 'Mulai siklus simulasi hari ini. Invoice tahunan mencakup 12 bulan; tanpa tagihan atau prorata.'}
           </p>
 
           <div className="space-y-3">
@@ -780,10 +754,12 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
               const price = billingCycle === 'annual' ? plan.annualMonthlyPrice : plan.monthlyPrice;
 
               return (
-                <div
+                <button
                   key={plan.id}
+                  type="button"
+                  aria-pressed={isSelected}
                   onClick={() => setSelectedPlanForUpgrade(plan.id)}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`w-full text-left p-4 rounded-xl border-2 cursor-pointer transition-all ${
                     isSelected
                       ? 'border-[#0070f3] bg-blue-50/30 dark:bg-blue-950/20 shadow-xs'
                       : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
@@ -795,32 +771,32 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                         <h5 className="font-bold text-sm text-neutral-900 dark:text-neutral-100">{plan.name}</h5>
                         {plan.id === currentPlanId && (
                           <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
-                            Current
+                            {lang === 'en' ? 'Current' : 'Aktif'}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-neutral-500 mt-0.5">{plan.description}</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">{planDescription(plan)}</p>
                     </div>
                     <div className="text-right">
-                      <span className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                      <span className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
                         Rp {price.toLocaleString(numLocale)}
                       </span>
                       <span className="text-[11px] text-neutral-500 block">/ bln</span>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
 
           <div className="p-3 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400 space-y-1">
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-2">
               <span>{lang === 'en' ? 'Current Cycle Terms:' : 'Ketentuan Penagihan:'}</span>
               <span className="font-medium text-neutral-900 dark:text-neutral-100">
                 {billingCycle === 'annual' ? (lang === 'en' ? 'Annual (20% Savings)' : 'Tahunan (Hemat 20%)') : (lang === 'en' ? 'Monthly Standard' : 'Bulanan')}
               </span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-2">
               <span>{lang === 'en' ? 'Payment Source:' : 'Sumber Dana:'}</span>
               <span className="font-mono text-neutral-900 dark:text-neutral-100">{paymentMethod.brand} •••• {paymentMethod.last4}</span>
             </div>
@@ -850,7 +826,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       <Modal
         isOpen={isUpdatePmOpen}
         onClose={() => setIsUpdatePmOpen(false)}
-        title={lang === 'en' ? 'Update Corporate Payment Method' : 'Perbarui Metode Pembayaran Perusahaan'}
+        title={lang === 'en' ? 'Edit sample payment method' : 'Ubah contoh metode bayar'}
       >
         <form onSubmit={handleSavePaymentMethod} className="space-y-4">
           <p className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -941,13 +917,13 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       <Modal
         isOpen={isAddonModalOpen}
         onClose={() => setIsAddonModalOpen(false)}
-        title={lang === 'en' ? 'Modular Capacity Add-on Packs' : 'Tambah Paket Kapasitas Modular'}
+        title={lang === 'en' ? 'Capacity add-ons' : 'Tambahan kapasitas'}
       >
         <div className="space-y-4">
           <p className="text-xs text-neutral-600 dark:text-neutral-400">
             {lang === 'en'
-              ? 'Need more capacity without jumping to a higher tier? Attach monthly modular capacity packs directly to your active billing cycle.'
-              : 'Butuh tambahan kuota tanpa harus mengganti paket utama? Tambahkan paket kapasitas modular langsung ke siklus tagihan aktif Anda.'}
+              ? 'Adjust sample capacity. Changes apply only after saving; no charge is made.'
+              : 'Atur contoh kapasitas. Perubahan diterapkan setelah disimpan; tidak ada biaya ditagih.'}
           </p>
 
           <div className="space-y-3">
@@ -956,23 +932,25 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
               <div>
                 <h5 className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-[#0070f3]" />
-                  <span>+5 Additional Team Member Seats</span>
+                  <span>{lang === 'en' ? '+5 team seats' : '+5 anggota tim'}</span>
                 </h5>
-                <p className="text-[11px] text-neutral-500 mt-0.5">Rp 350.000 / month</p>
+                <p className="text-[11px] text-neutral-500 mt-0.5">{lang === 'en' ? 'Rp 350,000 / month (example)' : 'Rp 350.000 / bulan (contoh)'}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setAddons(prev => ({ ...prev, extraSeats: Math.max(0, prev.extraSeats - 5) }))}
-                  disabled={addons.extraSeats === 0}
+                  onClick={() => setAddonDraft(prev => ({ ...prev, extraSeats: Math.max(0, prev.extraSeats - 5) }))}
+                  aria-label={lang === 'en' ? 'Remove 5 seats' : 'Kurangi 5 anggota'}
+                  disabled={addonDraft.extraSeats === 0}
                   className="w-7 h-7 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs font-bold disabled:opacity-40 cursor-pointer"
                 >
                   -
                 </button>
-                <span className="font-mono text-xs font-bold w-6 text-center">{addons.extraSeats}</span>
+                <span className="font-mono text-xs font-bold w-6 text-center">{addonDraft.extraSeats}</span>
                 <button
                   type="button"
-                  onClick={() => setAddons(prev => ({ ...prev, extraSeats: prev.extraSeats + 5 }))}
+                  aria-label={lang === 'en' ? 'Add 5 seats' : 'Tambah 5 anggota'}
+                  onClick={() => setAddonDraft(prev => ({ ...prev, extraSeats: prev.extraSeats + 5 }))}
                   className="w-7 h-7 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
                 >
                   +
@@ -991,14 +969,15 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
               </div>
               <button
                 type="button"
-                onClick={() => setAddons(prev => ({ ...prev, dedicatedDatabase: !prev.dedicatedDatabase }))}
+                aria-pressed={addonDraft.dedicatedDatabase}
+                onClick={() => setAddonDraft(prev => ({ ...prev, dedicatedDatabase: !prev.dedicatedDatabase }))}
                 className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                  addons.dedicatedDatabase
+                  addonDraft.dedicatedDatabase
                     ? 'bg-purple-600 text-white'
                     : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
                 }`}
               >
-                {addons.dedicatedDatabase ? 'Active' : 'Add Pack'}
+                {addonDraft.dedicatedDatabase ? (lang === 'en' ? 'Selected' : 'Dipilih') : (lang === 'en' ? 'Add' : 'Tambah')}
               </button>
             </div>
           </div>
@@ -1007,10 +986,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
             <Button variant="secondary" onClick={() => setIsAddonModalOpen(false)}>
               {activeT.common.cancel}
             </Button>
-            <Button variant="primary" onClick={() => {
-              setIsAddonModalOpen(false);
-              onToast(lang === 'en' ? 'Add-on capacity updated successfully' : 'Kapasitas add-on berhasil diperbarui', 'success');
-            }}>
+            <Button variant="primary" onClick={handleSaveAddons}>
               {lang === 'en' ? 'Save & Apply Changes' : 'Simpan Perubahan'}
             </Button>
           </div>
@@ -1045,8 +1021,8 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
         >
           <p className="text-xs text-neutral-600 dark:text-neutral-400">
             {lang === 'en'
-              ? 'Keep a local draft of your headcount, expected PO volume and integration requirements. This form does not contact a sales team.'
-              : 'Simpan draf lokal jumlah personel, estimasi volume PO dan kebutuhan integrasi. Formulir ini tidak menghubungi tim penjualan.'
+              ? 'Save requirements in this browser. No message will be sent.'
+              : 'Simpan kebutuhan di browser ini. Tidak ada pesan yang dikirim.'
             }
           </p>
 
@@ -1081,7 +1057,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       <Modal
         isOpen={isCancelModalOpen}
         onClose={() => setIsCancelModalOpen(false)}
-        title={lang === 'en' ? 'Subscription Cancellation Policy' : 'Ketentuan Pembatalan Langganan'}
+        title={lang === 'en' ? 'Pause renewal' : 'Jeda perpanjangan'}
       >
         <div className="space-y-4">
           <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
@@ -1092,8 +1068,8 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
               </p>
               <p className="text-[11px] leading-relaxed">
                 {lang === 'en'
-                  ? 'Pausing stops the simulated cycle from renewing. Local records and module access are preserved. No subscription charges are made.'
-                  : 'Jeda menghentikan perpanjangan siklus simulasi. Catatan lokal dan akses modul tetap tersedia. Tidak ada biaya langganan ditagih.'}
+                  ? 'Pause the simulated cycle. Local records and module access stay available.'
+                  : 'Jeda siklus simulasi. Data lokal dan akses modul tetap tersedia.'}
               </p>
             </div>
           </div>
@@ -1114,7 +1090,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
               }}
               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
             >
-              {lang === 'en' ? 'Confirm Pause Auto-Renewal' : 'Jeda Perpanjangan Otomatis'}
+              {lang === 'en' ? 'Pause renewal' : 'Jeda perpanjangan'}
             </Button>
           </div>
         </div>

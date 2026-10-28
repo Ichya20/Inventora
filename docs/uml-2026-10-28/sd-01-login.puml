@@ -1,0 +1,19 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Pengguna" as P0
+participant "Login / Dashboard" as P1
+participant "Firebase Auth" as P2
+participant "Otorisasi UI" as P3
+P0 -> P1: Pilih Masuk Google
+P1 -> P2: signInWithPopup()
+P2 --> P1: Identitas dan sesi
+P1 -> P2: getIdTokenResult()
+P2 --> P1: Klaim role
+P1 -> P3: Periksa role dan menu
+P3 --> P1: Izin atau penolakan
+P1 --> P0: Dashboard sesuai izin
+P0 -> P1: Pilih Keluar
+P1 -> P2: signOut()
+P1 --> P0: Halaman masuk
+@enduml

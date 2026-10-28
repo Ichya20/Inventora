@@ -12,6 +12,7 @@ import { businessDate } from '../src/lib/businessDates';
 import { ApiError } from '../src/lib/apiError';
 import { readStoredArray, saveStoredData } from '../src/lib/storageUtils';
 import { isInventoryList } from '../src/lib/inventory';
+import { readCommerce } from '../src/lib/commerce';
 import { jsPDF } from 'jspdf';
 import { downloadPurchaseOrderPdf } from '../src/lib/pdfGenerator';
 
@@ -167,7 +168,7 @@ test('long procurement notes reach the final PDF page without dropping the last 
 function inventoryState(raw?: string, failRead = false) {
   const data = memoryStorage(raw === undefined ? {} : { inventora_inventory_v1: raw }, failRead);
   const defaults = [{ id: 'SKU-1', name: 'Server', desc: '', stock: 2 }];
-  const context = vm.createContext({ defaultItems: defaults, readStoredArray, isInventoryList });
+  const context = vm.createContext({ defaultItems: defaults, readStoredArray, isInventoryList, readCommerce });
   return { data, state: evaluate(initializer(inventory, '[inventoryState, setInventoryState]').arguments[0].getText(), context)() };
 }
 

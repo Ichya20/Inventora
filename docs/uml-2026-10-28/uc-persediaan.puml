@@ -1,0 +1,13 @@
+@startuml
+left to right direction
+skinparam monochrome true
+rectangle "Inventora Persediaan dan pengajuan" {
+  usecase "UC-05\nMemantau dan menggunakan stok" as UC5
+  usecase "UC-06\nMenyusun draf restock" as UC6
+  usecase "UC-07\nMembuat purchase order" as UC7
+}
+actor "Warehouse Manager atau Super Admin" as left0
+left0 -- UC5
+left0 -- UC6
+left0 -- UC7
+@enduml

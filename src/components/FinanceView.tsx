@@ -1,6 +1,5 @@
 import { markLocalInvoicePaid, reminderDraft } from '../lib/localFinance';
 import React, { useState, useEffect } from 'react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { Printer, FileText, CheckCircle2, ShieldCheck, Building2, Download } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
@@ -45,13 +44,6 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
   const itemsPerPage = 3;
   const [sortConfig, setSortConfig] = useState<{ key: keyof typeof invoices[0], direction: 'asc' | 'desc' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-
-  const chartData = [
-    { name: 'Week 1', rev: 400 },
-    { name: 'Week 2', rev: 300 },
-    { name: 'Week 3', rev: 500 },
-    { name: 'Week 4', rev: 800 },
-  ];
 
   const handleSort = (key: keyof typeof invoices[0]) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -128,55 +120,19 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
 
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <p className="text-xs text-neutral-500">{lang === 'en' ? 'Local finance simulation. Summary charts show examples; invoice status is saved in this browser.' : 'Simulasi keuangan lokal. Grafik ringkasan berisi contoh; status faktur disimpan pada browser ini.'}</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
+      <p className="text-xs text-neutral-500">{lang === 'en' ? 'Local simulation · invoice status saved in this browser.' : 'Simulasi lokal · status faktur disimpan di browser ini.'}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0">
         <Card>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
-                {activeT.finance.totalRevenueMonth}
-              </p>
-              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-                {lang === 'en' ? 'Rp 12.8B' : 'Rp 12,8 M'}
-              </h3>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-                <span className="text-[#10b981] dark:text-[#34d399] font-medium">+18%</span> {activeT.finance.targetOverachieved}
-              </p>
-            </div>
-            <div className="w-24 h-16">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="rev" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <p className="text-sm text-[var(--ws-muted)]">{lang === 'en' ? 'Paid invoices' : 'Faktur lunas'}</p>
+          <h3 className="text-2xl font-semibold tracking-tight mt-1 tabular-nums">Rp {invoices.filter(invoice => invoice.status === 'Lunas').reduce((sum, invoice) => sum + invoice.total, 0).toLocaleString(numLocale)}</h3>
         </Card>
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
-            {activeT.finance.outstandingInvoices}
-          </p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-            {lang === 'en' ? 'Rp 3.1B' : 'Rp 3,1 M'}
-          </h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-            <span className="text-[#e00] dark:text-[#ff3333] font-medium">4 Invoices</span> {activeT.finance.overdueInvoices}
-          </p>
+          <p className="text-sm text-[var(--ws-muted)]">{lang === 'en' ? 'Unpaid invoices' : 'Faktur belum lunas'}</p>
+          <h3 className="text-2xl font-semibold tracking-tight mt-1 tabular-nums">Rp {invoices.filter(invoice => invoice.status !== 'Lunas').reduce((sum, invoice) => sum + invoice.total, 0).toLocaleString(numLocale)}</h3>
         </Card>
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
-            {activeT.finance.cashEquivalents}
-          </p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-            {lang === 'en' ? 'Rp 45.2B' : 'Rp 45,2 M'}
-          </h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">{activeT.finance.liquiditySafe}</p>
+          <p className="text-sm text-[var(--ws-muted)]">{lang === 'en' ? 'Overdue' : 'Lewat jatuh tempo'}</p>
+          <h3 className="text-2xl font-semibold tracking-tight mt-1 tabular-nums">{invoices.filter(invoice => invoice.status === 'Overdue').length} <span className="text-sm font-normal text-[var(--ws-muted)]">{lang === 'en' ? 'invoices' : 'faktur'}</span></h3>
         </Card>
       </div>
 
@@ -291,12 +247,12 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                   </div>
                   <h4 className="text-lg font-bold tracking-tight text-[#171717] dark:text-[#ededed]">PT INVENTORA NUSANTARA</h4>
                 </div>
-                <p className="text-xs text-[#666] dark:text-[#a1a1aa]">{lang === 'en' ? 'Official Payment Receipt & Tax Voucher' : 'Bukti Pembayaran Resmi & Faktur Pelunasan'}</p>
+                <p className="text-xs text-[#666] dark:text-[#a1a1aa]">{lang === 'en' ? 'Local payment receipt' : 'Bukti pembayaran lokal'}</p>
               </div>
               <div className="text-right">
                 <Badge color="green">{lang === 'en' ? 'Paid in Full' : 'Lunas Penuh'}</Badge>
                 <div className="mt-1 text-[11px] text-[#666] dark:text-[#aaa] font-mono">
-                  {lang === 'en' ? 'Stamp Duty: PAID' : 'Bea Meterai: LUNAS'}
+                  {lang === 'en' ? 'Simulation · no bank transfer' : 'Simulasi · tanpa transfer bank'}
                 </div>
               </div>
             </div>
@@ -307,11 +263,11 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 <p className="font-mono font-semibold text-[#171717] dark:text-[#ededed]">{activeModal.data.id}</p>
               </div>
               <div className="p-3 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{lang === 'en' ? 'Payment Settlement Date' : 'Tanggal Pelunasan'}</p>
+                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{lang === 'en' ? 'Invoice date' : 'Tanggal faktur'}</p>
                 <p className="font-medium text-[#171717] dark:text-[#ededed]">{activeModal.data.date}</p>
               </div>
               <div className="col-span-2 p-3 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800">
-                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{lang === 'en' ? 'Billed Entity' : 'Entitas Pembayar'}</p>
+                <p className="text-[#666] dark:text-[#a1a1aa] mb-1 font-medium">{lang === 'en' ? 'Customer' : 'Pelanggan'}</p>
                 <p className="font-semibold text-base text-[#171717] dark:text-[#ededed]">{activeModal.data.client}</p>
                 <p className="text-xs text-[#666] dark:text-[#aaa] mt-0.5">{activeModal.data.desc}</p>
               </div>
@@ -320,10 +276,10 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
             <div className="p-4 bg-[#fafafa] dark:bg-[#181818] rounded-xl border border-neutral-200 dark:border-neutral-800 flex justify-between items-center">
               <div>
                 <span className="text-[#666] dark:text-[#a1a1aa] text-xs uppercase tracking-wider block font-semibold">
-                  {lang === 'en' ? 'Total Settled Amount' : 'Total Dana Diterima'}
+                  {lang === 'en' ? 'Recorded amount' : 'Nominal tercatat'}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  {lang === 'en' ? 'Includes PPN 11% & WHT Cleared' : 'Termasuk PPN 11% & Bukti Potong PPh'}
+                  {lang === 'en' ? 'Based on the invoice record' : 'Berdasarkan data faktur'}
                 </span>
               </div>
               <span className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
@@ -335,7 +291,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
               <span>Ref: TRX-REC-{activeModal.data.id}</span>
               <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                {lang === 'en' ? 'Verified Banking Clearing' : 'Kliring Perbankan Terverifikasi'}
+                {lang === 'en' ? 'Saved locally' : 'Tersimpan lokal'}
               </span>
             </div>
 
@@ -442,7 +398,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
                   <tr>
                     <td className="px-3.5 py-3">
-                      <p className="font-medium text-neutral-900 dark:text-neutral-100">Enterprise Cloud & Infrastructure Services</p>
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100">Cloud & infrastructure services</p>
                       <p className="text-[11px] text-neutral-500">Service Period: Current Billing Cycle</p>
                     </td>
                     <td className="px-3.5 py-3 text-right tabular-nums">
@@ -463,7 +419,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
             <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 text-xs">
               <p className="font-semibold text-blue-900 dark:text-blue-300 mb-1 flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                {lang === 'en' ? 'Corporate Remittance Instructions' : 'Instruksi Transfer Bank Perusahaan'}
+                {lang === 'en' ? 'Example bank details · simulation' : 'Contoh rekening · simulasi'}
               </p>
               <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-300 mt-2">
                 <div>
@@ -525,8 +481,8 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
               </p>
               <p className="mt-2 text-[#666] dark:text-[#a1a1aa]">
                 {lang === 'en'
-                  ? "The .eml file opens as a draft in an email app. Check the recipient and content before sending. No email has been sent yet."
-                  : "File .eml dapat dibuka sebagai draf di aplikasi email. Periksa penerima dan isinya sebelum mengirim. Email belum dikirim."}
+                  ? "Download an email draft, review it, then send it from your email app."
+                  : "Unduh draf email, periksa isinya, lalu kirim melalui aplikasi email."}
               </p>
             </div>
 

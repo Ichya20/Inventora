@@ -1,0 +1,20 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Operator POS" as P0
+participant "PosView" as P1
+participant "commerce.ts" as P2
+participant "saleReceipt.ts" as P3
+P0 -> P1: Isi SKU, harga, jumlah
+dan pembayaran
+P1 -> P2: checkoutSale(requestId)
+P2 -> P2: Kunci dan validasi ulang
+P2 -> P2: Commit penjualan dan stok
+P2 --> P1: Transaksi dan kembalian
+P1 --> P0: Ringkasan struk tersimpan
+P0 -> P1: Pilih Cetak / Unduh PDF
+P1 -> P3: Buat struk dari transaksi
+P3 --> P0: PDF atau cetak
+P0 -> P1: Pilih transaksi riwayat
+P1 -> P3: Cetak ulang snapshot
+@enduml

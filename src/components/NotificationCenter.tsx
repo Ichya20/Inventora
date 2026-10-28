@@ -74,6 +74,7 @@ export function NotificationCenter({
         type="button"
         ref={triggerRef}
         aria-expanded={isOpen} aria-controls={panelId}
+        aria-label={`${activeT.notifications.centerTitle}${unreadCount ? `, ${unreadCount} ${lang === 'en' ? 'unread' : 'belum dibaca'}` : ''}`}
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg text-[#666] dark:text-[#a1a1aa] hover:text-[#171717] dark:hover:text-[#ededed] hover:bg-[#fafafa] dark:hover:bg-[#1f1f1f] transition-colors cursor-pointer"
         title={activeT.notifications.centerTitle}
@@ -116,6 +117,7 @@ export function NotificationCenter({
                     type="button"
                     onClick={onMarkAllAsRead}
                     title={activeT.notifications.markAllRead}
+                    aria-label={activeT.notifications.markAllRead}
                     className="p-1 text-xs text-[#666] dark:text-[#aaa] hover:text-[#0070f3] dark:hover:text-[#3291ff] rounded hover:bg-white dark:hover:bg-[#222] transition-colors cursor-pointer"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
@@ -126,6 +128,7 @@ export function NotificationCenter({
                     type="button"
                     onClick={onClearAll}
                     title={activeT.notifications.clearAll}
+                    aria-label={activeT.notifications.clearAll}
                     className="p-1 text-xs text-[#666] dark:text-[#aaa] hover:text-red-600 rounded hover:bg-white dark:hover:bg-[#222] transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -176,14 +179,13 @@ export function NotificationCenter({
               {filteredNotifications.length > 0 ? (
                 filteredNotifications.map((notif) => {
                   const isPayment = notif.type === 'payment';
+                  const canOpen = !!onSelectNotification && !!notif.metadata?.poId;
+                  const Item = canOpen ? 'button' : 'div';
                   return (
-                    <button
-                      type="button"
+                    <Item
+                      {...(canOpen ? { type: 'button' as const, onClick: () => { onSelectNotification!(notif); setIsOpen(false); triggerRef.current?.focus(); } } : {})}
                       key={notif.id}
-                      onClick={() => {
-                        if (onSelectNotification) { onSelectNotification(notif); setIsOpen(false); triggerRef.current?.focus(); }
-                      }}
-                      className={`w-full text-left p-3.5 hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] transition-colors cursor-pointer flex items-start gap-3 ${
+                      className={`w-full text-left p-3.5 transition-colors flex items-start gap-3 ${canOpen ? 'hover:bg-[#fafafa] dark:hover:bg-[#1a1a1a] cursor-pointer' : ''} ${
                         !notif.read ? 'bg-blue-50/30 dark:bg-blue-950/15' : ''
                       }`}
                     >
@@ -232,7 +234,7 @@ export function NotificationCenter({
                           </div>
                         )}
                       </div>
-                    </button>
+                    </Item>
                   );
                 })
               ) : (

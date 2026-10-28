@@ -91,20 +91,28 @@ export function useGlobalHotkeys({
   const [pendingSequence, setPendingSequence] = useState<string | null>(null);
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
+    if (!pendingSequence) return;
+    const timeout = setTimeout(() => setPendingSequence(null), 1200);
+    return () => clearTimeout(timeout);
+  }, [pendingSequence]);
 
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.repeat) return;
       // Allow Cmd+K and Cmd+J even inside or outside inputs
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
         e.preventDefault();
+        setPendingSequence(null);
         onToggleCopilot?.();
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        setPendingSequence(null);
         onToggleCmdK?.();
         return;
       }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       const target = e.target as HTMLElement;
       const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
@@ -142,17 +150,12 @@ export function useGlobalHotkeys({
 
       if (key === 'g' || key === 'n') {
         setPendingSequence(key);
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-          setPendingSequence(null);
-        }, 1200);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(timeout);
     };
   }, [pendingSequence, onNavigate, onNewPo, onOpenHelp, onToggleCmdK, onToggleCopilot]);
 

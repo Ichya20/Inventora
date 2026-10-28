@@ -1,0 +1,19 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Pengguna" as P0
+participant "OverviewView" as P1
+participant "Ringkasan data" as P2
+participant "Firestore / lokal" as P3
+P0 -> P1: Buka dashboard
+P1 -> P2: Minta data sesuai role
+P2 -> P3: onSnapshot PO / baca lokal
+P3 --> P2: Data atau belum tersedia
+P2 --> P1: Metrik dan daftar PO
+P0 -> P1: Pilih tahap PO
+P1 -> P1: Saring daftar terbaru
+P0 -> P1: Pilih satu pesanan
+P1 --> P0: Buka panel detail PO
+P3 --> P2: Perubahan data PO
+P2 --> P1: Perbarui rincian aktif
+@enduml

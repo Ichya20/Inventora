@@ -1,0 +1,20 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Gudang / Admin" as P0
+participant "Pemeriksaan GRN" as P1
+participant "Express / Admin" as P2
+participant "Firestore" as P3
+P0 -> P1: Isi GRN, qty dan kondisi
+P1 -> P1: Pratinjau hasil pencocokan
+P0 -> P1: Simpan penerimaan
+P1 -> P2: POST PO/{id}/receipt
+P2 -> P2: Verifikasi token dan role
+P2 -> P3: Transaksi baca PO terbaru
+P3 --> P2: Rincian pesanan
+P2 -> P2: Validasi item dan kondisi
+P2 -> P3: Simpan GRN dan verifikator
+P3 --> P2: Commit berhasil
+P2 --> P1: MATCHED / DISCREPANCY
+P1 --> P0: Tampilkan status penerimaan
+@enduml

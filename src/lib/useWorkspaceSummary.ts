@@ -4,6 +4,7 @@ import { canAccessMenu } from './authorization';
 import { poStorageKey } from './procurement';
 import { summarizePurchaseOrders } from './workspaceSummary';
 import { stockHealth, isInventoryList } from './inventory';
+import { COMMERCE_KEY, readCommerce } from './commerce';
 
 export function useWorkspaceSummary(isDemo: boolean, ownerId: string, role: Role | null) {
   const [revision, setRevision] = useState(0);
@@ -38,7 +39,12 @@ export function useWorkspaceSummary(isDemo: boolean, ownerId: string, role: Role
   // Reading on every revision also covers same-tab writes from the individual modules.
   void revision;
   const orders = !canAccessMenu(role, 'po') ? null : isDemo ? readArray(poStorageKey(true, ownerId)) : cloud?.ownerId === ownerId ? cloud.orders : null;
-  const storedInventory = canAccessMenu(role, 'stok') ? readArray('inventora_inventory_v1') : null;
+  const storedInventory = (() => {
+    if (!canAccessMenu(role, 'stok')) return null;
+    try {
+      return localStorage.getItem(COMMERCE_KEY) !== null ? readCommerce().inventory : readArray('inventora_inventory_v1');
+    } catch { return null; }
+  })();
   const inventory = isInventoryList(storedInventory) ? storedInventory : null;
   const employees = canAccessMenu(role, 'sdm') ? readArray('inventora_hr_employees_v2') : null;
   return {

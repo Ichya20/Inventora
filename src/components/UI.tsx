@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useId, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useId, useRef, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, ArrowUpDown, Download, X, LoaderCircle } from 'lucide-react';
 import type { Language } from '../types';
+import { workspaceMotion } from '../lib/motion';
 
 export const UILanguageContext = createContext<Language>('en');
 
@@ -23,7 +24,7 @@ export const TableWrapper = ({ title, placeholder, action, searchValue, onSearch
     <div className="ui-table-toolbar px-4 sm:px-6 py-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between shrink-0 rounded-t-[10px]">
       <div className="flex items-center justify-between gap-3"><h2 className="font-semibold tracking-tight text-sm text-[var(--ws-text)]">{title}</h2><span className="sm:hidden text-[10px] text-[var(--ws-muted)]">{en ? 'Scroll to view →' : 'Geser untuk melihat →'}</span></div>
       <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
-        <input type="search" value={searchValue} onChange={event => onSearchChange(event.target.value)} placeholder={placeholder} aria-label={placeholder || (en ? 'Search records' : 'Cari data')} className="border border-[var(--ws-border)] bg-[var(--ws-surface)] text-[var(--ws-text)] placeholder:text-[var(--ws-muted)] text-xs px-3 py-2 rounded-md flex-1 min-w-0 sm:w-56 outline-none"/>
+        <input type="search" value={searchValue} onChange={event => onSearchChange(event.target.value)} placeholder={placeholder} aria-label={placeholder || (en ? 'Search records' : 'Cari data')} className="border border-[var(--ws-border)] bg-[var(--ws-surface)] text-[var(--ws-text)] placeholder:text-[var(--ws-muted)] text-xs px-3 py-2 rounded-md flex-1 min-w-0 sm:w-56"/>
         {onExport && <Button variant="secondary" onClick={onExport} isLoading={isExporting}><Download size={14}/>{en ? 'Export' : 'Ekspor'}</Button>}{action}
       </div>
     </div>
@@ -42,21 +43,29 @@ export const Td = ({ children, align = 'left' }: { children: React.ReactNode; al
 // Rows stay still while users scan, sort, or paginate; the page handles entry motion.
 export const Tr = ({ children }: { children: React.ReactNode; index?: number }) => <tr className="hover:bg-[var(--ws-raised)] transition-colors group">{children}</tr>;
 
-type DialogProps = { isOpen: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode };
+type DialogProps = { isOpen: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode; footer?: React.ReactNode; size?: 'md' | 'lg' | 'xl'; closeDisabled?: boolean };
 
-function Dialog({ isOpen, onClose, title, children, footer, variant = 'modal' }: DialogProps & { variant?: 'modal' | 'drawer' }) {
+function subscribeToDialogSize(listener: () => void) {
+  const query = window.matchMedia('(max-width: 767px)');
+  query.addEventListener('change', listener);
+  return () => query.removeEventListener('change', listener);
+}
+
+function Dialog({ isOpen, onClose, title, children, footer, size = 'md', closeDisabled = false, variant = 'modal' }: DialogProps & { variant?: 'modal' | 'drawer' }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const reduceMotion = useReducedMotion();
+  const mobile = useSyncExternalStore(subscribeToDialogSize, () => window.matchMedia('(max-width: 767px)').matches, () => false);
+  const offset = reduceMotion ? { opacity: 0 } : variant === 'drawer' ? { opacity: 0, x: 32 } : { opacity: 0, y: mobile ? 20 : 6 };
   const en = useContext(UILanguageContext) === 'en';
   useEffect(() => {
     const dialog = ref.current;
     if (isOpen && dialog && !dialog.open) dialog.showModal();
   }, [isOpen]);
-  return <dialog ref={ref} className={variant === 'drawer' ? 'ui-drawer po-detail-drawer' : 'ui-dialog'} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose(); } }}>
+  return <dialog ref={ref} className={variant === 'drawer' ? 'ui-drawer po-detail-drawer' : `ui-dialog ui-dialog-${size}`} aria-labelledby={titleId} aria-modal="true" onCancel={event => { event.preventDefault(); if (!closeDisabled) onClose(); }} onClick={event => { if (!closeDisabled && event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose(); } }}>
     <AnimatePresence onExitComplete={() => { if (!isOpen) ref.current?.close(); }}>
-    {isOpen && <motion.div key="dialog-content" initial={variant === 'drawer' ? { opacity: 0, x: 32 } : { opacity: 0, y: 6 }} animate={{ opacity: 1, x: 0, y: 0 }} exit={variant === 'drawer' ? { opacity: 0, x: 32 } : { opacity: 0, y: 6 }} transition={{ duration: reduceMotion ? 0 : variant === 'drawer' ? .24 : .18, ease: [.2, .8, .2, 1] }} className="ui-dialog-content">
-      <div className="ui-dialog-header"><h3 id={titleId}>{title}</h3><button type="button" onClick={onClose} aria-label={en ? 'Close dialog' : 'Tutup dialog'} title="Esc"><X size={18}/></button></div>
+    {isOpen && <motion.div key="dialog-content" initial={offset} animate={{ opacity: 1, x: 0, y: 0 }} exit={{ ...offset, transition: { duration: reduceMotion ? 0 : workspaceMotion.exit } }} transition={{ duration: reduceMotion ? 0 : variant === 'drawer' ? workspaceMotion.drawer : workspaceMotion.dialog, ease: workspaceMotion.ease }} className="ui-dialog-content">
+      <div className="ui-dialog-header"><h3 id={titleId}>{title}</h3><button type="button" disabled={closeDisabled} onClick={onClose} aria-label={en ? 'Close dialog' : 'Tutup dialog'} title="Esc"><X size={18}/></button></div>
       <div className="dialog-body p-6 overflow-y-auto">{children}</div>
       {footer && <div className="dialog-footer">{footer}</div>}
     </motion.div>}

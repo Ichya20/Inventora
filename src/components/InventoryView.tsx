@@ -1,14 +1,13 @@
-import { dispatchInventory, stockHealth, isInventoryList } from '../lib/inventory';
+import { stockHealth, isInventoryList } from '../lib/inventory';
+import { COMMERCE_KEY, readCommerce, deployCommerceStock } from '../lib/commerce';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { Download, Check, Sparkles } from 'lucide-react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr } from './UI';
 import { RestockForecastCard } from './RestockForecastCard';
 import { ToastFunction, RestockDraft } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
 import { exportToCsv, exportTextFile } from '../lib/exportUtils';
-import { readStoredArray, saveStoredData } from '../lib/storageUtils';
+import { saveStoredData } from '../lib/storageUtils';
 
 export function InventoryView({
   onToast,
@@ -27,6 +26,7 @@ export function InventoryView({
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [forecastOpen, setForecastOpen] = useState(false);
   const [search, setSearch] = useState('');
 
   const defaultItems = [
@@ -46,7 +46,7 @@ export function InventoryView({
 
   const [inventoryState, setInventoryState] = useState(() => {
     try {
-      const items = readStoredArray('inventora_inventory_v1', defaultItems);
+      const items = readCommerce(defaultItems).inventory;
       if (!isInventoryList(items)) throw new Error('Invalid inventory');
       return { items, error: false };
     } catch { return { items: [] as typeof defaultItems, error: true }; }
@@ -57,8 +57,18 @@ export function InventoryView({
   useEffect(() => {
     if (inventoryState.error) return;
     try {
-      if (localStorage.getItem('inventora_inventory_v1') === null) saveStoredData('inventora_inventory_v1', storedItems, true);
+      if (localStorage.getItem('inventora_inventory_v1') === null && localStorage.getItem(COMMERCE_KEY) === null) saveStoredData('inventora_inventory_v1', storedItems, true);
     } catch { onToast(lang === 'en' ? 'Inventory is not saved. Browser storage is unavailable.' : 'Inventori belum tersimpan. Penyimpanan browser tidak tersedia.', 'error'); }
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      try { setInventoryState({ items: readCommerce(defaultItems).inventory, error: false }); }
+      catch { setInventoryState({ items: [], error: true }); }
+    };
+    window.addEventListener('storage', refresh);
+    window.addEventListener('inventora:data-changed', refresh);
+    return () => { window.removeEventListener('storage', refresh); window.removeEventListener('inventora:data-changed', refresh); };
   }, []);
 
   const [page, setPage] = useState(1);
@@ -66,15 +76,6 @@ export function InventoryView({
   const [sortConfig, setSortConfig] = useState<{ key: keyof typeof items[0], direction: 'asc' | 'desc' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const debouncedSearch = useDebounce(search, 180);
-
-  const chartData = [
-    { name: 'Jan', stock: 900 },
-    { name: 'Feb', stock: 950 },
-    { name: 'Mar', stock: 1020 },
-    { name: 'Apr', stock: 1000 },
-    { name: 'May', stock: 1080 },
-    { name: 'Jun', stock: 1104 }
-  ];
 
   const handleSort = (key: keyof typeof items[0]) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -154,9 +155,9 @@ export function InventoryView({
     }
   };
 
-  const handleDeploy = (id: string) => {
+  const handleDeploy = async (id: string) => {
     try {
-      const updated = dispatchInventory('inventora_inventory_v1', storedItems, id);
+      const updated = await deployCommerceStock(id, storedItems);
       setInventoryState({ items: updated, error: false });
       onToast(lang === 'en' ? `1 unit of ${id} dispatched and saved` : `Pengeluaran 1 unit ${id} berhasil disimpan`, 'success', {
         title: lang === 'en' ? 'Stock saved' : 'Stok tersimpan',
@@ -169,85 +170,40 @@ export function InventoryView({
 
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
-      <p className="text-xs text-neutral-500">{lang === 'en' ? 'Local inventory simulation. The small trend chart is an example, not recorded stock history.' : 'Simulasi inventori lokal. Grafik tren kecil adalah contoh, bukan riwayat stok tercatat.'}</p>
+      <p className="text-xs text-neutral-500">{lang === 'en' ? 'Browser inventory · shared with POS' : 'Stok browser · terhubung dengan POS'}</p>
       {inventoryState.error && <div role="alert" className="text-sm border border-red-200 dark:border-red-900 rounded-lg p-4 space-y-2 text-red-700 dark:text-red-400">
         <p>{lang === 'en' ? 'Saved inventory cannot be read. The original data is retained; restore a valid backup before changing stock.' : 'Inventori tersimpan tidak dapat dibaca. Data asli tetap disimpan; pulihkan cadangan yang valid sebelum mengubah stok.'}</p>
         <button type="button" className="underline cursor-pointer" onClick={() => {
-          try { exportTextFile('inventora-inventory-recovery.txt', localStorage.getItem('inventora_inventory_v1') ?? '', 'text/plain'); }
+          try { exportTextFile('inventora-inventory-recovery.txt', localStorage.getItem(COMMERCE_KEY) ?? localStorage.getItem('inventora_inventory_v1') ?? '', 'text/plain'); }
           catch { onToast(lang === 'en' ? 'Saved inventory could not be downloaded.' : 'Data inventori belum dapat diunduh.', 'error'); }
         }}>{lang === 'en' ? 'Download saved data' : 'Unduh data tersimpan'}</button>
       </div>}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0">
         <Card>
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.totalUnits}</p>
-              <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-                {inventoryState.error ? '—' : items.reduce((acc, item) => acc + item.stock, 0).toLocaleString(numLocale)}
-              </h3>
-              <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-                {lang === 'en' ? 'Calculated from the current local inventory' : 'Dihitung dari inventori lokal saat ini'}
-              </p>
-            </div>
-            <div aria-label={lang === 'en' ? 'Example stock trend' : 'Contoh tren stok'} className="w-24 h-16">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorStock" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0070f3" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#0070f3" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="stock" stroke="#0070f3" fillOpacity={1} fill="url(#colorStock)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <p className="text-sm text-[var(--ws-muted)]">{activeT.inventory.totalUnits}</p>
+          <h3 className="text-2xl font-semibold tracking-tight mt-1 tabular-nums">{inventoryState.error ? '—' : items.reduce((sum, item) => sum + item.stock, 0).toLocaleString(numLocale)}</h3>
         </Card>
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.assetValuation} ({lang === 'en' ? 'example' : 'contoh'})</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
-            {lang === 'en' ? '$1.4M / Rp 21.03B' : 'Rp 21,03 Miliar'}
-          </h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">{activeT.inventory.valuationHint}</p>
+          <p className="text-sm text-[var(--ws-muted)]">{lang === 'en' ? 'Products' : 'Jenis barang'}</p>
+          <h3 className="text-2xl font-semibold tracking-tight mt-1 tabular-nums">{inventoryState.error ? '—' : items.length}</h3>
         </Card>
         <Card>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">{activeT.inventory.outboundRequests} ({lang === 'en' ? 'example' : 'contoh'})</p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">24</h3>
-          <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-            <span className="text-[#f5a623] font-medium">8</span> {activeT.inventory.processedToday}
-          </p>
+          <p className="text-sm text-[var(--ws-muted)]">{lang === 'en' ? 'Needs review' : 'Perlu ditinjau'}</p>
+          <h3 className="text-2xl font-semibold tracking-tight mt-1 tabular-nums">{inventoryState.error ? '—' : items.filter(item => item.needsReview).length} <span className="text-sm font-normal text-[var(--ws-muted)]">SKU</span></h3>
         </Card>
       </div>
 
-      <div className="bg-[#fafafa] dark:bg-[#111] px-6 py-4 rounded-xl shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] flex flex-wrap gap-4 items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="p-2 shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] bg-white dark:bg-[#1a1a1a] rounded-full">
-            <svg className="w-5 h-5 text-[#0070f3] dark:text-[#3291ff]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-          </div>
-          <div>
-            <h4 className="font-medium tracking-tight text-[#171717] dark:text-[#ededed]">{lang === 'en' ? 'Local stock overview' : 'Ringkasan stok lokal'}</h4>
-            <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{inventoryState.error ? '—' : items.filter(item => item.color === 'red' || item.color === 'orange').length} {lang === 'en' ? 'SKUs flagged for review in the inventory directory.' : 'SKU ditandai untuk ditinjau dalam direktori inventori.'}</p>
-          </div>
-        </div>
-        <Button variant="primary" onClick={handleGenerateReport} isLoading={isGenerating} disabled={inventoryState.error}>
-          {activeT.inventory.generateReport}
-        </Button>
-      </div>
-
-      {/* Gemini AI Predictive Restock & Demand Forecaster */}
-      {!inventoryState.error && items.length > 0 && <RestockForecastCard
-        inventory={items}
-        onGeneratePo={(forecast) => {
-          onRestock?.(forecast);
-        }}
-        lang={lang}
-      />}
+      {!inventoryState.error && items.length > 0 && <details onToggle={event => setForecastOpen(event.currentTarget.open)} className="rounded-lg border border-[var(--ws-border)] shrink-0">
+        <summary className="px-4 py-3 cursor-pointer text-sm font-medium">{lang === 'en' ? 'Restock forecast' : 'Perkiraan restock'}</summary>
+        {forecastOpen && <div className="p-4 pt-0"><RestockForecastCard inventory={items} onGeneratePo={(forecast) => {
+          if (onRestock) onRestock(forecast);
+          else onToast(lang === 'en' ? 'Open New PO to create a restock order.' : 'Buka PO Baru untuk membuat pesanan restock.', 'info');
+        }} lang={lang} /></div>}
+      </details>}
 
       <TableWrapper
         title={activeT.inventory.tableTitle}
+        action={<Button variant="secondary" onClick={handleGenerateReport} isLoading={isGenerating} disabled={inventoryState.error}>{lang === 'en' ? 'Stock report' : 'Laporan stok'}</Button>}
         placeholder={activeT.inventory.searchPlaceholder}
         searchValue={search}
         onSearchChange={(v: string) => { setSearch(v); setPage(1); }}
@@ -275,7 +231,7 @@ export function InventoryView({
                   <div className="font-medium tracking-tight">{item.name}</div>
                   <div className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">{item.desc}</div>
                 </Td>
-                <Td><span className="tabular-nums">{item.stock} Units</span></Td>
+                <Td><span className="tabular-nums">{item.stock} {lang === 'en' ? 'units' : 'unit'}</span></Td>
                 <Td><Badge color={item.color}>{item.status}</Badge></Td>
                 <Td align="right">
                   <Button variant="secondary" onClick={() => handleDeploy(item.id)} disabled={!Number.isSafeInteger(item.stock) || item.stock <= 0}>

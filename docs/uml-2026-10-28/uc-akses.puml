@@ -1,0 +1,25 @@
+@startuml
+left to right direction
+skinparam monochrome true
+rectangle "Inventora Akses dan pemantauan" {
+  usecase "UC-01\nMasuk dengan Google" as UC1
+  usecase "UC-02\nMemantau dashboard dan notifikasi" as UC2
+  usecase "UC-03\nMengubah bahasa dan tema" as UC3
+  usecase "UC-04\nKeluar dari aplikasi" as UC4
+  usecase "UC-13\nMenggunakan analisis AI" as UC13
+  usecase "UC-17\nMencadangkan dan mereset data lokal" as UC17
+}
+actor "Pengguna" as left0
+left0 -- UC1
+left0 -- UC2
+left0 -- UC3
+left0 -- UC4
+left0 -- UC13
+actor "Firebase Auth / Google" as right0
+right0 -- UC1
+right0 -- UC4
+actor "Gemini" as right1
+right1 -- UC13
+actor "Super Admin" as right2
+right2 -- UC17
+@enduml

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence, MotionConfig } from 'motion/react';
+import { motion, MotionConfig, useReducedMotion } from 'motion/react';
 import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages, Keyboard } from 'lucide-react';
 import { ToastType, ToastItem, ToastFunction, Role, PurchaseOrder, PaymentTransaction, AppNotification, RestockDraft } from './types';
 import { translations, Language, Translations } from './i18n';
@@ -15,6 +15,8 @@ import { AiCopilotDrawer } from './components/AiCopilotDrawer';
 import { InteractiveToaster, playNotificationChime } from './components/InteractiveToaster';
 import { InventoraLoadingScreen } from './components/InventoraLoadingScreen';
 import { OpeningSequence } from './components/OpeningSequence';
+import { InventoraMark } from './components/InventoraMark';
+import { workspaceMotion } from './lib/motion';
 import { exportToCsv, exportToJson } from './lib/exportUtils';
 import { loadStoredData, saveStoredData, clearAllInventoraStorage, createInventoraBackup } from './lib/storageUtils';
 import { canAccessMenu, isRole } from './lib/authorization';
@@ -25,6 +27,7 @@ import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal, UILanguageContext
 import { OverviewView } from './components/OverviewView';
 
 const InventoryView = lazy(() => import('./components/InventoryView').then(m => ({ default: m.InventoryView })));
+const PosView = lazy(() => import('./components/PosView').then(m => ({ default: m.PosView })));
 
 // Lazy-loaded views for code splitting and instant initial page load
 const ProcurementView = lazy(() => import('./components/ProcurementView').then(m => ({ default: m.ProcurementView })));
@@ -54,7 +57,8 @@ function SettingsView({
   const [confirmReset, setConfirmReset] = useState(false);
   const resetTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(() => {
-    return localStorage.getItem('inventora_user_avatar') || null;
+    try { return localStorage.getItem('inventora_user_avatar') || null; }
+    catch { return null; }
   });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -88,6 +92,8 @@ function SettingsView({
     setSelectedLang(lang);
   }, [lang]);
 
+  useEffect(() => () => { if (resetTimerRef.current) clearTimeout(resetTimerRef.current); }, []);
+
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
       <div className="max-w-4xl w-full mx-auto flex flex-col md:flex-row gap-8">
@@ -118,7 +124,7 @@ function SettingsView({
           </button>
         </div>
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Card>
             <h2 className="text-xl font-semibold tracking-tight text-[#171717] dark:text-[#ededed] mb-6">
               {activeTab === 'profile' && t.settings.profileTitle}
@@ -166,8 +172,6 @@ function SettingsView({
 
             {activeTab === 'workspace' && (
               <div className="space-y-6 text-[#171717] dark:text-[#ededed]">
-                <p className="text-sm text-[#666] dark:text-[#a1a1aa]">{lang === 'en' ? 'Manage language and data saved in this browser.' : 'Kelola bahasa dan data yang tersimpan di browser ini.'}</p>
-
                 {/* Language section in Workspace tab */}
                 <div className="p-4 rounded-lg bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] space-y-3">
                   <div className="flex items-center justify-between">
@@ -198,7 +202,7 @@ function SettingsView({
                   <div>
                     <h4 className="text-sm font-medium text-[#171717] dark:text-[#ededed] flex items-center gap-1.5">
                       <Database className="w-4 h-4 text-[#0070f3]" />
-                      <span>{lang === 'en' ? 'Local Storage & Demo State' : 'Penyimpanan Lokal & Data Demo'}</span>
+                      <span>{lang === 'en' ? 'Browser data' : 'Data browser'}</span>
                     </h4>
                     <p className="text-xs text-[#666] dark:text-[#a1a1aa] mt-0.5">
                       {lang === 'en'
@@ -211,14 +215,16 @@ function SettingsView({
                     <button
                       type="button"
                       onClick={() => {
-                        const allData = createInventoraBackup();
-                        exportToJson(`inventora-backup-${new Date().toISOString().split('T')[0]}.json`, allData);
-                        onToast(lang === 'en' ? 'Local browser data exported as JSON' : 'Data lokal browser diekspor sebagai JSON', 'success');
+                        try {
+                          const allData = createInventoraBackup();
+                          exportToJson(`inventora-backup-${new Date().toISOString().split('T')[0]}.json`, allData);
+                          onToast(lang === 'en' ? 'Browser backup downloaded.' : 'Cadangan browser diunduh.', 'success');
+                        } catch { onToast(lang === 'en' ? 'Could not export the browser backup.' : 'Cadangan browser belum dapat diekspor.', 'error'); }
                       }}
                       className="px-3 py-1.5 text-xs font-medium rounded-md border border-[#eaeaea] dark:border-[#444] bg-white dark:bg-[#222] hover:bg-[#f5f5f5] dark:hover:bg-[#333] text-[#171717] dark:text-[#ededed] transition-colors cursor-pointer inline-flex items-center gap-1.5"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      {lang === 'en' ? 'Export System JSON Backup' : 'Ekspor Cadangan JSON'}
+                      {lang === 'en' ? 'Download backup' : 'Unduh cadangan'}
                     </button>
 
                     <button
@@ -231,9 +237,11 @@ function SettingsView({
                         } else {
                           if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
                           setConfirmReset(false);
-                          clearAllInventoraStorage();
-                          onToast(lang === 'en' ? 'Demo data reset. Reloading...' : 'Data demo direset. Memuat ulang...', 'info');
-                          setTimeout(() => window.location.reload(), 600);
+                          try {
+                            clearAllInventoraStorage();
+                            onToast(lang === 'en' ? 'Browser data reset. Reloading…' : 'Data browser direset. Memuat ulang…', 'info');
+                            setTimeout(() => window.location.reload(), 600);
+                          } catch { onToast(lang === 'en' ? 'Reset could not be completed. Check the remaining browser data.' : 'Reset belum selesai. Periksa data browser yang tersisa.', 'error'); }
                         }
                       }}
                       className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all cursor-pointer inline-flex items-center gap-1.5 ${
@@ -244,177 +252,31 @@ function SettingsView({
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
                       {confirmReset
-                        ? (lang === 'en' ? 'Confirm Reset (4s)?' : 'Konfirmasi Reset (4 detik)?')
-                        : (lang === 'en' ? 'Reset Demo Data' : 'Reset Data Demo')}
+                        ? (lang === 'en' ? 'Confirm reset' : 'Konfirmasi reset')
+                        : (lang === 'en' ? 'Reset browser data' : 'Reset data browser')}
                     </button>
                   </div>
                 </div>
 
-                <p className="text-xs text-[var(--ws-muted)]">{lang === 'en' ? 'Language changes are saved automatically in this browser. Email notifications are not configured.' : 'Perubahan bahasa tersimpan otomatis di browser ini. Notifikasi email belum dikonfigurasi.'}</p>
+                <p className="text-xs text-[var(--ws-muted)]">{lang === 'en' ? 'A reset removes local stock, POS sales, and other browser data. Firestore orders are kept. Download a backup first.' : 'Reset menghapus stok, penjualan POS, dan data browser lainnya. PO Firestore tetap tersimpan. Unduh cadangan terlebih dahulu.'}</p>
               </div>
             )}
 
             {activeTab === 'language' && (
-              <div className="space-y-6">
-                <div>
-                  <p className="text-sm text-[#666] dark:text-[#a1a1aa]">
-                    {t.common.languageDescription}
-                  </p>
+              <div className="space-y-4">
+                <p className="text-sm text-[var(--ws-muted)]">{t.common.languageDescription}</p>
+                <div className="grid gap-3 sm:grid-cols-2" role="group" aria-label={t.settings.systemLanguage}>
+                  {([
+                    { code: 'id' as const, label: 'Bahasa Indonesia', example: 'Rp 1.250.000 · 28 Okt 2026' },
+                    { code: 'en' as const, label: 'English (US)', example: 'Rp 1,250,000 · Oct 28, 2026' },
+                  ]).map(choice => <button key={choice.code} type="button" aria-pressed={lang === choice.code}
+                    onClick={() => onLanguageChange(choice.code)}
+                    className={`min-w-0 rounded-lg border p-4 text-left cursor-pointer ${lang === choice.code ? 'border-[var(--ws-accent)] bg-[var(--ws-raised)]' : 'border-[var(--ws-border)] hover:bg-[var(--ws-raised)]'}`}>
+                    <span className="flex items-center justify-between gap-3 text-sm font-medium text-[var(--ws-text)]">{choice.label}{lang === choice.code && <Check size={17} aria-hidden="true" className="text-[var(--ws-accent)]" />}</span>
+                    <span className="mt-2 block text-xs text-[var(--ws-muted)]">{choice.example}</span>
+                  </button>)}
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* English Card */}
-                  <div
-                    onClick={() => {
-                      setSelectedLang('en');
-                      onLanguageChange('en');
-                    }}
-                    className={`p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 relative ${
-                      lang === 'en'
-                        ? 'border-[#0070f3] bg-[#0070f3]/[0.03] dark:bg-[#0070f3]/10 shadow-sm'
-                        : 'border-[#eaeaea] dark:border-[#333] hover:border-[#ccc] dark:hover:border-[#555] bg-white dark:bg-[#111]'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">🇺🇸</span>
-                        <div>
-                          <h3 className="text-base font-semibold text-[#171717] dark:text-[#ededed]">
-                            English (US)
-                          </h3>
-                          <span className="text-xs text-[#888] font-mono">en-US</span>
-                        </div>
-                      </div>
-                      {lang === 'en' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0070f3] dark:text-[#3291ff] bg-[#0070f3]/10 px-2 py-0.5 rounded-full">
-                          <Check className="w-3 h-3" /> {t.settings.currentLanguageBadge}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-[#888] hover:text-[#171717] font-medium">
-                          Select
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-[#666] dark:text-[#a1a1aa] leading-relaxed mb-4">
-                      Standard international enterprise localization with USD/IDR currency parsing and English menu headers.
-                    </p>
-
-                    <div className="p-3 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg border border-[#eaeaea] dark:border-[#2b2b2b] text-[11px] space-y-1.5 font-mono text-[#555] dark:text-[#aaa]">
-                      <div className="flex justify-between">
-                        <span>Date Format:</span>
-                        <span className="text-[#171717] dark:text-[#ededed] font-medium">MM/DD/YYYY (e.g. Sep 21, 2026)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Currency Format:</span>
-                        <span className="text-[#171717] dark:text-[#ededed] font-medium">IDR / USD $</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Number Separator:</span>
-                        <span className="text-[#171717] dark:text-[#ededed] font-medium">1,234,567.89</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedLang('en');
-                        onLanguageChange('en');
-                      }}
-                      className={`w-full mt-4 text-xs font-semibold py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                        lang === 'en'
-                          ? 'bg-[#0070f3] text-white shadow-sm'
-                          : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[#171717] dark:text-[#ededed]'
-                      }`}
-                    >
-                      {lang === 'en' ? 'Active Language' : 'Switch to English'}
-                    </button>
-                  </div>
-
-                  {/* Indonesian Card */}
-                  <div
-                    onClick={() => {
-                      setSelectedLang('id');
-                      onLanguageChange('id');
-                    }}
-                    className={`p-5 rounded-xl border-2 cursor-pointer transition-all duration-200 relative ${
-                      lang === 'id'
-                        ? 'border-[#0070f3] bg-[#0070f3]/[0.03] dark:bg-[#0070f3]/10 shadow-sm'
-                        : 'border-[#eaeaea] dark:border-[#333] hover:border-[#ccc] dark:hover:border-[#555] bg-white dark:bg-[#111]'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">🇮🇩</span>
-                        <div>
-                          <h3 className="text-base font-semibold text-[#171717] dark:text-[#ededed]">
-                            Bahasa Indonesia
-                          </h3>
-                          <span className="text-xs text-[#888] font-mono">id-ID</span>
-                        </div>
-                      </div>
-                      {lang === 'id' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0070f3] dark:text-[#3291ff] bg-[#0070f3]/10 px-2 py-0.5 rounded-full">
-                          <Check className="w-3 h-3" /> {t.settings.currentLanguageBadge}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-[#888] hover:text-[#171717] font-medium">
-                          Pilih
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-[#666] dark:text-[#a1a1aa] leading-relaxed mb-4">
-                      Format nasional Indonesia dengan pemisah ribuan titik, mata uang Rupiah (Rp), dan nomenklatur ERP standar Indonesia.
-                    </p>
-
-                    <div className="p-3 bg-[#fafafa] dark:bg-[#1a1a1a] rounded-lg border border-[#eaeaea] dark:border-[#2b2b2b] text-[11px] space-y-1.5 font-mono text-[#555] dark:text-[#aaa]">
-                      <div className="flex justify-between">
-                        <span>Format Tanggal:</span>
-                        <span className="text-[#171717] dark:text-[#ededed] font-medium">DD/MM/YYYY (cth: 21 Sep 2026)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Format Mata Uang:</span>
-                        <span className="text-[#171717] dark:text-[#ededed] font-medium">Rupiah (Rp)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Pemisah Angka:</span>
-                        <span className="text-[#171717] dark:text-[#ededed] font-medium">1.234.567,89</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedLang('id');
-                        onLanguageChange('id');
-                      }}
-                      className={`w-full mt-4 text-xs font-semibold py-2 px-3 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                        lang === 'id'
-                          ? 'bg-[#0070f3] text-white shadow-sm'
-                          : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[#171717] dark:text-[#ededed]'
-                      }`}
-                    >
-                      {lang === 'id' ? 'Bahasa Aktif' : 'Ganti ke Bahasa Indonesia'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">
-                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold mb-0.5">
-                      {lang === 'en' ? 'Seamless Persistence' : 'Tersimpan Otomatis'}
-                    </p>
-                    <p className="text-blue-800 dark:text-blue-300 text-[11px] leading-relaxed">
-                      {lang === 'en'
-                        ? 'Your language selection is saved locally across sessions and synchronized with the top navigation bar quick switcher.'
-                        : 'Pilihan bahasa Anda disimpan secara otomatis untuk seluruh sesi kerja dan disinkronkan langsung dengan tombol cepat di header atas.'}
-                    </p>
-                  </div>
-                </div>
+                <p className="text-xs text-[var(--ws-muted)]">{lang === 'en' ? 'Saved automatically in this browser.' : 'Tersimpan otomatis di browser ini.'}</p>
               </div>
             )}
           </Card>
@@ -447,13 +309,14 @@ function CommandPalette({
 
   const commands = [
     { id: 'overview', name: lang === 'en' ? 'Open overview' : 'Buka ringkasan', icon: LayoutDashboard, action: () => onNavigate('overview') },
-    { id: 'analytics', name: lang === 'en' ? 'View Analytics & Reports' : 'Buka Analytics & Pelaporan', icon: BarChart3, action: () => onNavigate('analytics') },
+    { id: 'analytics', name: lang === 'en' ? 'Open analytics' : 'Buka analitik', icon: BarChart3, action: () => onNavigate('analytics') },
     { id: 'stok', name: lang === 'en' ? 'Check Inventory Stock' : 'Periksa Stok Inventaris', icon: Database, action: () => onNavigate('stok') },
+    { id: 'pos', name: lang === 'en' ? 'Open Point of Sale' : 'Buka kasir penjualan', icon: Receipt, action: () => onNavigate('pos') },
     { id: 'po', name: lang === 'en' ? 'Open procurement' : 'Buka pengadaan', icon: ShoppingCart, action: () => onNavigate('po') },
-    { id: 'keuangan', name: lang === 'en' ? 'Go to Finance & Invoices' : 'Buka Keuangan & Invoice', icon: FileText, action: () => onNavigate('keuangan') },
+    { id: 'keuangan', name: lang === 'en' ? 'Open finance' : 'Buka keuangan', icon: FileText, action: () => onNavigate('keuangan') },
     { id: 'sdm', name: lang === 'en' ? 'Manage HR & Payroll' : 'Kelola SDM & Payroll', icon: Users, action: () => onNavigate('sdm') },
-    { id: 'billing', name: lang === 'en' ? 'Manage Billing & Cloud Subscription' : 'Kelola Langganan & Tagihan Cloud', icon: CreditCard, action: () => onNavigate('billing') },
-    { id: 'settings', name: lang === 'en' ? 'Open Workspace & Language Settings' : 'Buka Pengaturan Workspace & Bahasa', icon: SettingsIcon, action: () => onNavigate('settings') },
+    { id: 'billing', name: lang === 'en' ? 'Open billing' : 'Buka langganan', icon: CreditCard, action: () => onNavigate('billing') },
+    { id: 'settings', name: lang === 'en' ? 'Open settings' : 'Buka pengaturan', icon: SettingsIcon, action: () => onNavigate('settings') },
     {
       id: 'lang-en',
       name: 'Switch Language to English (US)',
@@ -481,11 +344,14 @@ function CommandPalette({
 function Dashboard() {
   const navigate = useNavigate();
   const [activeMenu, setActiveMenu] = useState('overview');
+  const [requestedPoId, setRequestedPoId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<Language>(() => {
-    const saved = localStorage.getItem('inventora_language');
-    if (saved === 'en' || saved === 'id') return saved;
+    try {
+      const saved = localStorage.getItem('inventora_language');
+      if (saved === 'en' || saved === 'id') return saved;
+    } catch {}
     return 'en';
   });
 
@@ -524,7 +390,11 @@ function Dashboard() {
 
   const handleLanguageChange = (newLang: Language) => {
     setLanguage(newLang);
-    localStorage.setItem('inventora_language', newLang);
+    try { localStorage.setItem('inventora_language', newLang); }
+    catch {
+      showToast(newLang === 'en' ? 'Language changed, but could not be saved in this browser.' : 'Bahasa diubah, tetapi belum dapat disimpan di browser ini.', 'warning');
+      return;
+    }
     showToast(newLang === 'en' ? 'Language switched to English' : 'Bahasa dialihkan ke Bahasa Indonesia', 'info');
   };
 
@@ -535,6 +405,7 @@ function Dashboard() {
   const draftOwner = `${isDemo ? 'demo' : 'live'}:${user?.uid ?? demoUser?.email ?? ''}:${currentRole ?? ''}`;
   const [restockDraft, setRestockDraft] = useState<{ owner: string; key: string; item: RestockDraft } | null>(null);
   const activeRestockDraft = restockDraft?.owner === draftOwner ? restockDraft : null;
+  useEffect(() => { setRequestedPoId(null); }, [draftOwner]);
   const [authReady, setAuthReady] = useState(isDemo);
   const summary = useWorkspaceSummary(isDemo, user?.uid ?? 'demo', currentRole);
   const [isCmdKOpen, setIsCmdKOpen] = useState(false);
@@ -586,19 +457,10 @@ function Dashboard() {
     return () => { disposed = true; unsub(); };
   }, [navigate, demoUser]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsCmdKOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
   const toggleDarkMode = () => {
-    document.documentElement.classList.toggle('dark');
+    const dark = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('inventora_theme', dark ? 'dark' : 'light'); }
+    catch { showToast(language === 'en' ? 'Theme changed, but could not be saved in this browser.' : 'Tema diubah, tetapi belum dapat disimpan di browser ini.', 'warning'); }
   };
 
   const showToast = (
@@ -667,6 +529,7 @@ function Dashboard() {
       return;
     }
     setRestockDraft(null);
+    setRequestedPoId(null);
     setActiveMenu(menuName);
     setIsSidebarOpen(false); // Close mobile sidebar on navigation
   };
@@ -688,6 +551,7 @@ function Dashboard() {
       case 'overview': return t.headers.overview;
       case 'analytics': return t.headers.analytics;
       case 'stok': return t.headers.inventory;
+      case 'pos': return language === 'en' ? 'Point of Sale' : 'Kasir penjualan';
       case 'po': return t.headers.procurement;
       case 'keuangan': return t.headers.finance;
       case 'sdm': return t.headers.hr;
@@ -715,7 +579,7 @@ function Dashboard() {
   };
 
   if (!user || !authReady) {
-    return <InventoraLoadingScreen role={currentRole ?? 'Unassigned'} lang={language} durationMs={800} />;
+    return <InventoraLoadingScreen role={currentRole ?? 'Unassigned'} lang={language} />;
   }
 
   if (!currentRole) {
@@ -770,6 +634,7 @@ function Dashboard() {
             { id: 'overview', label: t.nav.overview, icon: LayoutDashboard },
             { id: 'analytics', label: t.nav.analytics, icon: BarChart3 },
             { id: 'stok', label: t.nav.inventory, icon: Database },
+            { id: 'pos', label: language === 'en' ? 'Point of Sale' : 'Kasir penjualan', icon: Receipt },
             { id: 'po', label: t.nav.procurement, icon: ShoppingCart },
             { id: 'keuangan', label: t.nav.finance, icon: FileText },
             { id: 'sdm', label: t.nav.hr, icon: Users },
@@ -878,7 +743,7 @@ function Dashboard() {
               onSelectNotification={(n) => {
                 if (n.metadata?.poId) {
                   handleMenuClick('po');
-                  showToast(language === 'en' ? `Opening PO ${n.metadata.poId}` : `Membuka PO ${n.metadata.poId}`, 'info');
+                  if (canAccessMenu(currentRole, 'po')) setRequestedPoId(n.metadata.poId);
                 }
               }}
             />
@@ -891,15 +756,18 @@ function Dashboard() {
 
         <div className="workspace-sheet">
         <div key={activeMenu} className="workspace-page">
-        <Suspense fallback={<div className="p-6 md:p-8"><ViewSkeleton title={getHeaderTitle()} /></div>}>
+        <Suspense fallback={<div className="p-6 md:p-8"><ViewSkeleton title={getHeaderTitle()} lang={language} variant={activeMenu === 'pos' ? 'pos' : activeMenu === 'purchase' || activeMenu === 'new-po' ? 'form' : 'table'} /></div>}>
           <ErrorBoundary fallbackTitle={getHeaderTitle()} onReset={() => setActiveMenu('overview')}>
             {hasAccess('overview') && activeMenu === 'overview' && <OverviewView onNavigate={handleMenuClick} t={t} lang={language} summary={summary} role={currentRole} isDemo={isDemo} notifications={notifications} />}
             {hasAccess('analytics') && activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
             {hasAccess('billing') && activeMenu === 'billing' && <BillingSubscriptionView onToast={showToast} t={t} lang={language} />}
             {hasAccess('settings') && activeMenu === 'settings' && <SettingsView account={user} onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={handleMenuClick} />}
             {hasAccess('stok') && activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={handleMenuClick} onRestock={handleRestockDraft} t={t} lang={language} />}
+            {hasAccess('pos') && activeMenu === 'pos' && <PosView key={draftOwner} role={currentRole} actorId={user.uid ?? user.email ?? 'demo'} actorName={user.displayName ?? user.email ?? currentRole} onToast={showToast} lang={language} />}
             {hasAccess('po') && activeMenu === 'po' && (
               <ProcurementView
+                initialPoId={requestedPoId}
+                onInitialPoHandled={() => setRequestedPoId(null)}
                 onNavigate={handleMenuClick}
                 onToast={showToast}
                 onNotify={handleNewNotification}
@@ -986,6 +854,7 @@ function Home() {
 
 function Login() {
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const [lang, setLang] = useState<Language>(() => {
     const saved = localStorage.getItem('inventora_language');
     return (saved === 'en' || saved === 'id') ? saved : 'en';
@@ -997,7 +866,6 @@ function Login() {
   };
 
   const [isLoading, setIsLoading] = useState(false);
-  const [demoLoadingRole, setDemoLoadingRole] = useState<Role | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -1008,7 +876,7 @@ function Login() {
       displayName: `${role} (Preview)`,
       role
     }));
-    setDemoLoadingRole(role);
+    navigate('/dashboard');
   };
 
   const handleGoogleLogin = async () => {
@@ -1047,18 +915,6 @@ function Login() {
 
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-br from-[#fafafa] via-[#f4f6f9] to-[#eaedf2] flex flex-col items-center justify-center font-sans px-4 py-8 overflow-hidden">
-      {/* Dynamic Inventora Demo Mode Loading Screen */}
-      <AnimatePresence>
-        {demoLoadingRole && (
-          <InventoraLoadingScreen
-            role={demoLoadingRole}
-            lang={lang}
-            durationMs={1300}
-            onFinished={() => navigate('/dashboard')}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Language Switcher Top Right */}
       <div className="absolute top-6 right-6 z-20 flex items-center rounded-lg border border-[#eaeaea] bg-white/80 backdrop-blur-md p-1 shadow-sm">
         <button
@@ -1086,29 +942,13 @@ function Login() {
       </div>
 
       <motion.div
-        animate={{ scale: [1, 1.1, 1], opacity: [0.4, 0.7, 0.4] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-gradient-to-br from-[#0070f3]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none"
-      />
-      <motion.div
-        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-gradient-to-tl from-[#7928ca]/[0.06] to-transparent rounded-full blur-[100px] pointer-events-none"
-      />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: reduceMotion ? 0 : workspaceMotion.page, ease: workspaceMotion.ease }}
         className="relative z-10 w-full max-w-sm bg-white p-8 rounded-2xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_4px_16px_rgba(0,0,0,0.04)]"
       >
         <div className="flex justify-center items-center gap-2 mb-6">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="2" y="2" width="8" height="8" rx="1.5" fill="#171717" />
-            <rect x="14" y="2" width="8" height="8" rx="1.5" fill="#171717" fillOpacity="0.15" />
-            <rect x="2" y="14" width="8" height="8" rx="1.5" fill="#171717" fillOpacity="0.15" />
-            <rect x="14" y="14" width="8" height="8" rx="1.5" fill="#171717" />
-          </svg>
+          <InventoraMark size={28} className="login-mark" />
           <span className="text-2xl font-semibold tracking-tight text-[#171717] leading-none mt-0.5">Inventora</span>
         </div>
         <div className="text-center mb-6">
@@ -1242,6 +1082,12 @@ function Login() {
 }
 
 export default function App() {
+  useEffect(() => {
+    try {
+      const theme = localStorage.getItem('inventora_theme');
+      if (theme === 'dark' || theme === 'light') document.documentElement.classList.toggle('dark', theme === 'dark');
+    } catch {}
+  }, []);
   return (
     <MotionConfig reducedMotion="user">
     <BrowserRouter>

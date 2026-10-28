@@ -5,6 +5,8 @@ import type { Language, PurchaseOrder } from '../types';
 import { buildWorkflow, poStatusLabel, poStatusTone, recentOrders } from '../lib/dashboard';
 import { PurchaseOrderDrawer } from './PurchaseOrderDrawer';
 import { Tooltip } from './Tooltip';
+import { workspaceMotion } from '../lib/motion';
+import { ChangeHighlight } from './MotionFeedback';
 
 type Props = { orders: PurchaseOrder[] | null; lang: Language; onNavigate: (menu: string) => void };
 
@@ -90,7 +92,7 @@ export function ProcurementOverview({ orders, lang, onNavigate }: Props) {
             onClick={() => setStage(activeStage === group.key ? 'all' : group.key)}>
             <span className="distribution-row-label">{group.label}<strong>{orders === null ? '—' : count(group.count)}</strong></span>
             <span className="distribution-track" aria-hidden="true">
-              <motion.span initial={false} animate={{ scaleX: percentage(group.count) / 100 }} transition={{ duration: reduceMotion ? 0 : .25 }} />
+              <motion.span initial={reduceMotion ? false : { scaleX: 0 }} animate={{ scaleX: percentage(group.count) / 100 }} transition={{ duration: reduceMotion ? 0 : workspaceMotion.chart, ease: workspaceMotion.ease }} />
             </span>
           </button>)}
         </div>
@@ -110,7 +112,7 @@ export function ProcurementOverview({ orders, lang, onNavigate }: Props) {
             {visibleOrders.slice(0, 5).map(order => <li key={order.id}>
               <button type="button" className="order-summary-button" aria-haspopup="dialog" onClick={() => setSelectedId(order.id)}>
                 <span className="order-summary-identity"><span className="order-link">{order.id}<ArrowUpRight size={13} aria-hidden="true" /></span><span className="order-vendor">{order.vendor}</span></span>
-                <span className={`order-status status-${poStatusTone(order.status)}`}>{poStatusLabel(order.status, lang)}</span>
+                <ChangeHighlight value={order.status}><span className={`order-status status-${poStatusTone(order.status)}`}>{poStatusLabel(order.status, lang)}</span></ChangeHighlight>
                 <span className="order-summary-amount">{money(order.total)}</span>
               </button>
             </li>)}

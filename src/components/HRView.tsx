@@ -101,7 +101,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
   const [payrollPeriod, setPayrollPeriod] = useState(() => businessDate().slice(0, 7));
   const periodLabel = monthLabel(payrollPeriod, lang);
 
-  // View modes: Directory vs Disbursement History
+  // View modes: Directory vs Payroll history
   const [hrTab, setHrTab] = useState<'directory' | 'history'>('directory');
   const [payrollFilter, setPayrollFilter] = useState<'all' | 'pending' | 'disbursed'>('all');
 
@@ -643,14 +643,14 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       {/* Top Header & Tab Navigation Bar */}
       <div className="flex flex-col xl:flex-row xl:flex-wrap xl:items-center justify-between gap-4 shrink-0 pb-1 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+          <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
             <Users className="w-5 h-5 text-[#0070f3]" />
-            <span>{lang === 'en' ? 'Human Resources & Payroll' : 'Sumber Daya Manusia & Payroll'}</span>
+            <span>{lang === 'en' ? 'HR & payroll' : 'SDM dan payroll'}</span>
           </h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
             {lang === 'en'
-              ? 'Local employee directory, payroll calculations, and simulation history.'
-              : 'Direktori pegawai lokal, perhitungan payroll dan riwayat simulasi.'}
+              ? 'Employee records saved in this browser.'
+              : 'Data pegawai tersimpan di browser ini.'}
           </p>
         </div>
 
@@ -660,7 +660,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
             disabled={isDisbursing} onChange={e => { if (isMonthKey(e.target.value)) { setPayrollPeriod(e.target.value); setPage(1); setActivePayrollEmployee(null); } }}
             className="block mt-1 min-h-11 rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3" />
         </label>
-        <p className="text-xs text-neutral-500 max-w-xl">{lang === 'en' ? 'Local payroll simulation. Status and payslips follow the selected period. No funds are transferred.' : 'Simulasi payroll lokal. Status dan slip mengikuti periode yang dipilih. Tidak ada dana yang ditransfer.'}</p>
+        <p className="text-xs text-neutral-500 max-w-xl">{lang === 'en' ? 'Payroll simulation · no funds transferred.' : 'Simulasi payroll · tanpa transfer dana.'}</p>
       </div>
       {/* Tab Switcher */}
         <div className="flex flex-wrap items-center gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl self-start sm:self-auto">
@@ -691,7 +691,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
             }`}
           >
             <History className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{lang === 'en' ? 'Disbursement History' : 'Riwayat Pencairan Gaji'}</span>
+            <span>{lang === 'en' ? 'Payroll history' : 'Riwayat payroll'}</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
               {payrollHistory.length}
             </span>
@@ -705,7 +705,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
           <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
             {activeT.hr.totalEmployees}
           </p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
+          <h3 className="text-3xl font-semibold tracking-tight mt-1 text-[#171717] dark:text-[#ededed] tabular-nums">
             {employees.length}
           </h3>
           <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2 flex items-center justify-between">
@@ -719,9 +719,9 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
         </Card>
         <Card>
           <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
-            {lang === 'en' ? `Payroll Progress · ${periodLabel}` : `Progres Payroll · ${periodLabel}`}
+            {lang === 'en' ? `Payroll progress · ${periodLabel}` : `Progres payroll · ${periodLabel}`}
           </p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums flex items-baseline gap-2">
+          <h3 className="text-3xl font-semibold tracking-tight mt-1 text-[#171717] dark:text-[#ededed] tabular-nums flex items-baseline gap-2">
             <span>{disbursedEmployeesCount} / {employees.length}</span>
             <span className="text-xs font-normal text-neutral-400">
               ({Math.round((disbursedEmployeesCount / (employees.length || 1)) * 100)}%)
@@ -731,25 +731,25 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
             {pendingEmployeesCount === 0 ? (
               <span className="text-emerald-600 font-medium flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                {lang === 'en' ? 'All payroll simulations recorded for this period' : 'Semua simulasi payroll tercatat untuk periode ini'}
+                {lang === 'en' ? 'All recorded for this period' : 'Semua tercatat untuk periode ini'}
               </span>
             ) : (
               <span className="text-amber-600 font-medium flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
-                {pendingEmployeesCount} {lang === 'en' ? 'personnel awaiting payroll simulation' : 'pegawai menunggu simulasi payroll'}
+                {pendingEmployeesCount} {lang === 'en' ? 'employees pending' : 'pegawai belum diproses'}
               </span>
             )}
           </p>
         </Card>
         <Card>
           <p className="text-[#666] dark:text-[#a1a1aa] text-sm font-medium tracking-tight">
-            {lang === 'en' ? 'Total Payroll Recorded (All Periods)' : 'Total Payroll Tercatat (Semua Periode)'}
+            {lang === 'en' ? 'Total payroll recorded' : 'Total payroll tercatat'}
           </p>
-          <h3 className="text-3xl font-semibold tracking-tighter mt-1 text-[#171717] dark:text-[#ededed] tabular-nums text-emerald-600 dark:text-emerald-400">
+          <h3 className="text-3xl font-semibold tracking-tight mt-1 text-[#171717] dark:text-[#ededed] tabular-nums text-emerald-600 dark:text-emerald-400">
             Rp {totalDisbursedAmount.toLocaleString(lang === 'en' ? 'en-US' : 'id-ID')}
           </h3>
           <p className="text-[#666] dark:text-[#a1a1aa] text-xs mt-2">
-            <span className="text-neutral-500">{lang === 'en' ? 'Logged in Audit Records:' : 'Tercatat di Audit:'}</span> {payrollHistory.length} {lang === 'en' ? 'Disbursements' : 'Transfer'}
+            <span className="text-neutral-500">{lang === 'en' ? 'All periods ·' : 'Semua periode ·'}</span> {payrollHistory.length} {lang === 'en' ? 'records' : 'catatan'}
           </p>
         </Card>
       </div>
@@ -763,7 +763,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
           <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 dark:bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
               <Filter className="w-3.5 h-3.5" />
-              <span>{lang === 'en' ? 'Filter by Payroll Status:' : 'Filter Status Payroll:'}</span>
+              <span>{lang === 'en' ? 'Payroll status' : 'Status payroll'}</span>
             </div>
 
             <div className="flex items-center gap-1.5 bg-neutral-200/60 dark:bg-neutral-800/80 p-1 rounded-lg text-xs">
@@ -776,7 +776,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                 }`}
               >
-                {lang === 'en' ? 'All Personnel' : 'Semua Pegawai'} ({employees.length})
+                {lang === 'en' ? 'All employees' : 'Semua Pegawai'} ({employees.length})
               </button>
               <button
                 type="button"
@@ -942,7 +942,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       {hrTab === 'history' && (
         <div className="space-y-4">
           <TableWrapper
-            title={lang === 'en' ? "Payroll Disbursement History & Bank Audit" : "Riwayat Pencairan Gaji & Audit Bank"}
+            title={lang === 'en' ? "Payroll Payroll history & Bank Audit" : "Riwayat payroll & Audit Bank"}
             placeholder={lang === 'en' ? "Search reference number, employee name, ID..." : "Cari no referensi, nama pegawai, ID..."}
             searchValue={historySearch}
             onSearchChange={(v: string) => { setHistorySearch(v); setHistoryPage(1); }}
@@ -1127,7 +1127,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       <Modal
         isOpen={activePayrollEmployee !== null}
         onClose={() => setActivePayrollEmployee(null)}
-        title={lang === 'en' ? `Compensation & Payroll Management - ${activePayrollEmployee?.name}` : `Pengelolaan Payroll & Kompensasi - ${activePayrollEmployee?.name}`}
+        title={lang === 'en' ? `Payroll · ${activePayrollEmployee?.name}` : `Payroll · ${activePayrollEmployee?.name}`}
       >
         {activePayrollEmployee && (() => {
           const record = paidInPeriod(activePayrollEmployee.id);
@@ -1186,8 +1186,8 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                   </div>
                   <p className="text-emerald-700 dark:text-emerald-400 text-[11px] leading-relaxed">
                     {lang === 'en'
-                      ? `Payroll simulation of Rp ${calc.netPay.toLocaleString('en-US')} was recorded on ${record?.disbursedDateFormatted}. The archived payslip is available below. This period cannot be recorded twice.`
-                      : `Simulasi payroll Rp ${calc.netPay.toLocaleString('id-ID')} tercatat pada ${record?.disbursedDateFormatted}. Slip arsip tersedia di bawah. Periode ini tidak dapat dicatat dua kali.`}
+                      ? `Rp ${calc.netPay.toLocaleString('en-US')} recorded on ${record?.disbursedDateFormatted}. This period is locked.`
+                      : `Rp ${calc.netPay.toLocaleString('id-ID')} tercatat pada ${record?.disbursedDateFormatted}. Periode ini terkunci.`}
                   </p>
                 </div>
               )}
@@ -1349,7 +1349,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
       <Modal
         isOpen={activeHistoryDetail !== null}
         onClose={() => setActiveHistoryDetail(null)}
-        title={lang === 'en' ? `Disbursement Audit Receipt - ${activeHistoryDetail?.referenceNumber}` : `Bukti Audit Transfer Gaji - ${activeHistoryDetail?.referenceNumber}`}
+        title={lang === 'en' ? `Payroll details` : `Rincian payroll`}
       >
         {activeHistoryDetail && (
           <div className="space-y-4 text-xs">
@@ -1373,7 +1373,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                   <span className="font-mono text-neutral-800 dark:text-neutral-200">{activeHistoryDetail.empId} ({activeHistoryDetail.dept})</span>
                 </div>
                 <div>
-                  <span className="block text-[10px] text-neutral-400">{lang === 'en' ? 'Transfer Date & Time:' : 'Waktu Transfer:'}</span>
+                  <span className="block text-[10px] text-neutral-400">{lang === 'en' ? 'Recorded at:' : 'Waktu tercatat:'}</span>
                   <span className="font-mono text-neutral-800 dark:text-neutral-200">{activeHistoryDetail.disbursedDateFormatted}</span>
                 </div>
                 <div>

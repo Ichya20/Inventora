@@ -1,0 +1,19 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Finance / Admin" as P0
+participant "PaymentGateway" as P1
+participant "Store transisi PO" as P2
+participant "Firestore" as P3
+P0 -> P1: Pilih kanal pembayaran demo
+P1 -> P1: Gunakan total PO tersimpan
+P0 -> P1: Konfirmasi simulasi
+P1 -> P2: onPaymentSuccess(tx)
+P2 -> P3: Baca PO dalam transaksi
+P3 --> P2: PO dan verifikasi GRN
+P2 -> P2: Cek role, match, total
+P2 -> P3: Simpan paymentInfo + Selesai
+P3 --> P2: Commit berhasil
+P2 --> P1: Pembayaran tercatat
+P1 --> P0: Bukti simulasi tersedia
+@enduml

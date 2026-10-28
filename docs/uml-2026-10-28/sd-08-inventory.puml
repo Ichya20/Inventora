@@ -1,0 +1,19 @@
+@startuml
+skinparam monochrome true
+hide footbox
+actor "Gudang / Admin" as P0
+participant "InventoryView" as P1
+participant "Store inventori" as P2
+participant "PurchaseUnitView" as P3
+P0 -> P1: Cari SKU dan tinjau stok
+P1 -> P2: Baca inventori terbaru
+P2 --> P1: Data stok
+P0 -> P1: Pilih Deploy
+P1 -> P2: Validasi dan kurangi satu
+P2 -> P2: Simpan snapshot lokal
+P2 --> P1: Stok setelah simpan
+P1 --> P0: Perbarui tabel dan ringkasan
+P0 -> P1: Pilih draf restock
+P1 -> P3: Teruskan SKU dan qty
+P3 --> P0: Form PO untuk dilengkapi
+@enduml
