@@ -25,13 +25,13 @@ try {
     const mark = first.match(/<svg[^>]*class="inventora-mark[^"]*"[^>]*>[\s\S]*?<\/svg>/)?.[0] ?? '';
     assert.equal((mark.match(/<rect /g) ?? []).length, 4);
     assert.match(first, /width="288" height="288"/);
-    assert.match(first, /opening-visual/);
+    assert.match(first, /hero-visual/);
     assert.doesNotMatch(first, /opening-sheet|opening-primary-action/);
     assert.doesNotMatch(first, /opening-registration|opening-ground|opening-footer/);
     assert.match(first, /is-revealing/);
     assert.match(first, /href="\/login"/);
     assert.doesNotMatch(first, /Putar ulang animasi|Replay animation|opening-replay/);
-    assert.match(first, lang === 'id' ? /Jeda animasi logo/ : /Pause logo animation/);
+    assert.doesNotMatch(first, /opening-motion-toggle|Jeda animasi logo|Lanjutkan animasi logo|Pause logo animation|Resume logo animation/);
     assert.match(first, /aria-pressed="true"/);
     memory.set('inventora:brand-seen:v2', '1');
     const returned = renderOpening();
@@ -58,7 +58,7 @@ try {
       assert.match(html, lang === 'id' ? /Tutup dialog/ : /Close dialog/);
     }
   }
-  console.log(JSON.stringify({ originalLogoGeometry: 'pass', singleBrandAndNoOrnaments: 'pass', sharedCompactLoading: 'pass', introFirstAndRepeatVisit: 'pass', loginLinkImmediatelyPresent: 'pass', bilingualSkeletons: 'pass', nativeDialogMarkup: 'pass', scope: 'server rendering; not browser animation or layout QA' }));
+  console.log(JSON.stringify({ originalLogoGeometry: 'pass', singleBrandAndNoOrnaments: 'pass', sharedCompactLoading: 'pass', introFirstAndRepeatVisit: 'pass', loginLinkImmediatelyPresent: 'pass', noPlaybackButtons: 'pass', bilingualSkeletons: 'pass', nativeDialogMarkup: 'pass', scope: 'server rendering; not browser animation or layout QA' }));
 } finally {
   await vite.close();
 }

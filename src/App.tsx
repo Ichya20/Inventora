@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { motion, MotionConfig } from 'motion/react';
+import { MotionConfig } from 'motion/react';
 import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages, Keyboard } from 'lucide-react';
 import { ToastType, ToastItem, ToastFunction, Role, PurchaseOrder, PaymentTransaction, AppNotification, RestockDraft } from './types';
 import { translations, Language, Translations } from './i18n';
@@ -17,6 +17,8 @@ import { InventoraLoadingScreen } from './components/InventoraLoadingScreen';
 import { OpeningSequence } from './components/OpeningSequence';
 import { InventoraMark } from './components/InventoraMark';
 import { AuthForm } from './components/ui/sign-in-1';
+import { WorkspaceSidebar } from './components/ui/navbars';
+import './components/WorkspaceSidebar.css';
 import './components/LoginPage.css';
 import { exportToCsv, exportToJson } from './lib/exportUtils';
 import { loadStoredData, saveStoredData, clearAllInventoraStorage, createInventoraBackup } from './lib/storageUtils';
@@ -360,36 +362,6 @@ function Dashboard() {
     return 'en';
   });
 
-  useEffect(() => {
-    if (!isSidebarOpen) return;
-    const mobile = window.matchMedia('(max-width: 767px)');
-    if (!mobile.matches) { setIsSidebarOpen(false); return; }
-    const sidebar = document.getElementById('workspace-navigation');
-    const main = document.querySelector<HTMLElement>('.app-main');
-    const previous = document.activeElement as HTMLElement | null;
-    const wasInert = main?.inert ?? false;
-    if (main) main.inert = true;
-    const controls = () => Array.from(sidebar?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, [tabindex="0"]') ?? []).filter(element => element.getClientRects().length > 0);
-    controls()[0]?.focus();
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); setIsSidebarOpen(false); }
-      if (event.key !== 'Tab') return;
-      const items = controls();
-      if (!items.length) return;
-      const first = items[0]; const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    const handleResize = () => { if (!mobile.matches) setIsSidebarOpen(false); };
-    document.addEventListener('keydown', handleKey);
-    mobile.addEventListener('change', handleResize);
-    return () => {
-      if (main) main.inert = wasInert;
-      document.removeEventListener('keydown', handleKey);
-      mobile.removeEventListener('change', handleResize);
-      previous?.focus();
-    };
-  }, [isSidebarOpen]);
 
   const t = translations[language];
 
@@ -555,8 +527,6 @@ function Dashboard() {
     setRestockDraft({ owner: draftOwner, key: crypto.randomUUID(), item: { skuId: item.skuId, name: item.name, recommendedOrderQty: item.recommendedOrderQty } });
   };
 
-  const getMenuClass = (menuName: string) => `sidebar-link ${activeMenu === menuName || (menuName === 'po' && ['purchase', 'new-po'].includes(activeMenu)) ? 'is-active' : ''}`;
-
   const getHeaderTitle = () => {
     switch(activeMenu) {
       case 'overview': return t.headers.overview;
@@ -608,85 +578,29 @@ function Dashboard() {
     <UILanguageContext.Provider value={language}>
     <div className="app-shell flex h-dvh w-full text-[#171717] dark:text-[#ededed] font-sans overflow-hidden">
 
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      <WorkspaceSidebar
+        activeMenu={activeMenu}
+        role={currentRole}
+        language={language}
+        labels={t.nav}
+        account={user}
+        isDemo={isDemo}
+        pendingApprovalsCount={summary.pendingApprovalsCount}
+        mobileOpen={isSidebarOpen}
+        onMobileOpenChange={setIsSidebarOpen}
+        onNavigate={handleMenuClick}
+        onToggleTheme={toggleDarkMode}
+        onLogout={handleLogout}
+      />
 
-      {/* Sidebar */}
-      <aside id="workspace-navigation" aria-label={language === 'en' ? 'Main navigation' : 'Navigasi utama'} className={`app-sidebar fixed md:static inset-y-0 left-0 z-30 flex flex-col shrink-0 ${isSidebarOpen ? 'sidebar-open' : ''}`}>
-        <div className="sidebar-brand flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="flex-shrink-0 flex items-center justify-center">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="2" width="8" height="8" rx="1.5" className="fill-[#171717] dark:fill-[#ededed]" />
-                <rect x="14" y="2" width="8" height="8" rx="1.5" className="fill-[#171717] dark:fill-[#ededed]" fillOpacity="0.15" />
-                <rect x="2" y="14" width="8" height="8" rx="1.5" className="fill-[#171717] dark:fill-[#ededed]" fillOpacity="0.15" />
-                <rect x="14" y="14" width="8" height="8" rx="1.5" className="fill-[#171717] dark:fill-[#ededed]" />
-              </svg>
-            </div>
-            <div className="flex flex-col justify-center mt-0.5">
-              <span className="text-lg font-semibold tracking-tight text-[#171717] dark:text-[#ededed] leading-none">Inventora</span>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            aria-label={language === 'en' ? 'Close navigation' : 'Tutup navigasi'}
-            className="md:hidden text-[#666] dark:text-[#a1a1aa]"
-          >
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
-        </div>
-
-        <div className="workspace-label"><span className="workspace-monogram">IN</span><div><strong>Inventora</strong><span>{language === 'en' ? 'Operations workspace' : 'Ruang kerja operasional'}</span></div><span className="workspace-role">{isDemo ? 'DEMO' : 'ERP'}</span></div>
-        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
-          <p className="nav-group-label">{language === 'en' ? 'Workspace' : 'Ruang kerja'}</p>
-          {[
-            { id: 'overview', label: t.nav.overview, icon: LayoutDashboard },
-            { id: 'analytics', label: t.nav.analytics, icon: BarChart3 },
-            { id: 'stok', label: t.nav.inventory, icon: Database },
-            { id: 'pos', label: language === 'en' ? 'Point of Sale' : 'Kasir penjualan', icon: Receipt },
-            { id: 'po', label: t.nav.procurement, icon: ShoppingCart },
-            { id: 'keuangan', label: t.nav.finance, icon: FileText },
-            { id: 'sdm', label: t.nav.hr, icon: Users },
-            { id: 'billing', label: t.nav.billing, icon: CreditCard },
-          ].filter(item => hasAccess(item.id)).map(item => <button key={item.id} type="button" aria-current={getMenuClass(item.id).includes('is-active') ? 'page' : undefined} onClick={() => handleMenuClick(item.id)} className={getMenuClass(item.id)}>
-            {getMenuClass(item.id).includes('is-active') && <motion.span layoutId="navigation-active" className="sidebar-active-indicator" transition={{ type: 'spring', stiffness: 420, damping: 38 }} />}
-            <item.icon className="w-[18px] h-[18px]" strokeWidth={1.7} /><span>{item.label}</span>
-            {item.id === 'po' && !!summary.pendingApprovalsCount && <span className="nav-count">{summary.pendingApprovalsCount}</span>}
-          </button>)}
-          {hasAccess('settings') && <div className="nav-settings"><p className="nav-group-label">{language === 'en' ? 'Manage' : 'Pengelolaan'}</p><button type="button" aria-current={activeMenu === 'settings' ? 'page' : undefined} onClick={() => handleMenuClick('settings')} className={getMenuClass('settings')}>
-            {activeMenu === 'settings' && <motion.span layoutId="navigation-active" className="sidebar-active-indicator" transition={{ type: 'spring', stiffness: 420, damping: 38 }} />}
-            <SettingsIcon size={18} strokeWidth={1.7}/><span>{t.nav.settings}</span></button></div>}
-        </nav>
-
-        <div className="sidebar-account text-xs space-y-4">
-          <p>{t.nav.activeSession}:<br/><span className="text-[#171717] dark:text-[#ededed] font-medium text-sm truncate block" title={user?.email}>{user?.email || '—'}</span><span className="block mt-1 text-[var(--ws-muted)]">{currentRole}</span></p>
-          <div className="flex gap-2">
-            <button onClick={toggleDarkMode} aria-label={language === 'en' ? 'Toggle color theme' : 'Ganti tema warna'} className="flex-1 bg-white dark:bg-[#1a1a1a] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-[#fafafa] dark:hover:bg-[#333] px-3 py-2 rounded-md transition-colors flex items-center justify-center">
-              <svg className="hidden dark:block w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-              <svg className="block dark:hidden w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-            </button>
-            <button onClick={handleLogout} className="flex-[4] bg-white dark:bg-[#1a1a1a] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-[#fafafa] dark:hover:bg-[#333] px-3 py-2 rounded-md transition-colors text-xs flex items-center justify-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              {t.nav.logout}
-            </button>
-          </div>
-        </div>
-      </aside>
-
-
-      <main className="app-main flex-1 flex flex-col min-w-0">
+      <main id="workspace-content" className="app-main flex-1 flex flex-col min-w-0">
         <header className="app-topbar flex items-center justify-between gap-2 px-4 md:px-6 shrink-0 z-10">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <button
               onClick={() => setIsSidebarOpen(true)}
               aria-label={language === 'en' ? 'Open navigation' : 'Buka navigasi'}
               aria-expanded={isSidebarOpen} aria-controls="workspace-navigation"
-              className="md:hidden shrink-0 text-[#171717] dark:text-[#ededed] p-1 -ml-1 rounded hover:bg-[#fafafa] dark:hover:bg-[#333]"
+              className="md:hidden shrink-0 text-[#171717] dark:text-[#ededed] w-11 h-11 -ml-2 flex items-center justify-center rounded hover:bg-[#fafafa] dark:hover:bg-[#333]"
             >
               <Menu className="w-5 h-5" />
             </button>

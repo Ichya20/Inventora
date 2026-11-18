@@ -51,6 +51,21 @@
   "decisions": [
     {
       "date": "2026-11-18",
+      "scope": "Dashboard sidebar",
+      "choice": "Adapt the supplied navbars.tsx and collapsible demo into WorkspaceSidebar with real Inventora modules. Group operational modules separately from workspace tools, filter every group by verified role, preserve Procurement selection on purchase/new-po, pending approval counts, account identity, theme and logout. Use the original InventoraMark, Plus Jakarta Sans and local neutral sidebar tokens in light/dark themes. Desktop collapses to a 72px icon rail with named controls and hover/focus labels; mobile retains full labels, a dismissible left drawer, focus containment, Escape and focus return. Reuse the existing React, Lucide and CSS stack without adding unused demo dependencies. The attachment is the source reference; 21st catalog search requires login. Preserve business workflows and existing operational status/chart colors. Use DOM interaction tests, TypeScript and build; live-browser visual QA is unavailable."
+    },
+    {
+      "date": "2026-11-18",
+      "scope": "Opening monochrome refinement",
+      "choice": "User requests black and white on the opening page and no pause/resume control. Override workspace color tokens locally within opening-workspace with neutral greys in both light and dark modes, including text, language control, CTA and keyboard focus. Use a black Open workspace action on light mode, inverted on dark mode, and a neutral charcoal logo field. Remove the playback button and its page state while preserving the existing logo intro/idle and system reduced-motion behavior. This supersedes the prior blue CTA and visible pause/resume decisions for the opening page."
+    },
+    {
+      "date": "2026-11-18",
+      "scope": "Opening split hero",
+      "choice": "Adapt the supplied hero-section-2 into a left-content, right-visual opening at /. Keep the original four-square Inventora mark and existing 2.4-second dotLottie reveal with six-second idle and pause/resume. Replace the mountain photograph, generic contact information, and slogan with the existing brand animation and actual inventory, purchasing, POS, finance and HR scope. Use workspace sheet/text/accent tokens, Plus Jakarta Sans, a diagonal dark visual field matching the inverse Lottie artwork, and a stacked mobile layout. Login remains an immediately available React Router link. Retain EN/ID, dark theme, visible focus and reduced motion. Reuse motion/react instead of adding framer-motion. The attachment is the design reference; 21st search requires authentication. Static design reviews, TypeScript, build, SSR and DOM checks are used; live-browser visual inspection remains unverified."
+    },
+    {
+      "date": "2026-11-18",
       "scope": "Login auth card",
       "choice": "Adapt the supplied sign-in-1 AuthForm into src/components/ui/sign-in-1.tsx using existing project Button, original InventoraMark, Plus Jakarta Sans, and workspace light/dark tokens. Keep one centered auth card and a primary Google identity action; collapse the four existing local demo roles under a native details element. Use concise inventory, purchase and sales copy, visible keyboard focus, a 220ms entrance with reduced-motion support, and no unsupported email/GitHub/skip-auth paths. Retain verified Firebase claims and demo storage behavior. Block concurrent Google/demo actions while sign-in is pending, and only report domain clipboard success after the operation resolves. The provided component is the source reference; 21st catalog search requires login. React DOM/jsdom and callback tests cover interactions, while live-browser visual QA remains unverified."
     },

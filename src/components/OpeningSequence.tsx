@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, Pause, Play } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
+import { ArrowRight } from 'lucide-react';
 import { Language } from '../i18n';
 import { InventoraLogoAnimation } from './InventoraLogoAnimation';
-import { workspaceMotion } from '../lib/motion';
+import { InventoraMark } from './InventoraMark';
+import { HeroSection } from './ui/hero-section-2';
 import './OpeningSequence.css';
 
 interface OpeningSequenceProps {
@@ -15,38 +16,28 @@ interface OpeningSequenceProps {
 export function OpeningSequence({ lang, onLanguageChange }: OpeningSequenceProps) {
   const reduced = useReducedMotion();
   const en = lang === 'en';
-  const [paused, setPaused] = useState(false);
   const reveal = !reduced;
-  const motionLabel = paused
-    ? (en ? 'Resume logo animation' : 'Lanjutkan animasi logo')
-    : (en ? 'Pause logo animation' : 'Jeda animasi logo');
 
-  return <main className={`opening-workspace ${reveal ? 'is-revealing' : ''}`}>
-    <div className="opening-visual">
-      <InventoraLogoAnimation reveal={reveal} paused={paused} />
-      {!reduced && <button type="button" className="opening-motion-toggle" aria-label={motionLabel} title={motionLabel}
-        onClick={() => setPaused(value => !value)}>
-        {paused ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}
-      </button>}
-    </div>
-    <header className="opening-topbar">
-      <div className="opening-language" role="group" aria-label={en ? 'Language' : 'Bahasa'}>
-        {(['id', 'en'] as const).map(language => <button key={language} type="button" aria-pressed={lang === language} onClick={() => onLanguageChange(language)}>{language.toUpperCase()}</button>)}
-      </div>
-    </header>
-
-    <section className="opening-center" aria-labelledby="opening-title">
-      <div className="opening-content">
-        <motion.div initial={reveal ? { opacity: 0, y: 6 } : false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reveal ? workspaceMotion.brandName : 0, ease: workspaceMotion.ease }}>
-          <h1 id="opening-title">Inventora</h1>
-          <p className="opening-description">{en ? 'Inventory, procurement, and sales.' : 'Persediaan, pengadaan, dan penjualan.'}</p>
-        </motion.div>
-        <div className="opening-actions">
-          <Link to="/login" className="opening-enter">{en ? 'Open workspace' : 'Buka ruang kerja'}<ArrowRight size={18} aria-hidden="true" /></Link>
-        </div>
-      </div>
-    </section>
+  return <main className={`opening-workspace ${reveal ? 'is-revealing' : ''}`} lang={lang}>
+    <HeroSection
+      brand={<><InventoraMark size={30} /><span>Inventora</span></>}
+      controls={<div className="opening-language" role="group" aria-label={en ? 'Language' : 'Bahasa'}>
+        {(['en', 'id'] as const).map(language => <button key={language} type="button" lang={language}
+          aria-label={language === 'en' ? 'English' : 'Bahasa Indonesia'} aria-pressed={lang === language}
+          onClick={() => onLanguageChange(language)}>{language.toUpperCase()}</button>)}
+      </div>}
+      title={en ? <>Inventory.<br />Purchases.<br />Sales.</> : <>Persediaan.<br />Pembelian.<br />Penjualan.</>}
+      subtitle={en ? 'Check stock, manage purchase orders, and record sales in Inventora.' : 'Periksa stok, kelola pesanan pembelian, dan catat penjualan di Inventora.'}
+      callToAction={<>
+        <Link to="/login" className="opening-enter">{en ? 'Open workspace' : 'Buka ruang kerja'}<ArrowRight size={18} aria-hidden="true" /></Link>
+        <p className="opening-entry-note">{en ? 'Sign in with Google or try the demo.' : 'Masuk dengan Google atau coba demo.'}</p>
+      </>}
+      footer={<ul className="opening-modules" aria-label={en ? 'Workspace modules' : 'Modul ruang kerja'}>
+        <li><strong>{en ? 'Stock & POS' : 'Stok & POS'}</strong><span>{en ? 'Inventory and checkout' : 'Persediaan dan kasir'}</span></li>
+        <li><strong>{en ? 'Purchasing' : 'Pembelian'}</strong><span>{en ? 'Orders and receiving' : 'Pesanan dan penerimaan'}</span></li>
+        <li><strong>{en ? 'Finance & HR' : 'Keuangan & SDM'}</strong><span>{en ? 'Invoices and payroll' : 'Faktur dan penggajian'}</span></li>
+      </ul>}
+      visual={<InventoraLogoAnimation reveal={reveal} />}
+    />
   </main>;
 }

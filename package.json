@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "node scripts/clean.mjs",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/regressions.test.ts tests/api.test.ts tests/remainingFixes.test.ts tests/ai.test.ts tests/workflowFixes.test.ts tests/dashboard.test.tsx tests/pos.test.ts tests/navigation.test.ts tests/nonPoActions.test.ts tests/poInterface.test.ts tests/googleSignIn.test.ts tests/accountAccess.test.tsx tests/posIsolation.test.ts tests/poAuditFixes.test.tsx tests/financeAuditFixes.test.tsx tests/procurementRecovery.test.tsx tests/auditSafety.test.ts tests/serviceWorker.test.ts tests/vendorPaymentFixes.test.ts tests/secondFinanceFixes.test.tsx tests/secondSummaryFixes.test.ts tests/numericInput.test.tsx tests/loginPage.test.tsx",
+    "test": "tsx --test tests/regressions.test.ts tests/api.test.ts tests/remainingFixes.test.ts tests/ai.test.ts tests/workflowFixes.test.ts tests/dashboard.test.tsx tests/pos.test.ts tests/navigation.test.ts tests/nonPoActions.test.ts tests/poInterface.test.ts tests/googleSignIn.test.ts tests/accountAccess.test.tsx tests/posIsolation.test.ts tests/poAuditFixes.test.tsx tests/financeAuditFixes.test.tsx tests/procurementRecovery.test.tsx tests/auditSafety.test.ts tests/serviceWorker.test.ts tests/vendorPaymentFixes.test.ts tests/secondFinanceFixes.test.tsx tests/secondSummaryFixes.test.ts tests/numericInput.test.tsx tests/loginPage.test.tsx tests/openingHero.test.tsx tests/workspaceSidebar.test.tsx",
     "test:rules": "tsx --test tests/firestore.rules.test.ts"
   },
   "dependencies": {
