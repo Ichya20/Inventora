@@ -11,12 +11,12 @@ export interface ParsedInvoiceData {
 
 export function validateParsedInvoice(value: unknown): ParsedInvoiceData {
   const data = value as ParsedInvoiceData;
-  const validMoney = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0;
+  const validMoney = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= Number.MAX_SAFE_INTEGER;
   if (!data || typeof data.vendor !== 'string' || !data.vendor.trim() || !Array.isArray(data.items) || !data.items.length || data.items.length > 200) {
     throw new Error('Vendor dan rincian barang harus tersedia dalam dokumen.');
   }
   for (const item of data.items) {
-    if (!item || typeof item.name !== 'string' || !item.name.trim() || !validMoney(item.qty) || item.qty === 0 || !validMoney(item.unitPrice) || !validMoney(item.subtotal) ||
+    if (!item || typeof item.name !== 'string' || !item.name.trim() || !Number.isSafeInteger(item.qty) || item.qty <= 0 || !validMoney(item.unitPrice) || !validMoney(item.subtotal) ||
       Math.abs(item.qty * item.unitPrice - item.subtotal) > 1) {
       throw new Error('Rincian jumlah atau harga barang tidak konsisten.');
     }

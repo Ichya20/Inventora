@@ -7,13 +7,16 @@ import { canAccessMenu } from '../lib/authorization';
 import { stockHealth } from '../lib/inventory';
 import { ProcurementOverview } from './ProcurementOverview';
 import { Tooltip } from './Tooltip';
+import { AccountOverview } from './AccountOverview';
 
 type Props = {
   onNavigate: (menu: string) => void; t: Translations; lang: Language;
   summary: ReturnType<typeof useWorkspaceSummary>; role: Role | null; isDemo: boolean; notifications: AppNotification[];
+  account?: { displayName?: string | null; email?: string | null };
 };
 
-export function OverviewView({ onNavigate, lang, summary, role, isDemo, notifications }: Props) {
+export function OverviewView({ onNavigate, lang, summary, role, isDemo, notifications, account }: Props) {
+  if (role === 'User') return <AccountOverview lang={lang} account={account} onNavigate={onNavigate}/>;
   const en = lang === 'en';
   const locale = en ? 'en-US' : 'id-ID';
   const say = (id: string, english: string) => en ? english : id;

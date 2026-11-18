@@ -12,8 +12,11 @@ Login Google membaca custom claim Firebase Auth bernama `role`. Nilai yang diduk
 | Warehouse Manager | Membuat PO dan mencatat penerimaan |
 | Finance Manager | Menyetujui/menolak dan mencatat simulasi pembayaran |
 | HR Manager | Modul SDM, tanpa akses dokumen pengadaan |
+| User | Halaman akun, profil sendiri, pilihan bahasa; tanpa akses data operasional |
 
-Administrator menetapkan claim melalui Firebase Admin SDK dalam lingkungan server tepercaya. Pertahankan custom claims lain saat memperbarui claim `role`. Jangan menaruh service-account key atau Firebase Admin SDK dalam bundle browser. Setelah claim diubah, pengguna masuk kembali untuk memuat peran terbaru. Akun tanpa claim yang valid tidak mendapat akses modul.
+Administrator menetapkan claim melalui Firebase Admin SDK dalam lingkungan server tepercaya. Pertahankan custom claims lain saat memperbarui claim `role`. Jangan menaruh service-account key atau Firebase Admin SDK dalam bundle browser. Setelah claim diubah, pengguna masuk kembali untuk memuat peran terbaru. Akun Google terverifikasi tanpa claim `role` masuk sebagai User; claim role yang tidak dikenal tetap ditolak. Role User tidak memberi akses ke API operasional, Copilot, atau purchaseOrders di Firestore. Custom claim Super Admin pada akun utama tetap digunakan dan tidak ditulis ulang oleh login.
+
+Login Google hanya meminta identitas dasar. Izin Sheets/Calendar baru diminta saat integrasinya digunakan. Jika akun lain masih ditolak oleh halaman Google sebelum kembali ke Inventora, periksa Google Auth Platform > Audience (External dan status publikasi), konfigurasi Google provider pada Firebase Authentication, serta Authorized Domains. Perubahan source tidak mengubah pengaturan console tersebut. Jika masih Testing, akun penguji dapat ditambahkan ke Test users; untuk penggunaan umum, sesuaikan publikasi aplikasi. Verifikasi scope integrasi dapat tetap diperlukan secara terpisah.
 
 Aturan saat ini ditujukan untuk satu workspace perusahaan pada satu proyek Firebase. Pemisahan organisasi/tenant belum diimplementasikan.
 
@@ -47,6 +50,8 @@ Parser memerlukan `GEMINI_API_KEY` di server. Ketiadaan layanan, kegagalan ekstr
 Token OAuth Google hanya disimpan di memori. Setelah reload atau token kedaluwarsa, ekspor Calendar meminta otorisasi ulang pada akun yang sama. Pembatalan popup tidak dianggap ekspor berhasil.
 
 ## Pemeriksaan
+
+Perbaikan audit input, transaksi, cache, dan server pada 18 November 2026 tercatat di [laporan perbaikan terbaru](perbaikan-audit-2026-11-18.md). Output backend sekarang `build/server.cjs`; frontend tetap `dist`. Jalankan produksi dengan `npm run build` lalu `npm start`.
 
 ```powershell
 npm test

@@ -13,6 +13,7 @@ import { ApiError } from '../src/lib/apiError';
 import { readStoredArray, saveStoredData } from '../src/lib/storageUtils';
 import { isInventoryList } from '../src/lib/inventory';
 import { readCommerce } from '../src/lib/commerce';
+import { isCachedOrder } from '../src/lib/procurementCache';
 import { jsPDF } from 'jspdf';
 import { downloadPurchaseOrderPdf } from '../src/lib/pdfGenerator';
 
@@ -51,9 +52,9 @@ function form(options: { demo?: boolean; post?: (po: any) => Promise<any>; notes
     department: 'IT Infrastructure', setCreatedPoNumber() {}, notes: options.notes ?? '', crypto: globalThis.crypto,
     businessDate, canPerformPoAction, validatePurchaseOrderCreate, ApiError,
     subtotal: 1000, discountAmount: 0, vatAmount: 110, pphAmount: 0, lang: 'id', isDemo: options.demo ?? false,
-    storageKey: 'audit-po-cache', navigator: { onLine: true },
+    storageKey: 'audit-po-cache', ownerId: 'test-owner', navigator: { onLine: true },
     authenticatedPost: async (_url: string, po: any) => { posts.push(po); return options.post ? options.post(po) : po; },
-    readStoredArray, saveStoredData, window: { dispatchEvent() {} }, CustomEvent: class {},
+    readStoredArray, saveStoredData, isCachedOrder, window: { dispatchEvent() {} }, CustomEvent: class {},
     onToast: (...args: any[]) => toasts.push(args), onNotify: null, onNavigate() {},
     setStep(step: string) { context.step = step; }, step: 'form', setImportedTaxAmount() {},
   });
@@ -168,7 +169,7 @@ test('long procurement notes reach the final PDF page without dropping the last 
 function inventoryState(raw?: string, failRead = false) {
   const data = memoryStorage(raw === undefined ? {} : { inventora_inventory_v1: raw }, failRead);
   const defaults = [{ id: 'SKU-1', name: 'Server', desc: '', stock: 2 }];
-  const context = vm.createContext({ defaultItems: defaults, readStoredArray, isInventoryList, readCommerce });
+  const context = vm.createContext({ defaultItems: defaults, readStoredArray, isInventoryList, readCommerce, isDemo: false });
   return { data, state: evaluate(initializer(inventory, '[inventoryState, setInventoryState]').arguments[0].getText(), context)() };
 }
 

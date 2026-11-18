@@ -1,0 +1,18 @@
+{
+  "scope": "Actual export functions executed locally with document/URL/timer stubs; no browser, spreadsheet, network or Firebase.",
+  "payload": "=1+1",
+  "purchaseOrderValidatorAcceptedNotes": true,
+  "procurementExport": {
+    "source": "src/components/ProcurementView.tsx:381",
+    "downloadTriggered": true,
+    "formulaPreserved": true,
+    "csv": "﻿PO Number,Vendor,Description,Notes,Date,Total (IDR),Status,Department,3-Way Match Status,Payment Receipt\n\"PO-AUDIT-CSV-001\",\"Vendor Uji\",\"Pengadaan uji CSV\",\"=1+1\",\"2026-11-18\",100000,\"Pending Approval\",\"IT Infrastructure\",\"PENDING_RECEIPT\",\"-\""
+  },
+  "reusableCsvExport": {
+    "source": "src/lib/exportUtils.ts:20",
+    "downloadTriggered": true,
+    "formulaPreserved": true,
+    "csv": "\"Notes\"\r\n\"=1+1\""
+  },
+  "conclusion": "The generated CSV cells retain a leading formula marker. Spreadsheet formula execution was not performed or observed."
+}

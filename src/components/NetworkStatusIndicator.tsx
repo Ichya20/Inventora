@@ -38,7 +38,7 @@ export function NetworkStatusIndicator({
         }`}
         title={
           isOnline
-            ? (lang === 'en' ? 'System Online & Synchronized' : 'Sistem Online & Terhubung')
+            ? (lang === 'en' ? 'Browser online' : 'Browser online')
             : (lang === 'en' ? `${queuedCount} operations queued offline` : `${queuedCount} operasi tertunda offline`)
         }
       >
@@ -83,7 +83,7 @@ export function NetworkStatusIndicator({
               <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
                 {isOnline
                   ? (lang === 'en' ? 'Browser online. Pending changes remain listed until acknowledged by the server.' : 'Browser online. Perubahan tetap dalam antrean sampai dikonfirmasi server.')
-                  : (lang === 'en' ? 'Mutations are queued securely in local browser storage' : 'Perubahan disimpan aman di penyimpanan browser lokal')}
+                  : (lang === 'en' ? 'Pending changes are saved in this browser' : 'Perubahan tertunda disimpan di browser ini')}
               </div>
             </div>
           </div>
@@ -99,7 +99,7 @@ export function NetworkStatusIndicator({
             {queue.length === 0 ? (
               <div className="p-4 text-center rounded-lg border border-dashed border-neutral-200 dark:border-neutral-800 text-xs text-neutral-500 dark:text-neutral-400 flex flex-col items-center gap-1.5">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                <span>{lang === 'en' ? 'All records are up to date with server' : 'Semua data telah sinkron dengan server'}</span>
+                <span>{lang === 'en' ? 'No pending operations for this account.' : 'Tidak ada operasi tertunda untuk akun ini.'}</span>
               </div>
             ) : (
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
@@ -128,7 +128,7 @@ export function NetworkStatusIndicator({
           <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
             <div className="flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>AES Local Persistence</span>
+              <span>Browser storage</span>
             </div>
             <div className="flex gap-2">
               <button

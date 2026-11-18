@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=build/server.cjs",
+    "start": "node build/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "node scripts/clean.mjs",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/regressions.test.ts tests/api.test.ts tests/remainingFixes.test.ts tests/ai.test.ts tests/workflowFixes.test.ts tests/dashboard.test.tsx tests/pos.test.ts tests/navigation.test.ts tests/nonPoActions.test.ts tests/poInterface.test.ts",
+    "test": "tsx --test tests/regressions.test.ts tests/api.test.ts tests/remainingFixes.test.ts tests/ai.test.ts tests/workflowFixes.test.ts tests/dashboard.test.tsx tests/pos.test.ts tests/navigation.test.ts tests/nonPoActions.test.ts tests/poInterface.test.ts tests/googleSignIn.test.ts tests/accountAccess.test.tsx tests/posIsolation.test.ts tests/poAuditFixes.test.tsx tests/financeAuditFixes.test.tsx tests/procurementRecovery.test.tsx tests/auditSafety.test.ts tests/serviceWorker.test.ts tests/vendorPaymentFixes.test.ts tests/secondFinanceFixes.test.tsx tests/secondSummaryFixes.test.ts tests/numericInput.test.tsx",
     "test:rules": "tsx --test tests/firestore.rules.test.ts"
   },
   "dependencies": {
@@ -44,6 +44,7 @@
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "jsdom": "^27.4.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

@@ -1,54 +1,48 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth, signInWithPopup, reauthenticateWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { getAuth, signInWithPopup, reauthenticateWithPopup, GoogleAuthProvider, User, signOut } from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
-const provider = new GoogleAuthProvider();
-provider.addScope('https://www.googleapis.com/auth/spreadsheets');
-provider.addScope('https://www.googleapis.com/auth/calendar.events');
+const signInProvider = new GoogleAuthProvider();
+signInProvider.setCustomParameters({ prompt: 'select_account' });
+const integrationProvider = new GoogleAuthProvider();
+integrationProvider.addScope('https://www.googleapis.com/auth/spreadsheets');
+integrationProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 
-let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 let tokenOwner: string | null = null;
 let tokenExpiresAt = 0;
-let tokenRequest: Promise<string | null> | null = null;
+type IntegrationRequest = { ownerId: string; session: number; promise?: Promise<string | null> };
+let tokenRequest: IntegrationRequest | null = null;
+let integrationSession = 0;
+let identityTransition: object | null = null;
 
-export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
-  onAuthFailure?: () => void
-) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
-      }
-    } else {
-      cachedAccessToken = null;
-      if (onAuthFailure) onAuthFailure();
-    }
-  });
-};
+function invalidateIntegrationSession() {
+  integrationSession++;
+  cachedAccessToken = null;
+  tokenOwner = null;
+  tokenExpiresAt = 0;
+  tokenRequest = null;
+}
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+function beginIdentityTransition() {
+  invalidateIntegrationSession();
+  const transition = {};
+  identityTransition = transition;
+  return transition;
+}
+
+export const googleSignIn = async (): Promise<{ user: User; accessToken: string | null } | null> => {
+  const transition = beginIdentityTransition();
   try {
-    isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(auth, signInProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
-    }
-
-    cachedAccessToken = credential.accessToken;
-    tokenOwner = result.user.uid;
-    tokenExpiresAt = Date.now() + 50 * 60 * 1000;
-    return { user: result.user, accessToken: cachedAccessToken };
+    // A sign-in grant does not include permission to access Sheets or Calendar.
+    return { user: result.user, accessToken: credential?.accessToken ?? null };
   } catch (error: any) {
     const isCancelled =
       error?.code === 'auth/popup-closed-by-user' ||
@@ -71,38 +65,43 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       console.error('Sign in error:', error);
     }
     throw error;
-  } finally {
-    isSigningIn = false;
-  }
+  } finally { if (identityTransition === transition) identityTransition = null; }
 };
 
 export const getAccessToken = async (forceRefresh = false): Promise<string | null> => {
   await auth.authStateReady();
+  if (identityTransition) return null;
   const user = auth.currentUser;
-  if (!user || sessionStorage.getItem('inventora_demo_user')) return null;
+  if (!user || sessionStorage.getItem('inventora_demo_user')) { invalidateIntegrationSession(); return null; }
   if (!forceRefresh && tokenOwner === user.uid && Date.now() < tokenExpiresAt && cachedAccessToken) return cachedAccessToken;
-  if (tokenRequest) return tokenRequest;
-  tokenRequest = (async () => {
+  if (tokenRequest?.ownerId === user.uid && tokenRequest.session === integrationSession && tokenRequest.promise) return tokenRequest.promise;
+  const request: IntegrationRequest = { ownerId: user.uid, session: integrationSession };
+  tokenRequest = request;
+  request.promise = (async () => {
     try {
-      const result = await reauthenticateWithPopup(user, provider);
+      const result = await reauthenticateWithPopup(user, integrationProvider);
       const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
-      if (!token || auth.currentUser?.uid !== user.uid) throw new Error('Google authorization did not return a token for this account.');
+      if (!token || auth.currentUser?.uid !== user.uid || request.session !== integrationSession
+        || tokenRequest !== request || identityTransition || sessionStorage.getItem('inventora_demo_user')) {
+        throw new Error('Google authorization did not return a token for this account.');
+      }
       cachedAccessToken = token;
       tokenOwner = user.uid;
       tokenExpiresAt = Date.now() + 50 * 60 * 1000;
       return token;
     } catch (error: any) {
-      cachedAccessToken = null;
+      if (tokenRequest === request) {
+        cachedAccessToken = null; tokenOwner = null; tokenExpiresAt = 0;
+      }
       if (['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code)) return null;
       throw error;
-    } finally { tokenRequest = null; }
+    } finally { if (tokenRequest === request) tokenRequest = null; }
   })();
-  return tokenRequest;
+  return request.promise;
 };
 
 export const logout = async () => {
-  await signOut(auth);
-  cachedAccessToken = null;
-  tokenOwner = null;
-  tokenExpiresAt = 0;
+  const transition = beginIdentityTransition();
+  try { await signOut(auth); }
+  finally { if (identityTransition === transition) identityTransition = null; }
 };

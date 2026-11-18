@@ -7,9 +7,10 @@ import compression from "compression";
 import "dotenv/config";
 import { requireFirebaseRole } from './server/auth';
 import { persistGoodsReceipt, persistPurchaseOrder, verifyFirebaseToken } from './server/firebaseAdmin';
-import { ROLES } from './src/lib/authorization';
+import { STAFF_ROLES } from './src/lib/authorization';
 import type { VerifiedUser } from './server/auth';
 import { AiServiceError, aiServiceError, generateAiContent } from './server/ai';
+import { attachProductionFrontend } from './server/staticAssets';
 
 let aiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI {
@@ -76,7 +77,7 @@ export function createApp({ verifyToken = verifyFirebaseToken, saveReceipt = per
   getAi?: typeof getGeminiClient;
 } = {}) {
   const app = express();
-  const aiAccess = requireFirebaseRole(verifyToken, ROLES);
+  const aiAccess = requireFirebaseRole(verifyToken, STAFF_ROLES);
   const financeAccess = requireFirebaseRole(verifyToken, ['Super Admin', 'Finance Manager']);
   const warehouseAccess = requireFirebaseRole(verifyToken, ['Super Admin', 'Warehouse Manager']);
   const procurementAccess = requireFirebaseRole(verifyToken, ['Super Admin', 'Finance Manager', 'Warehouse Manager']);
@@ -391,10 +392,12 @@ Return a strict JSON object:
 }
 
 async function startServer() {
+  const production = process.env.NODE_ENV === 'production' || path.extname(process.argv[1] ?? '') === '.cjs';
+  if (production) process.env.NODE_ENV = 'production';
   const app = createApp();
   const PORT = 3000;
   // 6. Vite middleware for development vs Static Production Assets
-  if (process.env.NODE_ENV !== "production") {
+  if (!production) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -402,11 +405,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    // Enable caching for static production assets
-    app.use(express.static(distPath, { maxAge: "1d", etag: true }));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    attachProductionFrontend(app, distPath);
   }
 
   app.listen(PORT, "0.0.0.0", () => {

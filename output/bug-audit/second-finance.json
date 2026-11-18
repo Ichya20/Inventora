@@ -1,0 +1,72 @@
+{
+  "checkedAt": "2026-11-18T01:52:21.883Z",
+  "method": "Actual source callbacks evaluated in VM and actual Finance/Billing rendered through React SSR with in-memory localStorage. No browser, Firebase, credentials or API calls.",
+  "findings": [
+    {
+      "id": "BILLING-STALE-TAB-OVERWRITE",
+      "severity": "P2",
+      "trigger": "Open Billing in two tabs. Change plan in A, then change plan in B without refreshing.",
+      "observed": {
+        "invoiceIdsAfterA": [
+          "INV-SUB-2026-aaaaaaaa",
+          "OLD-INVOICE"
+        ],
+        "invoiceIdsAfterB": [
+          "INV-SUB-2026-bbbbbbbb",
+          "OLD-INVOICE"
+        ]
+      },
+      "impact": "The first successful plan-change invoice is deleted from local history by the second tab. Both handlers show success. Pause/resume also serializes stale subscription state.",
+      "source": [
+        "src/components/BillingSubscriptionView.tsx:171",
+        "src/components/BillingSubscriptionView.tsx:214",
+        "src/components/BillingSubscriptionView.tsx:1095"
+      ],
+      "scope": "Normal local multi-tab workflow; no payment provider or Firestore involved."
+    },
+    {
+      "id": "BILLING-CORRUPT-CACHE-OVERWRITE",
+      "severity": "P2 conditional",
+      "trigger": "Subscription or payment-method localStorage already contains truncated JSON; open Billing.",
+      "observed": "loadStoredData returns fixture defaults; actual mount persistence effect immediately writes those defaults over the corrupt original.",
+      "impact": "Recoverable plan/invoice/payment-label bytes are lost and sample records replace them silently.",
+      "source": [
+        "src/components/BillingSubscriptionView.tsx:103",
+        "src/components/BillingSubscriptionView.tsx:160",
+        "src/components/BillingSubscriptionView.tsx:181",
+        "src/components/BillingSubscriptionView.tsx:184"
+      ],
+      "limitation": "Needs already damaged local cache; no ordinary input path generating malformed JSON established."
+    },
+    {
+      "id": "FINANCE-BILLING-CACHE-SCHEMA",
+      "severity": "P2 conditional",
+      "trigger": "Already malformed cache has valid JSON but wrong structure, e.g. {} for invoice array/subscription record or [null] for invoice array.",
+      "observed": [
+        {
+          "module": "Finance",
+          "raw": "{}",
+          "error": "invoices is not iterable"
+        },
+        {
+          "module": "Finance",
+          "raw": "[null]",
+          "error": "Cannot read properties of null (reading 'client')"
+        },
+        {
+          "module": "Billing",
+          "raw": "{}",
+          "error": "Cannot read properties of undefined (reading 'slice')"
+        }
+      ],
+      "impact": "Finance/Billing crash during render, before a recoverable state can be shown. Unlike new HR/PO recovery, these modules still trust loadStoredData generic type.",
+      "source": [
+        "src/components/FinanceView.tsx:32",
+        "src/components/FinanceView.tsx:56",
+        "src/components/BillingSubscriptionView.tsx:160",
+        "src/components/BillingSubscriptionView.tsx:168"
+      ],
+      "limitation": "Requires wrong-shape saved cache; no ordinary form input generating this structure established."
+    }
+  ]
+}

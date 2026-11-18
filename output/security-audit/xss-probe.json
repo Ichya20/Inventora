@@ -1,0 +1,172 @@
+{
+  "scope": "Local validators, in-memory POS roundtrip, React server rendering, generated HTML. No browser JavaScript execution or Firebase test.",
+  "checks": 33,
+  "passed": 33,
+  "records": [
+    {
+      "id": "script:ai-output",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "script:po-items",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "script:receipt-en",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "script:receipt-id",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "image-event:ai-output",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "image-event:po-items",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "image-event:receipt-en",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "image-event:receipt-id",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "svg-event:ai-output",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "svg-event:po-items",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "svg-event:receipt-en",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "svg-event:receipt-id",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "closing-tag:ai-output",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "closing-tag:po-items",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "closing-tag:receipt-en",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "closing-tag:receipt-id",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "encoded-tag:ai-output",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "encoded-tag:po-items",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "encoded-tag:receipt-en",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "encoded-tag:receipt-id",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "apostrophe:ai-output",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "apostrophe:po-items",
+      "result": "PASS",
+      "detail": "Input rendered as escaped text; no injected element."
+    },
+    {
+      "id": "apostrophe:receipt-en",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "apostrophe:receipt-id",
+      "result": "PASS",
+      "detail": "Stored POS text escaped in generated receipt HTML."
+    },
+    {
+      "id": "numeric:quantity",
+      "result": "PASS",
+      "detail": "HTML string in saved numeric field rejected before receipt view."
+    },
+    {
+      "id": "numeric:unitPrice",
+      "result": "PASS",
+      "detail": "HTML string in saved numeric field rejected before receipt view."
+    },
+    {
+      "id": "numeric:discountPercent",
+      "result": "PASS",
+      "detail": "HTML string in saved numeric field rejected before receipt view."
+    },
+    {
+      "id": "numeric:total",
+      "result": "PASS",
+      "detail": "HTML string in saved numeric field rejected before receipt view."
+    },
+    {
+      "id": "numeric:amountPaid",
+      "result": "PASS",
+      "detail": "HTML string in saved numeric field rejected before receipt view."
+    },
+    {
+      "id": "vendor-type:29",
+      "result": "PASS",
+      "detail": "Object/array rejected where vendor must be a string."
+    },
+    {
+      "id": "vendor-type:30",
+      "result": "PASS",
+      "detail": "Object/array rejected where vendor must be a string."
+    },
+    {
+      "id": "vendor-type:31",
+      "result": "PASS",
+      "detail": "Object/array rejected where vendor must be a string."
+    },
+    {
+      "id": "sql-like-text",
+      "result": "PASS",
+      "detail": "SQL-like text stays a literal vendor string; not a login or SQL execution test."
+    }
+  ]
+}

@@ -3,6 +3,8 @@ import { canAccessMenu } from './authorization';
 import { isInventoryList, stockHealth } from './inventory';
 
 export const COMMERCE_KEY = 'inventora_commerce_v1';
+export function commerceStorageKey(isDemo = false) { return isDemo ? `${COMMERCE_KEY}:demo` : COMMERCE_KEY; }
+export function inventoryStorageKey(isDemo = false) { return isDemo ? 'inventora_inventory_v1:demo' : 'inventora_inventory_v1'; }
 export interface InventoryItem {
   id: string; name: string; desc?: string; stock: number; stockMin?: number; unitPrice?: number;
 }
@@ -49,8 +51,8 @@ export function calculateSale(lines: SaleInputLine[], taxRate: number) {
   return { items, subtotal, discount, taxRate, tax, total: rupiah(subtotal - discount + tax, 'Total', false) };
 }
 
-export function readCommerce(fallback: InventoryItem[] = DEFAULT_INVENTORY): CommerceState {
-  const raw = localStorage.getItem(COMMERCE_KEY);
+export function readCommerce(fallback: InventoryItem[] = DEFAULT_INVENTORY, isDemo = false): CommerceState {
+  const raw = localStorage.getItem(commerceStorageKey(isDemo));
   if (raw !== null) {
     const state = JSON.parse(raw) as CommerceState;
     if (state?.version !== 1 || !isInventoryList(state.inventory) || !Array.isArray(state.sales) || !Array.isArray(state.movements)
@@ -61,7 +63,7 @@ export function readCommerce(fallback: InventoryItem[] = DEFAULT_INVENTORY): Com
     }
     return state;
   }
-  const legacy = localStorage.getItem('inventora_inventory_v1');
+  const legacy = localStorage.getItem(inventoryStorageKey(isDemo));
   const inventory = legacy === null ? fallback : JSON.parse(legacy);
   if (!isInventoryList(inventory)) throw new Error('Inventori tersimpan tidak valid. Data asli tetap disimpan.');
   return { version: 1, inventory, sales: [], movements: [] };
@@ -79,14 +81,14 @@ function isSavedSale(sale: SaleTransaction): boolean {
   } catch { return false; }
 }
 
-function commit(state: CommerceState) {
+function commit(state: CommerceState, isDemo = false) {
   // One storage write commits the receipt, stock, and movements together.
-  localStorage.setItem(COMMERCE_KEY, JSON.stringify(state));
+  localStorage.setItem(commerceStorageKey(isDemo), JSON.stringify(state));
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('inventora:data-changed'));
 }
 
-async function withCommerceLock<T>(action: () => T): Promise<T> {
-  if (typeof navigator !== 'undefined' && navigator.locks) return navigator.locks.request('inventora-commerce', async () => action());
+async function withCommerceLock<T>(action: () => T, isDemo = false): Promise<T> {
+  if (typeof navigator !== 'undefined' && navigator.locks) return navigator.locks.request(isDemo ? 'inventora-commerce:demo' : 'inventora-commerce', async () => action());
   if (typeof window !== 'undefined') throw new Error('Browser ini belum mendukung penguncian transaksi. Gunakan browser terbaru melalui HTTPS atau localhost.');
   return action();
 }
@@ -94,11 +96,17 @@ async function withCommerceLock<T>(action: () => T): Promise<T> {
 export async function checkoutSale(input: {
   requestId: string; actorId: string; actorName: string; role: Role | null;
   lines: SaleInputLine[]; taxRate: number; amountPaid: number;
+  isDemo?: boolean; signal?: AbortSignal;
 }): Promise<SaleTransaction> {
   if (!canAccessMenu(input.role, 'pos')) throw new Error('Anda tidak memiliki izin kasir.');
   if (!input.actorId || !input.actorName.trim() || !input.requestId || input.requestId.length > 100) throw new Error('Identitas transaksi tidak valid.');
+  const assertActive = () => {
+    if (input.signal?.aborted) throw new Error('Sesi kasir berubah. Penjualan yang menunggu dibatalkan.');
+  };
+  assertActive();
   return withCommerceLock(() => {
-    const state = readCommerce();
+    assertActive();
+    const state = readCommerce(undefined, input.isDemo);
     const fingerprint = JSON.stringify({ actorId: input.actorId, lines: input.lines, taxRate: input.taxRate, amountPaid: input.amountPaid });
     const existing = state.sales.find(sale => sale.requestId === input.requestId);
     if (existing) {
@@ -122,18 +130,18 @@ export async function checkoutSale(input: {
       return line ? { ...product, stock: product.stock - line.quantity, unitPrice: line.unitPrice } : product;
     });
     commit({ ...state, inventory, sales: [...state.sales, sale], movements: [...state.movements,
-      ...items.map(line => ({ id: `${sale.id}:${line.sku}`, sku: line.sku, quantity: -line.quantity, kind: 'SALE' as const, saleId: sale.id, createdAt }))] });
+      ...items.map(line => ({ id: `${sale.id}:${line.sku}`, sku: line.sku, quantity: -line.quantity, kind: 'SALE' as const, saleId: sale.id, createdAt }))] }, input.isDemo);
     return sale;
-  });
+  }, input.isDemo);
 }
 
-export async function deployCommerceStock(id: string, fallback: InventoryItem[]): Promise<InventoryItem[]> {
+export async function deployCommerceStock(id: string, fallback: InventoryItem[], isDemo = false): Promise<InventoryItem[]> {
   return withCommerceLock(() => {
-    const state = readCommerce(fallback);
+    const state = readCommerce(fallback, isDemo);
     const product = state.inventory.find(item => item.id === id);
     if (!product || product.stock <= 0) throw new Error('Stok barang tidak mencukupi.');
     const inventory = state.inventory.map(item => item.id === id ? { ...item, stock: item.stock - 1, ...stockHealth({ ...item, stock: item.stock - 1 }) } : item);
-    commit({ ...state, inventory, movements: [...state.movements, { id: crypto.randomUUID(), sku: id, quantity: -1, kind: 'DEPLOY', createdAt: new Date().toISOString() }] });
+    commit({ ...state, inventory, movements: [...state.movements, { id: crypto.randomUUID(), sku: id, quantity: -1, kind: 'DEPLOY', createdAt: new Date().toISOString() }] }, isDemo);
     return inventory;
-  });
+  }, isDemo);
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { acknowledgeMutation, readQueue } from './offlineQueue';
+import { acknowledgeMutation, isOwnedQueuedMutation, readQueue } from './offlineQueue';
 
 export interface QueuedMutation {
   id: string;
@@ -29,12 +29,20 @@ export function useNetworkStatus(options: NetworkOptions) {
   const [queue, setQueue] = useState(initial.queue);
   const optionsRef = useRef(options);
   optionsRef.current = options;
-  const syncing = useRef(false);
+  const ownerSession = useRef({ ownerId: options.ownerId, version: 0 });
+  if (ownerSession.current.ownerId !== options.ownerId) {
+    ownerSession.current = { ownerId: options.ownerId, version: ownerSession.current.version + 1 };
+  }
+  const syncing = useRef<number | null>(null);
+  useEffect(() => () => {
+    ownerSession.current = { ...ownerSession.current, version: ownerSession.current.version + 1 };
+  }, []);
 
   const enqueue = useCallback((mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'ownerId'>) => {
     const ownerId = optionsRef.current.ownerId;
     if (!ownerId) throw new Error('Pengguna belum terverifikasi.');
     const item: QueuedMutation = { ...mutation, ownerId, id: crypto.randomUUID(), timestamp: new Date().toISOString() };
+    if (!isOwnedQueuedMutation(item)) throw new Error('Data antrean tidak valid.');
     const existing = readQueue(localStorage);
     if (existing.some(entry => entry.ownerId === ownerId && entry.entityId === mutation.entityId)) {
       throw new Error('PO ini sudah memiliki perubahan tertunda. Sinkronkan terlebih dahulu.');
@@ -48,21 +56,25 @@ export function useNetworkStatus(options: NetworkOptions) {
 
   const flushQueue = useCallback(async () => {
     const { ownerId, execute, onSynced, onError } = optionsRef.current;
-    if (!navigator.onLine || !ownerId || syncing.current) return;
-    syncing.current = true;
+    const version = ownerSession.current.version;
+    const isCurrent = () => ownerSession.current.version === version && optionsRef.current.ownerId === ownerId;
+    if (!navigator.onLine || !ownerId || syncing.current === version) return;
+    syncing.current = version;
     let count = 0;
     try {
-      for (const item of readQueue(localStorage).filter(item => item.ownerId === ownerId)) {
-        if (optionsRef.current.ownerId !== ownerId || !navigator.onLine) break;
+      const pending = readQueue(localStorage);
+      if (isCurrent()) setQueue(pending);
+      for (const item of pending.filter(item => isOwnedQueuedMutation(item) && item.ownerId === ownerId)) {
+        if (!isCurrent() || !navigator.onLine) break;
         await acknowledgeMutation(localStorage, item, execute);
         count++;
-        setQueue(readQueue(localStorage));
+        if (isCurrent()) setQueue(readQueue(localStorage));
       }
     } catch (error) {
-      onError?.(error);
+      if (isCurrent()) onError?.(error);
     } finally {
-      syncing.current = false;
-      if (count) onSynced?.(count);
+      if (syncing.current === version) syncing.current = null;
+      if (count && isCurrent()) onSynced?.(count);
     }
   }, []);
 
@@ -71,7 +83,7 @@ export function useNetworkStatus(options: NetworkOptions) {
     const offline = () => setIsOnline(false);
     const refresh = () => {
       try { setQueue(readQueue(localStorage)); }
-      catch (error) { optionsRef.current.onError?.(error); }
+      catch (error) { setQueue([]); optionsRef.current.onError?.(error); }
     };
     window.addEventListener('online', online);
     window.addEventListener('offline', offline);
@@ -86,6 +98,6 @@ export function useNetworkStatus(options: NetworkOptions) {
   useEffect(() => { void flushQueue(); }, [options.ownerId, flushQueue]);
   useEffect(() => { if (initial.error) optionsRef.current.onError?.(initial.error); }, [initial]);
 
-  const visibleQueue = queue.filter(item => item.ownerId === options.ownerId || !item.ownerId);
+  const visibleQueue = options.ownerId ? queue.filter(item => isOwnedQueuedMutation(item) && item.ownerId === options.ownerId) : [];
   return { isOnline, queue: visibleQueue, queuedCount: visibleQueue.length, enqueue, flushQueue };
 }

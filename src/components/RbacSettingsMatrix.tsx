@@ -62,6 +62,7 @@ export const PERMISSION_DEFINITIONS: PermissionDefinition[] = [
 ];
 
 export const INITIAL_ROLE_PERMISSIONS: Record<Role, string[]> = {
+  'User': [],
   'Super Admin': [
     'PO_APPROVE_HIGH',
     'PAYMENT_GATEWAY',

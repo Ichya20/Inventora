@@ -19,8 +19,8 @@ import { InventoraMark } from './components/InventoraMark';
 import { workspaceMotion } from './lib/motion';
 import { exportToCsv, exportToJson } from './lib/exportUtils';
 import { loadStoredData, saveStoredData, clearAllInventoraStorage, createInventoraBackup } from './lib/storageUtils';
-import { canAccessMenu, isRole } from './lib/authorization';
-import { readDemoUser } from './lib/demoSession';
+import { canAccessMenu, canPerformPoAction, isStaffRole, resolveAccountRole } from './lib/authorization';
+import { readDemoUser, clearDemoSession } from './lib/demoSession';
 import { useWorkspaceSummary } from './lib/useWorkspaceSummary';
 import { useNotifications } from './lib/useNotifications';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal, UILanguageContext } from './components/UI';
@@ -43,21 +43,25 @@ function SettingsView({
   onLanguageChange,
   t,
   onNavigate,
-  account
+  account,
+  role
 }: {
   onToast: ToastFunction;
   lang: Language;
   onLanguageChange: (newLang: Language) => void;
   t: Translations;
   onNavigate?: (menu: string) => void;
-  account: { displayName?: string; email?: string };
+  account: { uid?: string; displayName?: string; email?: string };
+  role: Role;
 }) {
+  const canManageWorkspace = role === 'Super Admin';
+  const avatarStorageKey = `inventora_user_avatar:${encodeURIComponent(account.uid || account.email || 'demo')}`;
   const [activeTab, setActiveTab] = useState<'profile' | 'workspace' | 'language'>('profile');
   const [selectedLang, setSelectedLang] = useState<Language>(lang);
   const [confirmReset, setConfirmReset] = useState(false);
   const resetTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(() => {
-    try { return localStorage.getItem('inventora_user_avatar') || null; }
+    try { return localStorage.getItem(avatarStorageKey) || null; }
     catch { return null; }
   });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -77,7 +81,7 @@ function SettingsView({
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
         try {
-          localStorage.setItem('inventora_user_avatar', base64);
+          localStorage.setItem(avatarStorageKey, base64);
           setUserAvatar(base64);
           onToast(lang === 'en' ? 'Profile avatar updated' : 'Foto avatar profil berhasil diperbarui', 'success');
         } catch {
@@ -104,12 +108,12 @@ function SettingsView({
           >
             {t.settings.profileTab}
           </button>
-          <button type="button" aria-pressed={activeTab === 'workspace'}
+          {canManageWorkspace && <button type="button" aria-pressed={activeTab === 'workspace'}
             onClick={() => setActiveTab('workspace')}
             className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors ${activeTab === 'workspace' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
           >
             {t.settings.workspaceTab}
-          </button>
+          </button>}
           <button type="button" aria-pressed={activeTab === 'language'}
             onClick={() => setActiveTab('language')}
             className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors flex items-center justify-between ${activeTab === 'language' ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-[#171717]' : 'text-[#666] dark:text-[#a1a1aa] hover:bg-[#eaeaea] dark:hover:bg-[#333]'}`}
@@ -170,7 +174,7 @@ function SettingsView({
               </div>
             )}
 
-            {activeTab === 'workspace' && (
+            {canManageWorkspace && activeTab === 'workspace' && (
               <div className="space-y-6 text-[#171717] dark:text-[#ededed]">
                 {/* Language section in Workspace tab */}
                 <div className="p-4 rounded-lg bg-[#fafafa] dark:bg-[#1a1a1a] border border-[#eaeaea] dark:border-[#333] space-y-3">
@@ -402,6 +406,7 @@ function Dashboard() {
   const isDemo = !!demoUser;
   const [user, setUser] = useState<any>(demoUser);
   const [currentRole, setCurrentRole] = useState<Role | null>(demoUser?.role ?? null);
+  const canUseAssistant = isStaffRole(currentRole);
   const draftOwner = `${isDemo ? 'demo' : 'live'}:${user?.uid ?? demoUser?.email ?? ''}:${currentRole ?? ''}`;
   const [restockDraft, setRestockDraft] = useState<{ owner: string; key: string; item: RestockDraft } | null>(null);
   const activeRestockDraft = restockDraft?.owner === draftOwner ? restockDraft : null;
@@ -413,7 +418,7 @@ function Dashboard() {
   const [isAiCopilotOpen, setIsAiCopilotOpen] = useState(false);
 
   const { isOnline, queue, queuedCount, enqueue, flushQueue } = useNetworkStatus({
-    ownerId: !isDemo && currentRole ? user?.uid ?? null : null,
+    ownerId: !isDemo && canPerformPoAction(currentRole, 'approve') ? user?.uid ?? null : null,
     execute: async item => { const { replayPoMutation } = await import('./lib/purchaseOrderStore'); await replayPoMutation(item); },
     onSynced: count => showToast(language === 'en' ? `${count} queued changes synchronized` : `${count} perubahan tersinkronkan`, 'success'),
     onError: error => showToast((language === 'en' ? 'Sync failed; queued data is retained. ' : 'Sinkronisasi gagal; antrean tetap disimpan. ') + String(error), 'error'),
@@ -424,7 +429,7 @@ function Dashboard() {
     onNewPo: () => handleMenuClick('purchase'),
     onOpenHelp: () => setIsShortcutsOpen(true),
     onToggleCmdK: () => setIsCmdKOpen(prev => !prev),
-    onToggleCopilot: () => setIsAiCopilotOpen(prev => !prev),
+    onToggleCopilot: () => { if (canUseAssistant) setIsAiCopilotOpen(prev => !prev); },
   });
 
   const {
@@ -445,7 +450,7 @@ function Dashboard() {
         if (!u) { navigate('/login'); return; }
         try {
           const { claims } = await u.getIdTokenResult();
-          if (!disposed && auth.currentUser?.uid === u.uid) setCurrentRole(isRole(claims.role) ? claims.role : null);
+          if (!disposed && auth.currentUser?.uid === u.uid) setCurrentRole(resolveAccountRole(claims.role));
         } catch (error) {
           console.error('Unable to verify account role', error);
         } finally { if (!disposed) setAuthReady(true); }
@@ -456,6 +461,11 @@ function Dashboard() {
     });
     return () => { disposed = true; unsub(); };
   }, [navigate, demoUser]);
+
+  useEffect(() => {
+    if (!canAccessMenu(currentRole, activeMenu)) setActiveMenu('overview');
+    if (!isStaffRole(currentRole)) setIsAiCopilotOpen(false);
+  }, [currentRole, activeMenu]);
 
   const toggleDarkMode = () => {
     const dark = document.documentElement.classList.toggle('dark');
@@ -567,14 +577,17 @@ function Dashboard() {
   const hasAccess = (menu: string) => canAccessMenu(currentRole, menu);
 
   const handleLogout = async () => {
+    try {
+      clearDemoSession(language);
+      const { logout } = await import('./firebase');
+      await logout();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : (language === 'en' ? 'Sign-out failed. Try again.' : 'Gagal keluar. Coba lagi.'), 'error');
+      return;
+    }
     setRestockDraft(null);
     clearNotificationSession();
     setIsAiCopilotOpen(false);
-    sessionStorage.removeItem('inventora_demo_user');
-    try {
-      const { logout } = await import('./firebase');
-      await logout();
-    } catch {}
     navigate('/');
   };
 
@@ -650,7 +663,7 @@ function Dashboard() {
         </nav>
 
         <div className="sidebar-account text-xs space-y-4">
-          <p>{t.nav.activeSession}:<br/><span className="text-[#171717] dark:text-[#ededed] font-medium text-sm truncate block" title={user?.email}>{user?.email || 'admin@inventora.com'}</span></p>
+          <p>{t.nav.activeSession}:<br/><span className="text-[#171717] dark:text-[#ededed] font-medium text-sm truncate block" title={user?.email}>{user?.email || '—'}</span><span className="block mt-1 text-[var(--ws-muted)]">{currentRole}</span></p>
           <div className="flex gap-2">
             <button onClick={toggleDarkMode} aria-label={language === 'en' ? 'Toggle color theme' : 'Ganti tema warna'} className="flex-1 bg-white dark:bg-[#1a1a1a] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-[#fafafa] dark:hover:bg-[#333] px-3 py-2 rounded-md transition-colors flex items-center justify-center">
               <svg className="hidden dark:block w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -688,13 +701,13 @@ function Dashboard() {
               </span>
             )}
 
-            <NetworkStatusIndicator
+            {isStaffRole(currentRole) && <NetworkStatusIndicator
               isOnline={isOnline}
               queuedCount={queuedCount}
               queue={queue}
               onManualSync={flushQueue}
               lang={language}
-            />
+            />}
 
             <button
               type="button"
@@ -758,14 +771,15 @@ function Dashboard() {
         <div key={activeMenu} className="workspace-page">
         <Suspense fallback={<div className="p-6 md:p-8"><ViewSkeleton title={getHeaderTitle()} lang={language} variant={activeMenu === 'pos' ? 'pos' : activeMenu === 'purchase' || activeMenu === 'new-po' ? 'form' : 'table'} /></div>}>
           <ErrorBoundary fallbackTitle={getHeaderTitle()} onReset={() => setActiveMenu('overview')}>
-            {hasAccess('overview') && activeMenu === 'overview' && <OverviewView onNavigate={handleMenuClick} t={t} lang={language} summary={summary} role={currentRole} isDemo={isDemo} notifications={notifications} />}
+            {hasAccess('overview') && activeMenu === 'overview' && <OverviewView onNavigate={handleMenuClick} t={t} lang={language} summary={summary} role={currentRole} isDemo={isDemo} notifications={notifications} account={user} />}
             {hasAccess('analytics') && activeMenu === 'analytics' && <AnalyticsView t={t} lang={language} />}
             {hasAccess('billing') && activeMenu === 'billing' && <BillingSubscriptionView onToast={showToast} t={t} lang={language} />}
-            {hasAccess('settings') && activeMenu === 'settings' && <SettingsView account={user} onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={handleMenuClick} />}
-            {hasAccess('stok') && activeMenu === 'stok' && <InventoryView onToast={showToast} onNavigate={handleMenuClick} onRestock={handleRestockDraft} t={t} lang={language} />}
-            {hasAccess('pos') && activeMenu === 'pos' && <PosView key={draftOwner} role={currentRole} actorId={user.uid ?? user.email ?? 'demo'} actorName={user.displayName ?? user.email ?? currentRole} onToast={showToast} lang={language} />}
+            {hasAccess('settings') && activeMenu === 'settings' && <SettingsView key={draftOwner} account={user} role={currentRole} onToast={showToast} lang={language} onLanguageChange={handleLanguageChange} t={t} onNavigate={handleMenuClick} />}
+            {hasAccess('stok') && activeMenu === 'stok' && <InventoryView key={`inventory:${draftOwner}`} isDemo={isDemo} onToast={showToast} onNavigate={handleMenuClick} onRestock={handleRestockDraft} t={t} lang={language} />}
+            {hasAccess('pos') && activeMenu === 'pos' && <PosView key={`pos:${draftOwner}`} isDemo={isDemo} role={currentRole} actorId={user.uid ?? user.email ?? 'demo'} actorName={user.displayName ?? user.email ?? currentRole} onToast={showToast} lang={language} />}
             {hasAccess('po') && activeMenu === 'po' && (
               <ProcurementView
+                key={`procurement:${draftOwner}`}
                 initialPoId={requestedPoId}
                 onInitialPoHandled={() => setRequestedPoId(null)}
                 onNavigate={handleMenuClick}
@@ -796,10 +810,10 @@ function Dashboard() {
         </div>
         </div>
 
-        <button type="button" onClick={() => setIsAiCopilotOpen(true)} className="copilot-launcher" title={language === 'en' ? 'Open assistant (Ctrl+J)' : 'Buka asisten (Ctrl+J)'} aria-label={language === 'en' ? 'Open AI assistant' : 'Buka asisten AI'}><Sparkles size={17}/><span>{language === 'en' ? 'Assistant' : 'Asisten'}</span><kbd>Ctrl J</kbd></button>
+        {canUseAssistant && <button type="button" onClick={() => setIsAiCopilotOpen(true)} className="copilot-launcher" title={language === 'en' ? 'Open assistant (Ctrl+J)' : 'Buka asisten (Ctrl+J)'} aria-label={language === 'en' ? 'Open AI assistant' : 'Buka asisten AI'}><Sparkles size={17}/><span>{language === 'en' ? 'Assistant' : 'Asisten'}</span><kbd>Ctrl J</kbd></button>}
 
         {/* Executive AI Copilot Drawer */}
-        <AiCopilotDrawer
+        {canUseAssistant && <AiCopilotDrawer
           key={`${isDemo ? 'demo' : 'live'}:${user?.uid ?? 'none'}:${currentRole ?? 'none'}`}
           isOpen={isAiCopilotOpen}
           onClose={() => setIsAiCopilotOpen(false)}
@@ -814,7 +828,7 @@ function Dashboard() {
             infrastructureUnits: summary.infrastructureUnits,
             currency: "IDR"
           }}
-        />
+        />}
 
         <InteractiveToaster toasts={toasts} onDismiss={handleDismissToast} />
         <CommandPalette
@@ -831,6 +845,7 @@ function Dashboard() {
           isOpen={isShortcutsOpen}
           onClose={() => setIsShortcutsOpen(false)}
           lang={language}
+          role={currentRole}
         />
       </main>
     </div>
@@ -840,13 +855,15 @@ function Dashboard() {
 
 function Home() {
   const [lang, setLang] = useState<Language>(() => {
-    const saved = localStorage.getItem('inventora_language');
-    return (saved === 'en' || saved === 'id') ? saved : 'en';
+    try {
+      const saved = localStorage.getItem('inventora_language');
+      return (saved === 'en' || saved === 'id') ? saved : 'en';
+    } catch { return 'en'; }
   });
 
   const handleLangToggle = (newLang: Language) => {
     setLang(newLang);
-    localStorage.setItem('inventora_language', newLang);
+    try { localStorage.setItem('inventora_language', newLang); } catch {}
   };
 
   return <OpeningSequence lang={lang} onLanguageChange={handleLangToggle} />;
@@ -856,13 +873,15 @@ function Login() {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const [lang, setLang] = useState<Language>(() => {
-    const saved = localStorage.getItem('inventora_language');
-    return (saved === 'en' || saved === 'id') ? saved : 'en';
+    try {
+      const saved = localStorage.getItem('inventora_language');
+      return (saved === 'en' || saved === 'id') ? saved : 'en';
+    } catch { return 'en'; }
   });
 
   const handleLangToggle = (newLang: Language) => {
     setLang(newLang);
-    localStorage.setItem('inventora_language', newLang);
+    try { localStorage.setItem('inventora_language', newLang); } catch {}
   };
 
   const [isLoading, setIsLoading] = useState(false);
@@ -871,12 +890,16 @@ function Login() {
   const [copied, setCopied] = useState(false);
 
   const handleDemoLogin = (role: Role = 'Super Admin') => {
-    sessionStorage.setItem('inventora_demo_user', JSON.stringify({
-      email: `${role.toLowerCase().replace(/\s+/g, '.')}@inventora.com`,
-      displayName: `${role} (Preview)`,
-      role
-    }));
-    navigate('/dashboard');
+    try {
+      sessionStorage.setItem('inventora_demo_user', JSON.stringify({
+        email: `${role.toLowerCase().replace(/\s+/g, '.')}@inventora.com`,
+        displayName: `${role} (Preview)`,
+        role
+      }));
+      navigate('/dashboard');
+    } catch {
+      setErrorMsg(lang === 'en' ? 'Demo login needs browser storage. Allow it and try again.' : 'Login demo memerlukan penyimpanan browser. Izinkan lalu coba lagi.');
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -887,6 +910,7 @@ function Login() {
       const { googleSignIn } = await import('./firebase');
       const res = await googleSignIn();
       if (res) {
+        clearDemoSession(lang);
         navigate('/dashboard');
       }
     } catch (e: any) {

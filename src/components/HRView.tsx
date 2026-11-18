@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
+import { NumericInput } from './NumericInput';
 import { ToastType } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
-import { exportToCsv } from '../lib/exportUtils';
-import { loadStoredData, saveStoredData } from '../lib/storageUtils';
+import { exportTextFile, exportToCsv } from '../lib/exportUtils';
+import { saveStoredData } from '../lib/storageUtils';
+import { assertPayrollAmounts, HR_EMPLOYEES_KEY, isWholeRupiah, PAYROLL_HISTORY_KEY, readHrEmployees, readPayrollHistory } from '../lib/hrValidation';
 import { downloadPayslipPdf, PayslipData } from '../lib/pdfGenerator';
 import { assertPayrollAvailable, findPayrollRecord, payrollPeriodKey, historicalPayrollBreakdown } from '../lib/payrollHistory';
 import { businessDate, BUSINESS_TIME_ZONE, dateLabel, isMonthKey, monthLabel } from '../lib/businessDates';
@@ -288,32 +290,22 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
     }
   ];
 
-  // Employee state
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const loaded = loadStoredData('inventora_hr_employees_v2', defaultEmployees);
-    return loaded.map((emp: any, idx: number) => {
-      const fallback = defaultEmployees[idx] || defaultEmployees[0];
-      return {
-        ...fallback,
-        ...emp,
-        taxId: emp.taxId || fallback.taxId,
-        salary: emp.salary || fallback.salary
-      };
-    });
+  const [initialHrData] = useState(() => {
+    try { return { employees: readHrEmployees(defaultEmployees), payrollHistory: readPayrollHistory(defaultPayrollHistory), error: false }; }
+    catch { return { employees: [] as Employee[], payrollHistory: [] as PayrollDisbursementRecord[], error: true }; }
   });
+  const [storageError, setStorageError] = useState(initialHrData.error);
+  const [employees] = useState<Employee[]>(initialHrData.employees);
+  const [payrollHistory, setPayrollHistory] = useState<PayrollDisbursementRecord[]>(initialHrData.payrollHistory);
 
   useEffect(() => {
-    saveStoredData('inventora_hr_employees_v2', employees);
-  }, [employees]);
-
-  // Payroll history state
-  const [payrollHistory, setPayrollHistory] = useState<PayrollDisbursementRecord[]>(() => {
-    return loadStoredData('inventora_hr_payroll_history_v2', defaultPayrollHistory);
-  });
-
-  useEffect(() => {
-    saveStoredData('inventora_hr_payroll_history_v2', payrollHistory);
-  }, [payrollHistory]);
+    if (storageError) return;
+    try {
+      // Seed only missing keys. Never replace unreadable or externally changed records on mount.
+      if (localStorage.getItem(HR_EMPLOYEES_KEY) === null) saveStoredData(HR_EMPLOYEES_KEY, employees, true);
+      if (localStorage.getItem(PAYROLL_HISTORY_KEY) === null) saveStoredData(PAYROLL_HISTORY_KEY, payrollHistory, true);
+    } catch { setStorageError(true); }
+  }, [storageError]);
 
   const paidInPeriod = (empId: string) => findPayrollRecord(payrollHistory, empId, payrollPeriod);
 
@@ -321,7 +313,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
   const [activeProfile, setActiveProfile] = useState<Employee | null>(null);
   const [activePayrollEmployee, setActivePayrollEmployee] = useState<Employee | null>(null);
   const [activeHistoryDetail, setActiveHistoryDetail] = useState<PayrollDisbursementRecord | null>(null);
-  const [editableBonus, setEditableBonus] = useState<number>(0);
+  const [editableBonus, setEditableBonus] = useState<number | ''>(0);
   const [isDisbursing, setIsDisbursing] = useState<boolean>(false);
 
   // Sync editable bonus when opening an employee
@@ -535,12 +527,12 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
   };
 
   // Helper for live payroll calculations
-  const calculatePayroll = (emp: Employee, currentBonus: number) => {
+  const calculatePayroll = (emp: Employee, currentBonus: number | '') => {
     const s = emp.salary;
     const base = s?.baseSalary || 0;
     const pos = s?.positionAllowance || 0;
     const trans = s?.transportAllowance || 0;
-    const bonus = currentBonus;
+    const bonus = currentBonus === '' ? 0 : currentBonus;
     const gross = base + pos + trans + bonus;
 
     // BPJS Kesehatan (1% employee)
@@ -569,14 +561,16 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
 
   // Persist the immutable snapshot before acknowledging a simulated payroll operation.
   const handleDisbursePayroll = (emp: Employee) => {
-    if (isDisbursing) return;
+    if (isDisbursing || storageError) return;
     setIsDisbursing(true);
     setTimeout(() => {
       try {
-        const latest = loadStoredData<PayrollDisbursementRecord[]>('inventora_hr_payroll_history_v2', payrollHistory);
+        let latest: PayrollDisbursementRecord[];
+        try { readHrEmployees(employees); latest = readPayrollHistory(payrollHistory); }
+        catch { setStorageError(true); throw new Error(lang === 'en' ? 'Saved HR data cannot be read. Restore a valid backup before recording payroll.' : 'Data SDM tidak dapat dibaca. Pulihkan cadangan yang valid sebelum mencatat payroll.'); }
         assertPayrollAvailable(latest, emp.id, payrollPeriod);
         const calc = calculatePayroll(emp, editableBonus);
-        if (Object.values(calc).some(value => !Number.isFinite(value) || value < 0)) throw new Error('Nominal payroll tidak valid.');
+        assertPayrollAmounts(calc, editableBonus, lang);
         const now = new Date();
         const formattedDateTime = now.toLocaleString(lang === 'en' ? 'en-US' : 'id-ID', { timeZone: BUSINESS_TIME_ZONE });
         const refNum = `TRX-PAY-${payrollPeriod.replace('-', '')}-${crypto.randomUUID().slice(0, 8)}`;
@@ -594,7 +588,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
           actor: 'Payroll simulation', status: 'SUCCESS'
         };
         const updated = [record, ...latest];
-        saveStoredData('inventora_hr_payroll_history_v2', updated, true);
+        saveStoredData(PAYROLL_HISTORY_KEY, updated, true);
         setPayrollHistory(updated);
         playNotificationChime('success');
         onToast(lang === 'en' ? `Payroll simulation recorded for ${emp.name} (${periodLabel}). No funds transferred.` : `Simulasi payroll ${emp.name} (${periodLabel}) tercatat. Tidak ada dana ditransfer.`, 'success');
@@ -608,6 +602,8 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
     const recorded = paidInPeriod(emp.id);
     if (recorded) { handleDownloadPayslipFromHistory(recorded); return; }
     const calc = calculatePayroll(emp, activePayrollEmployee?.id === emp.id ? editableBonus : emp.salary.bonus);
+    try { assertPayrollAmounts(calc, activePayrollEmployee?.id === emp.id ? editableBonus : emp.salary.bonus, lang); }
+    catch (error) { onToast((error as Error).message, 'error'); return; }
     const data: PayslipData = {
       empId: emp.id, empName: emp.name, dept: emp.dept, role: emp.role, taxId: emp.taxId,
       period: periodLabel, draft: true,
@@ -637,6 +633,21 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
   const totalDisbursedAmount = useMemo(() => {
     return payrollHistory.reduce((sum, item) => sum + item.netPay, 0);
   }, [payrollHistory]);
+
+  if (storageError) return (
+    <section className="p-4 md:p-8 flex-1 overflow-y-auto">
+      <div role="alert" className="text-sm border border-red-200 dark:border-red-900 rounded-lg p-4 space-y-3 text-red-700 dark:text-red-400">
+        <p>{lang === 'en' ? 'Saved HR data cannot be read. The original data is retained; restore a valid backup before recording payroll.' : 'Data SDM tersimpan tidak dapat dibaca. Data asli tetap disimpan; pulihkan cadangan yang valid sebelum mencatat payroll.'}</p>
+        <div className="flex flex-wrap gap-4">
+          <button type="button" className="underline cursor-pointer" onClick={() => {
+            try { exportTextFile('inventora-hr-recovery.json', JSON.stringify({ [HR_EMPLOYEES_KEY]: localStorage.getItem(HR_EMPLOYEES_KEY), [PAYROLL_HISTORY_KEY]: localStorage.getItem(PAYROLL_HISTORY_KEY) }, null, 2), 'application/json'); }
+            catch { onToast(lang === 'en' ? 'Saved HR data could not be downloaded.' : 'Data SDM belum dapat diunduh.', 'error'); }
+          }}>{lang === 'en' ? 'Download saved data' : 'Unduh data tersimpan'}</button>
+          <button type="button" className="underline cursor-pointer" onClick={() => window.location.reload()}>{lang === 'en' ? 'Reload after restoring' : 'Muat ulang setelah pemulihan'}</button>
+        </div>
+      </div>
+    </section>
+  );
 
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
@@ -1241,17 +1252,19 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                     </label>
                     <div className="flex items-center gap-1.5">
                       <span className="text-neutral-400 text-xs">Rp</span>
-                      <input
+                      <NumericInput
                         type="number"
                         min="0"
-                        step="100000"
+                        step="1"
+                        max={Number.MAX_SAFE_INTEGER}
                         disabled={isPaid}
                         value={isPaid ? record!.bonus : editableBonus}
-                        onChange={(e) => setEditableBonus(Math.max(0, Number(e.target.value) || 0))}
+                        onChange={(e) => setEditableBonus(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-28 px-2 py-1 text-right text-xs bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-300 dark:border-neutral-700 rounded font-medium text-neutral-900 dark:text-white focus:outline-hidden focus:border-[#0070f3] disabled:opacity-60"
                       />
                     </div>
                   </div>
+                  {!isPaid && !isWholeRupiah(editableBonus) && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{lang === 'en' ? 'Enter a whole, non-negative rupiah amount.' : 'Masukkan nominal rupiah bulat dan tidak negatif.'}</p>}
                 </div>
               </div>
 
@@ -1331,7 +1344,7 @@ export function HRView({ onToast, t, lang = 'en' }: HRViewProps) {
                   </button>
 
                   {/* Disbursement Button: Protected if already paid */}
-                  <button type="button" disabled={isPaid || isDisbursing}
+                  <button type="button" disabled={isPaid || isDisbursing || !isWholeRupiah(editableBonus)}
                     onClick={() => handleDisbursePayroll(activePayrollEmployee)}
                     className="px-4 py-2 bg-[#171717] dark:bg-white text-white dark:text-black text-xs font-semibold rounded-lg min-h-11 disabled:opacity-50 disabled:cursor-not-allowed">
                     {isPaid ? (lang === 'en' ? 'Already Recorded' : 'Sudah Tercatat') : isDisbursing ? (lang === 'en' ? 'Recording...' : 'Mencatat...') : (lang === 'en' ? 'Record Payroll Simulation' : 'Catat Simulasi Payroll')}

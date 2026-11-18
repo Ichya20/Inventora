@@ -11,9 +11,10 @@ export async function persistPoTransition(id: string, patch: Partial<PurchaseOrd
   const user = auth.currentUser;
   if (!user || (ownerId && ownerId !== user.uid)) throw new Error('Sesi pengguna telah berubah. Masuk kembali untuk menyinkronkan.');
   const { claims } = await user.getIdTokenResult();
+  if (auth.currentUser?.uid !== user.uid) throw new Error('Sesi pengguna telah berubah. Masuk kembali untuk menyimpan.');
   const role = isRole(claims.role) ? claims.role : null;
   if (source === 'receipt') {
-    await authenticatedPost('/api/purchase-orders/' + encodeURIComponent(id) + '/receipt', { grn: patch.grn });
+    await authenticatedPost('/api/purchase-orders/' + encodeURIComponent(id) + '/receipt', { grn: patch.grn }, { expectedUid: user.uid });
     return;
   }
   await runTransaction(db, async transaction => {

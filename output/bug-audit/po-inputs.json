@@ -1,0 +1,73 @@
+{
+  "scope": "PO, GRN, invoice inputs; isolated local source probes only",
+  "findings": [
+    {
+      "id": "po-grn-duplicate-sku",
+      "severity": "P2",
+      "verified": true,
+      "title": "Saved GRN cannot be corrected when different lines share a SKU",
+      "source": [
+        "src/components/PurchaseUnitView.tsx:173",
+        "src/lib/purchaseOrderValidation.ts:27",
+        "src/components/ThreeWayMatchModal.tsx:27",
+        "src/lib/goodsReceipt.ts:33"
+      ],
+      "trigger": "Import Enterprise Server A and Enterprise Server B, create/approve PO, save a receipt discrepancy, reopen receipt.",
+      "observed": {
+        "sku": "ENTERPRISE SER",
+        "originalNames": [
+          "Enterprise Server A",
+          "Enterprise Server B"
+        ],
+        "reopenedNames": [
+          "Enterprise Server A",
+          "Enterprise Server A"
+        ],
+        "saveError": "SKU, jumlah, atau kondisi barang tidak sesuai dengan PO."
+      },
+      "impact": "The second line is relabelled with the first line name and the unchanged reopened receipt is rejected; correcting or completing receipt is blocked.",
+      "remedy": "Preserve line-position/line-ID identity when reopening receipts; generate collision-safe imported identifiers."
+    },
+    {
+      "id": "invoice-stale-response",
+      "severity": "P2",
+      "verified": true,
+      "title": "Invoice response is applied after source text has changed",
+      "source": [
+        "src/components/SmartInvoiceParserModal.tsx:54",
+        "src/components/SmartInvoiceParserModal.tsx:55",
+        "src/components/SmartInvoiceParserModal.tsx:88",
+        "src/components/SmartInvoiceParserModal.tsx:64"
+      ],
+      "trigger": "Start extracting quote A, replace textarea with quote B while request is pending, then let A response resolve and press Apply.",
+      "observed": {
+        "request": {
+          "text": "Quote A, vendor A, Enterprise Server A"
+        },
+        "currentText": "Quote B, vendor B, different products",
+        "displayedResultVendor": "Audit Vendor A",
+        "appliedVendor": "Audit Vendor A"
+      },
+      "impact": "PO receives vendor/items from the old quote even though the current invoice text contains another quote.",
+      "remedy": "Invalidate pending requests using a generation/source token when source text changes, or disable source editing during extraction."
+    },
+    {
+      "id": "invoice-po-fractional-contract",
+      "severity": "P3",
+      "verified": true,
+      "title": "Invoice extraction accepts fractional quantities that the PO form cannot submit",
+      "source": [
+        "src/lib/invoiceValidation.ts:19",
+        "src/components/PurchaseUnitView.tsx:200",
+        "src/lib/purchaseOrderValidation.ts:21"
+      ],
+      "trigger": "An extracted invoice contains qty 1.5 with a consistent subtotal.",
+      "observed": {
+        "acceptedInvoiceQty": 1.5,
+        "rejectedPOError": "Jumlah, harga, atau subtotal barang tidak konsisten."
+      },
+      "impact": "Extraction reports success and can populate the form, but creation fails until the user manually corrects the imported quantity.",
+      "remedy": "Align accepted invoice quantity rules with PO rules, or consistently support fractional units throughout."
+    }
+  ]
+}

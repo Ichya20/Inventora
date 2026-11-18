@@ -1,5 +1,5 @@
 import { authenticatedPost } from '../lib/apiClient';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, FileText, CheckCircle2, RefreshCw, ArrowRight, CornerDownLeft, AlertCircle } from 'lucide-react';
 import { Modal } from './UI';
 
@@ -42,34 +42,75 @@ export function SmartInvoiceParserModal({
   const [parsed, setParsed] = useState<ParsedInvoiceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const requestAbort = useRef<AbortController | null>(null);
+  const open = useRef(isOpen);
+  open.current = isOpen;
+
+  const invalidateExtraction = () => {
+    requestVersion.current++;
+    requestAbort.current?.abort();
+    requestAbort.current = null;
+    setParsed(null);
+    setError(null);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (!isOpen) invalidateExtraction();
+    return () => {
+      requestVersion.current++;
+      requestAbort.current?.abort();
+      requestAbort.current = null;
+    };
+  }, [isOpen]);
+
+  const handleClose = () => {
+    invalidateExtraction();
+    onClose();
+  };
+
+  const handleTextChange = (value: string) => {
+    invalidateExtraction();
+    setRawText(value);
+  };
 
   const handleParse = async () => {
-    if (!rawText.trim()) return;
+    if (!rawText.trim() || requestAbort.current || !open.current) return;
+    const version = ++requestVersion.current;
+    const controller = new AbortController();
+    requestAbort.current = controller;
+    const isCurrent = () => version === requestVersion.current && !controller.signal.aborted && open.current;
     setIsLoading(true);
     setError(null);
     setParsed(null);
     try {
-      const data = await authenticatedPost<ParsedInvoiceData>('/api/ai/parse-invoice', { text: rawText });
-      setParsed(validateParsedInvoice(data));
+      const data = await authenticatedPost<ParsedInvoiceData>('/api/ai/parse-invoice', { text: rawText }, { signal: controller.signal });
+      if (isCurrent()) setParsed(validateParsedInvoice(data));
     } catch (e: any) {
-      setParsed(null);
-      setError(e.message || 'Ekstraksi gagal. Periksa koneksi dan isi formulir secara manual.');
+      if (isCurrent()) {
+        setParsed(null);
+        setError(e?.message || 'Ekstraksi gagal. Periksa koneksi dan isi formulir secara manual.');
+      }
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) {
+        requestAbort.current = null;
+        setIsLoading(false);
+      }
     }
   };
 
   const handleConfirmApply = () => {
-    if (parsed) {
+    if (parsed && !requestAbort.current && open.current) {
       onApply(parsed);
-      onClose();
+      handleClose();
     }
   };
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title={lang === 'en' ? 'AI Invoice & Raw Quote Parser' : 'Ekstraksi Faktur & Penawaran AI'}
     >
       <div className="space-y-4">
@@ -85,7 +126,7 @@ export function SmartInvoiceParserModal({
           </label>
           <textarea
             value={rawText}
-            onChange={(e) => { setRawText(e.target.value); setParsed(null); }}
+            onChange={(e) => handleTextChange(e.target.value)}
             rows={6}
             placeholder={lang === 'en' ? 'Paste quotation or invoice text here...' : 'Tempel teks penawaran atau faktur di sini...'}
             className="w-full p-3 font-mono text-xs bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0070f3] text-neutral-800 dark:text-neutral-200"
@@ -95,7 +136,7 @@ export function SmartInvoiceParserModal({
         <div className="flex justify-between items-center">
           <button
             type="button"
-            onClick={() => { setRawText(SAMPLE_RAW_QUOTE); setParsed(null); }}
+            onClick={() => handleTextChange(SAMPLE_RAW_QUOTE)}
             className="text-[11px] text-[#0070f3] hover:underline cursor-pointer"
           >
             {lang === 'en' ? 'Reset with sample quote' : 'Gunakan contoh penawaran'}
@@ -165,7 +206,7 @@ export function SmartInvoiceParserModal({
         <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg cursor-pointer"
           >
             {lang === 'en' ? 'Cancel' : 'Batal'}

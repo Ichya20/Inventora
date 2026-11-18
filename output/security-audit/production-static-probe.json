@@ -1,0 +1,19 @@
+{
+  "method": "Actual startServer function extracted from server.ts via TypeScript AST and executed in a VM. createApp replaced by an empty Express app; app.listen overridden to an ephemeral 127.0.0.1 port. Production static middleware is unchanged.",
+  "scope": "Local artifact exposure only. No Firebase imports, credentials, external network calls, or production requests.",
+  "result": "Backend bundle and source map are publicly served by the current production static configuration.",
+  "requests": [
+    {
+      "route": "/server.cjs",
+      "status": 200,
+      "responseBytes": 35023,
+      "artifactBytes": 35023
+    },
+    {
+      "route": "/server.cjs.map",
+      "status": 200,
+      "responseBytes": 63132,
+      "artifactBytes": 63132
+    }
+  ]
+}

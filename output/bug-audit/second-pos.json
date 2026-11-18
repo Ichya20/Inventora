@@ -1,0 +1,49 @@
+{
+  "scope": "Post-fix POS/inventory/summary source audit with in-memory storage and VM callback execution; no app source edits.",
+  "findings": [
+    {
+      "id": "SUMMARY-CACHE-SCHEMA",
+      "severity": "P2 conditional",
+      "trigger": "A preexisting demo PO cache contains valid JSON [null]. Open Dashboard with a role allowed to view POs.",
+      "observed": "Actual useWorkspaceSummary hook calls summarizePurchaseOrders and throws Cannot read properties of null (reading status).",
+      "impact": "The parent Dashboard render fails before the Procurement recovery interface is reachable; module-level recovery is insufficient.",
+      "source": [
+        "src/lib/useWorkspaceSummary.ts:36",
+        "src/lib/useWorkspaceSummary.ts:41",
+        "src/lib/workspaceSummary.ts:6",
+        "src/App.tsx:415"
+      ],
+      "related": "The same generic array loader counts HR cache [null] as one employee although HR strict validation rejects it.",
+      "limitation": "Requires already-invalid cached data. No ordinary UI input that creates [null] was established."
+    }
+  ],
+  "observations": [
+    {
+      "id": "QUEUED-DISPATCH-LIFECYCLE",
+      "result": "Reproduced but not classified as new confirmed bug",
+      "actual": "Inventory dispatch waiting on a Web Lock still changes stock after the caller session has ended, unlike checkout now accepting AbortSignal.",
+      "source": [
+        "src/components/InventoryView.tsx:160",
+        "src/lib/commerce.ts:138"
+      ],
+      "limitation": "The dispatch was requested while session active; cancellation policy is a product decision. No Firebase auth bypass."
+    },
+    {
+      "id": "ZERO-MINIMUM",
+      "result": "Configuration contract ambiguity",
+      "actual": "isInventoryList accepts stockMin=0, stockHealth replaces it by10.",
+      "limitation": "No UI edits stockMin and zero may intentionally mean use default. Do not count as confirmed without defining zero behavior."
+    },
+    {
+      "id": "FREE-SALE-DISCOUNT",
+      "result": "UI/calculation contract ambiguity",
+      "actual": "Discount input allows100 but calculateSale rejects a zero-total sale; invalid totals render as dashes and Complete sale is disabled.",
+      "limitation": "Free-sale support is a business decision. No invalid sale was committed."
+    }
+  ],
+  "passedReview": [
+    "Demo/live storage separation remains wired through POS, Inventory, and summary.",
+    "Checkout validates current stock inside lock and supports abort on session end.",
+    "Invalid quantities/prices/payments do not commit."
+  ]
+}

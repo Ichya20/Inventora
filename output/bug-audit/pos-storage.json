@@ -1,0 +1,51 @@
+{
+  "auditedAt": "2026-11-18T01:25:37.436Z",
+  "approach": "Isolated in-memory TypeScript probes plus source review; no browser/network/Firebase access.",
+  "checks": [
+    {
+      "id": "demo-live-commerce-mixing",
+      "result": "reproduced",
+      "storageKey": "inventora_commerce_v1",
+      "stockAfterLiveSale": 4,
+      "stockAfterDemoSale": 3,
+      "visibleSaleActors": [
+        "live-staff-uid",
+        "warehouse.manager@inventora.com"
+      ],
+      "sourceWiring": "App.tsx passes both demo/live identities to the same PosView and no mode/scope; commerce uses one fixed key.",
+      "limitation": "Demonstrates storage behavior plus source wiring; no actual browser or Firebase session used. Shared data between live coworkers alone may be intentional."
+    },
+    {
+      "id": "queued-checkout-after-session-change",
+      "result": "reproduced",
+      "sessionAtCommit": null,
+      "committedActor": "live-staff-uid",
+      "stockAfterCommit": 4,
+      "limitation": "A checkout accepted before logout continues after a queued Web Lock. Whether cancellation is required is a product decision; this is browser-local state, not a Firebase authorization bypass."
+    },
+    {
+      "id": "invalid-persisted-unit-price",
+      "result": "reproduced",
+      "acceptedPrices": [
+        "abc",
+        -1,
+        {
+          "unexpected": true
+        }
+      ],
+      "checkoutRejectsInvalidPrice": true,
+      "limitation": "Requires a malformed preexisting/imported/cache record; standard checkout writes valid integer prices. No incorrect sale committed."
+    },
+    {
+      "id": "pos-invalid-input-and-stock-guards",
+      "result": "passed",
+      "rejected": [
+        "zero/negative/fractional/unsafe quantity",
+        "insufficient payment",
+        "insufficient stock",
+        "ordinary User role"
+      ],
+      "stateUnchanged": true
+    }
+  ]
+}

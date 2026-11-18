@@ -14,12 +14,14 @@ let aiText = 'Recorded active PO count: 0';
 let failNextAi = false;
 let savedActor: unknown;
 let creationActor: unknown;
+let receiptCalls = 0;
+let creationCalls = 0;
 const createdIds = new Set<string>();
 const previousKey = process.env.GEMINI_API_KEY;
 before(async () => {
   const app = createApp({
     verifyToken: async token => {
-      const roles: Record<string, Role | null> = { finance: 'Finance Manager', warehouse: 'Warehouse Manager', hr: 'HR Manager', unassigned: null };
+      const roles: Record<string, Role | null | undefined> = { finance: 'Finance Manager', warehouse: 'Warehouse Manager', hr: 'HR Manager', user: 'User', owner: 'Super Admin', unassigned: null, 'no-claim': undefined };
       if (!(token in roles)) throw new Error('Invalid signature or expired token');
       return { uid: 'api-test-' + token, role: roles[token] };
     },
@@ -30,8 +32,9 @@ before(async () => {
       if (aiError) throw aiError;
       return { text: aiText };
     } } }) as any,
-    saveReceipt: async (_id, _receipt, actor) => { savedActor = actor; return { status: 'Barang Diterima', threeWayMatchStatus: 'MATCHED' }; },
+    saveReceipt: async (_id, _receipt, actor) => { receiptCalls++; savedActor = actor; return { status: 'Barang Diterima', threeWayMatchStatus: 'MATCHED' }; },
     createPurchaseOrder: async (input, actor) => {
+      creationCalls++;
       creationActor = actor;
       let po;
       try { po = validatePurchaseOrderCreate(input); }
@@ -69,6 +72,31 @@ test('API permissions use verified role claims instead of client-supplied roles'
   assert.equal((await post('/api/ai/forecast-restock', { inventory: [] }, 'finance')).status, 403);
   assert.equal((await post('/api/copilot', { message: 'Hello' }, 'unassigned')).status, 403);
   assert.equal(aiCalls, 0);
+});
+
+test('ordinary and unassigned Google users cannot call staff endpoints by supplying an admin role', async () => {
+  const before = { aiCalls, receiptCalls, creationCalls };
+  for (const token of ['user', 'unassigned', 'no-claim']) {
+    for (const route of ['/api/analyst', '/api/copilot', '/api/ai/po-risk', '/api/ai/forecast-restock', '/api/ai/parse-invoice', '/api/purchase-orders', '/api/purchase-orders/PO-USER/receipt']) {
+      const response = await post(route, { role: 'Super Admin', uid: 'owner', message: 'Summary', prompt: 'Revenue', text: 'Vendor', inventory: [], grn: {} }, token);
+      assert.equal(response.status, 403, token + ': ' + route);
+    }
+  }
+  assert.deepEqual({ aiCalls, receiptCalls, creationCalls }, before);
+});
+
+test('verified Super Admin retains staff access regardless of the role in the request body', async () => {
+  process.env.GEMINI_API_KEY = 'mock-key';
+  const reply = await post('/api/copilot', { message: 'Summary', role: 'User' }, 'owner');
+  assert.equal(reply.status, 200);
+  assert.equal(reply.data.reply, aiText);
+  const po = { id: 'PO-OWNER-1', vendor: 'Vendor', desc: 'Server', date: '2026-11-18', deliveryDate: '2026-11-25', subtotal: 1000, total: 1110, taxAmount: 110, status: 'Pending Approval', items: [{ name: 'Server', qty: 2, unitPrice: 500, subtotal: 1000 }] };
+  const created = await post('/api/purchase-orders', { ...po, role: 'User' }, 'owner');
+  assert.equal(created.status, 201);
+  assert.deepEqual(creationActor, { uid: 'api-test-owner', role: 'Super Admin' });
+  const receipt = await post('/api/purchase-orders/PO-OWNER-1/receipt', { grn: {}, role: 'User' }, 'owner');
+  assert.equal(receipt.status, 200);
+  assert.deepEqual(savedActor, { uid: 'api-test-owner', role: 'Super Admin' });
 });
 
 test('unconfigured or failed AI returns an explicit failure without fabricated business numbers', async () => {

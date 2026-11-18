@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   CreditCard, ShieldCheck, CheckCircle2, Download,
   ArrowUpRight, Users, HardDrive, AlertCircle, Check, Sparkles,
@@ -7,10 +7,12 @@ import {
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
 import { Language, Translations, translations as defaultTranslations } from '../i18n';
-import { loadStoredData, saveStoredData } from '../lib/storageUtils';
+import { createInventoraBackup, saveStoredData } from '../lib/storageUtils';
+import { BILLING_KEYS, BillingData, isBillingAddons, readBillingData, SubscriptionRecord, updateSubscription } from '../lib/billingStore';
 import { billingWindow, businessDate, dateLabel } from '../lib/businessDates';
 import { downloadInvoicePdf } from '../lib/pdfGenerator';
 import { exportToJson } from '../lib/exportUtils';
+import { PaymentMethodLabel, validatePaymentMethodLabel } from '../lib/paymentMethodValidation';
 
 interface BillingSubscriptionViewProps {
   onToast: (msg: string, type?: ToastType) => void;
@@ -87,43 +89,8 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
     `${plan.userLimit} anggota tim`, `${plan.poLimit === 'Unlimited' ? 'PO tanpa batas' : `${plan.poLimit.toLocaleString('id-ID')} PO / bulan`} (contoh)`, `${plan.storageGb} GB penyimpanan (contoh)`
   ];
 
-  // State: Add-on counters
-  const [addons, setAddons] = useState(() => {
-    return loadStoredData('inventora_billing_addons_v1', {
-      extraSeats: 0,
-      extraAiPacks: 0,
-      dedicatedDatabase: false
-    });
-  });
-  const [addonDraft, setAddonDraft] = useState(addons);
-
-  // State: Payment Method
-  const [paymentMethod, setPaymentMethod] = useState(() => {
-    return loadStoredData('inventora_billing_pm_v1', {
-      type: 'card',
-      brand: 'Mastercard',
-      last4: '8824',
-      holder: 'PT INVENTORA TREASURY',
-      exp: '12/28',
-      billingEmail: 'billing@inventora.com'
-    });
-  });
-
-  // Modals
-  const [isChangePlanOpen, setIsChangePlanOpen] = useState(false);
-  const [selectedPlanForUpgrade, setSelectedPlanForUpgrade] = useState<SubscriptionTier | null>(null);
-  const [isUpdatePmOpen, setIsUpdatePmOpen] = useState(false);
-  const [isAddonModalOpen, setIsAddonModalOpen] = useState(false);
-  const [isContactSalesOpen, setIsContactSalesOpen] = useState(false);
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-
-  // Forms state
-  const [pmForm, setPmForm] = useState({ ...paymentMethod });
-  const [salesMessage, setSalesMessage] = useState(() => loadStoredData('inventora_requirements_draft_v1', ''));
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   // Historical Subscription Invoices
-  const [initialInvoices] = useState(() => loadStoredData('inventora_subscription_invoices_v1', [
+  const initialInvoices = [
     {
       id: 'INV-SUB-2026-09',
       date: '15 Sep 2026',
@@ -154,41 +121,82 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       planName: 'Enterprise',
       paymentMethod: 'Mastercard •••• 8824'
     }
-  ]));
-
-  const [subscription, setSubscription] = useState(() => loadStoredData('inventora_subscription_v2', {
-    planId: loadStoredData<SubscriptionTier>('inventora_subscription_plan_v1', 'enterprise'),
-    cycle: loadStoredData<'monthly' | 'annual'>('inventora_billing_cycle_v1', 'annual'),
-    anchorDate: businessDate(), autoRenew: true, invoices: initialInvoices
-  }));
+  ];
+  const fallbackBilling: BillingData = {
+    addons: { extraSeats: 0, extraAiPacks: 0, dedicatedDatabase: false },
+    paymentMethod: { type: 'card', brand: 'Mastercard', last4: '8824', holder: 'PT INVENTORA TREASURY', exp: '12/28', billingEmail: 'billing@inventora.com' },
+    salesMessage: '', subscription: { planId: 'enterprise', cycle: 'annual', anchorDate: businessDate(), autoRenew: true, invoices: initialInvoices },
+  };
+  const [initialBilling] = useState(() => {
+    try { return { data: readBillingData(fallbackBilling), error: false }; }
+    catch { return { data: fallbackBilling, error: true }; }
+  });
+  const [storageError, setStorageError] = useState(initialBilling.error);
+  const [addons, setAddons] = useState(initialBilling.data.addons);
+  const [addonDraft, setAddonDraft] = useState(addons);
+  const [paymentMethod, setPaymentMethod] = useState(initialBilling.data.paymentMethod);
+  const [subscription, setSubscription] = useState(initialBilling.data.subscription);
+  const [salesMessage, setSalesMessage] = useState(initialBilling.data.salesMessage);
+  const [pmForm, setPmForm] = useState({ ...paymentMethod });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const subscriptionPending = useRef(false);
+  const [isSubscriptionSaving, setIsSubscriptionSaving] = useState(false);
+  const [isChangePlanOpen, setIsChangePlanOpen] = useState(false);
+  const [selectedPlanForUpgrade, setSelectedPlanForUpgrade] = useState<SubscriptionTier | null>(null);
+  const [isUpdatePmOpen, setIsUpdatePmOpen] = useState(false);
+  const [isAddonModalOpen, setIsAddonModalOpen] = useState(false);
+  const [isContactSalesOpen, setIsContactSalesOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [billingCycle, setBillingCycle] = useState(subscription.cycle);
   const currentPlanId = subscription.planId;
   const subscriptionInvoices = subscription.invoices;
-  const window = billingWindow(subscription.anchorDate, subscription.cycle, businessDate(), subscription.autoRenew);
-  const renewalDate = dateLabel(window.end, lang);
+  const cycleWindow = billingWindow(subscription.anchorDate, subscription.cycle, businessDate(), subscription.autoRenew);
+  const renewalDate = dateLabel(cycleWindow.end, lang);
   const quotaReset = dateLabel(billingWindow(subscription.anchorDate, 'monthly', businessDate(), subscription.autoRenew).end, lang);
-  const saveSubscription = (next: typeof subscription) => {
+  const ensureBillingReadable = () => {
+    try { return readBillingData(fallbackBilling); }
+    catch (error) { setStorageError(true); throw error; }
+  };
+  const refreshBilling = () => {
     try {
-      saveStoredData('inventora_subscription_v2', next, true);
+      const data = ensureBillingReadable();
+      setSubscription(data.subscription); setPaymentMethod(data.paymentMethod); setAddons(data.addons);
+      if (!isUpdatePmOpen) setPmForm(data.paymentMethod);
+      if (!isAddonModalOpen) setAddonDraft(data.addons);
+      setStorageError(false);
+    } catch { setStorageError(true); }
+  };
+  useEffect(() => {
+    window.addEventListener('storage', refreshBilling);
+    return () => window.removeEventListener('storage', refreshBilling);
+  }, [isUpdatePmOpen, isAddonModalOpen]);
+  const handleRecoveryBackup = () => {
+    try { exportToJson(`inventora-billing-recovery-${businessDate()}.json`, createInventoraBackup()); }
+    catch { onToast(lang === 'en' ? 'Saved data could not be downloaded.' : 'Data tersimpan belum dapat diunduh.', 'error'); }
+  };
+  const saveSubscription = async (change: (current: SubscriptionRecord) => SubscriptionRecord) => {
+    if (subscriptionPending.current || storageError) return false;
+    subscriptionPending.current = true;
+    setIsSubscriptionSaving(true);
+    try {
+      ensureBillingReadable();
+      const next = await updateSubscription(fallbackBilling.subscription, change);
       setSubscription(next);
       return true;
     } catch {
       onToast(lang === 'en' ? 'Subscription could not be saved. No change applied.' : 'Langganan tidak dapat disimpan. Perubahan dibatalkan.', 'error');
       return false;
-    }
+    } finally { subscriptionPending.current = false; setIsSubscriptionSaving(false); }
   };
-  useEffect(() => { saveStoredData('inventora_subscription_v2', subscription); }, [subscription]);
-
-  useEffect(() => {
-    saveStoredData('inventora_billing_pm_v1', paymentMethod);
-  }, [paymentMethod]);
 
   const activePlan = PLANS.find(p => p.id === currentPlanId) || PLANS[2];
   const activePrice = subscription.cycle === 'annual' ? activePlan.annualMonthlyPrice : activePlan.monthlyPrice;
 
   const handleSaveAddons = () => {
     try {
-      saveStoredData('inventora_billing_addons_v1', addonDraft, true);
+      ensureBillingReadable();
+      if (!isBillingAddons(addonDraft)) throw new Error('Invalid capacity.');
+      saveStoredData(BILLING_KEYS.addons, addonDraft, true);
       setAddons(addonDraft);
       setIsAddonModalOpen(false);
       onToast(lang === 'en' ? 'Sample capacity saved locally.' : 'Contoh kapasitas tersimpan lokal.', 'success');
@@ -197,7 +205,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
     }
   };
 
-  const handleConfirmPlanChange = (tier: SubscriptionTier) => {
+  const handleConfirmPlanChange = async (tier: SubscriptionTier) => {
     const newPlan = PLANS.find(p => p.id === tier);
     if (!newPlan) return;
     const today = businessDate();
@@ -210,20 +218,36 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       status: 'Simulasi', client: 'PT INVENTORA NUSANTARA TEKNOLOGI', planName: newPlan.name,
       paymentMethod: `${paymentMethod.brand} •••• ${paymentMethod.last4}`
     };
-    if (!saveSubscription({ planId: tier, cycle: billingCycle, anchorDate: today, autoRenew: true, invoices: [newInvoice, ...subscriptionInvoices] })) return;
+    if (!await saveSubscription(current => ({ planId: tier, cycle: billingCycle, anchorDate: today, autoRenew: true, invoices: [newInvoice, ...current.invoices] }))) return;
     setIsChangePlanOpen(false);
     setSelectedPlanForUpgrade(null);
     onToast(lang === 'en' ? `Simulated plan changed to ${newPlan.name}. No payment charged.` : `Paket simulasi diubah ke ${newPlan.name}. Tidak ada pembayaran ditagih.`, 'success');
   };
 
+  const handlePauseRenewal = async () => {
+    if (!await saveSubscription(current => ({ ...current, autoRenew: false,
+      anchorDate: billingWindow(current.anchorDate, current.cycle, businessDate(), current.autoRenew).start }))) return;
+    setIsCancelModalOpen(false);
+    onToast(lang === 'en' ? 'Simulated renewal paused.' : 'Perpanjangan simulasi dijeda.', 'info');
+  };
+  const handleResumeRenewal = async () => {
+    await saveSubscription(current => ({ ...current, autoRenew: true }));
+  };
+
   // Handle saving payment method
   const handleSavePaymentMethod = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    let validated: PaymentMethodLabel;
+    try { validated = validatePaymentMethodLabel(pmForm, businessDate(), lang); }
+    catch (error) { onToast((error as Error).message, 'error'); return; }
     setIsSubmitting(true);
     setTimeout(() => {
       try {
-        saveStoredData('inventora_billing_pm_v1', pmForm, true);
-        setPaymentMethod({ ...pmForm });
+        ensureBillingReadable();
+        saveStoredData(BILLING_KEYS.paymentMethod, validated, true);
+        setPaymentMethod(validated);
+        setPmForm(validated);
         setIsUpdatePmOpen(false);
         onToast(lang === 'en' ? 'Test payment label saved locally.' : 'Label pembayaran uji disimpan lokal.', 'success');
       } catch {
@@ -231,6 +255,12 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
       } finally { setIsSubmitting(false); }
     }, 400);
   };
+
+  if (storageError) return <section className="p-4 md:p-8 flex-1" role="alert">
+    <h2 className="text-lg font-semibold">{lang === 'en' ? 'Saved billing data cannot be read' : 'Data tagihan tersimpan tidak dapat dibaca'}</h2>
+    <p className="mt-2 text-sm text-neutral-500">{lang === 'en' ? 'The original data has been retained. Download it before restoring a valid backup, then retry.' : 'Data asli tetap disimpan. Unduh sebelum memulihkan cadangan yang valid, lalu coba baca ulang.'}</p>
+    <div className="mt-4 flex gap-2"><Button variant="secondary" onClick={handleRecoveryBackup}>{lang === 'en' ? 'Download saved data' : 'Unduh data tersimpan'}</Button><Button variant="primary" onClick={refreshBilling}>{lang === 'en' ? 'Retry loading' : 'Coba baca ulang'}</Button></div>
+  </section>;
 
   // Handle downloading subscription invoice as PDF
   const handleDownloadInvoice = (inv: typeof subscriptionInvoices[0]) => {
@@ -342,13 +372,14 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>
                   {lang === 'en' 
-                    ? `${subscription.autoRenew ? 'Next simulated renewal' : window.expired ? 'Simulation cycle ended' : 'Simulation paused until'}: ${renewalDate}`
-                    : `${subscription.autoRenew ? 'Perpanjangan simulasi berikutnya' : window.expired ? 'Siklus simulasi berakhir' : 'Simulasi dijeda hingga'}: ${renewalDate}`}
+                    ? `${subscription.autoRenew ? 'Next simulated renewal' : cycleWindow.expired ? 'Simulation cycle ended' : 'Simulation paused until'}: ${renewalDate}`
+                    : `${subscription.autoRenew ? 'Perpanjangan simulasi berikutnya' : cycleWindow.expired ? 'Siklus simulasi berakhir' : 'Simulasi dijeda hingga'}: ${renewalDate}`}
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => { if (subscription.autoRenew) setIsCancelModalOpen(true); else saveSubscription({ ...subscription, autoRenew: true }); }}
+                disabled={isSubscriptionSaving}
+                onClick={() => { if (subscription.autoRenew) setIsCancelModalOpen(true); else void handleResumeRenewal(); }}
                 className="text-neutral-400 hover:text-red-400 text-xs underline cursor-pointer"
               >
                 {subscription.autoRenew ? (lang === 'en' ? 'Pause simulated renewal' : 'Jeda perpanjangan simulasi') : (lang === 'en' ? 'Resume simulated renewal' : 'Lanjutkan perpanjangan simulasi')}
@@ -844,7 +875,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                 <input
                   type="text"
                   required
-                  value={pmForm.last4} maxLength={4} pattern="[0-9]{4}"
+                  value={pmForm.last4} maxLength={4} pattern="[0-9]{4}" inputMode="numeric"
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^0-9]/g, '');
                     setPmForm(prev => ({ ...prev, last4: raw.slice(-4) }));
@@ -865,6 +896,8 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                   type="text"
                   required
                   value={pmForm.exp}
+                  maxLength={5}
+                  pattern="(0[1-9]|1[0-2])/[0-9]{2}"
                   onChange={(e) => setPmForm(prev => ({ ...prev, exp: e.target.value }))}
                   className="w-full text-xs font-mono py-2 px-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] outline-none focus:border-[#0070f3]"
                   placeholder="MM/YY"
@@ -881,6 +914,8 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                 type="text"
                 required
                 value={pmForm.holder}
+                maxLength={120}
+                pattern={'.*\\S.*'}
                 onChange={(e) => setPmForm(prev => ({ ...prev, holder: e.target.value }))}
                 className="w-full text-xs py-2 px-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] outline-none focus:border-[#0070f3]"
               />
@@ -894,6 +929,7 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
                 type="email"
                 required
                 value={pmForm.billingEmail}
+                maxLength={254}
                 onChange={(e) => setPmForm(prev => ({ ...prev, billingEmail: e.target.value }))}
                 className="w-full text-xs py-2 px-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] outline-none focus:border-[#0070f3]"
               />
@@ -1005,7 +1041,9 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
           onSubmit={(e) => {
             e.preventDefault();
             try {
-              saveStoredData('inventora_requirements_draft_v1', salesMessage, true);
+              ensureBillingReadable();
+              if (!salesMessage.trim()) throw new Error('Requirements cannot be empty.');
+              saveStoredData(BILLING_KEYS.salesMessage, salesMessage.trim(), true);
               setIsContactSalesOpen(false);
               onToast(
                 lang === 'en' 
@@ -1080,14 +1118,8 @@ export function BillingSubscriptionView({ onToast, lang = 'en', t }: BillingSubs
             </Button>
             <Button
               variant="secondary"
-              onClick={() => {
-                if (!saveSubscription({ ...subscription, autoRenew: false, anchorDate: window.start })) return;
-                setIsCancelModalOpen(false);
-                onToast(
-                  lang === 'en' ? `Simulated renewal paused until ${renewalDate}.` : `Perpanjangan simulasi dijeda hingga ${renewalDate}.`,
-                  'info'
-                );
-              }}
+              disabled={isSubscriptionSaving}
+              onClick={() => void handlePauseRenewal()}
               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
             >
               {lang === 'en' ? 'Pause renewal' : 'Jeda perpanjangan'}

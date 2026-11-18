@@ -6,6 +6,7 @@ import React, { useState, useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Sparkles, FileText, Plus, Trash2, CheckCircle2, Calculator, Percent, ArrowLeft, Building2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Button } from './UI';
+import { NumericInput } from './NumericInput';
 import { ChangeHighlight, SuccessMark } from './MotionFeedback';
 import { workspaceMotion } from '../lib/motion';
 import { translations, Language, Translations } from '../i18n';
@@ -15,6 +16,7 @@ import { Role, ToastType, AppNotification, PurchaseOrder, RestockDraft } from '.
 import { canPerformPoAction } from '../lib/authorization';
 import { poStorageKey } from '../lib/procurement';
 import { readStoredArray, saveStoredData } from '../lib/storageUtils';
+import { isCachedOrder } from '../lib/procurementCache';
 
 interface PurchaseUnitViewProps {
   role: Role;
@@ -170,7 +172,7 @@ export function PurchaseUnitView({
     if (data.items && data.items.length > 0) {
       const mapped: RequisitionItem[] = data.items.map((it, idx) => ({
         id: `ai-item-${idx}-${Date.now()}`,
-        sku: it.name.substring(0, 14).toUpperCase(),
+        sku: `${it.name.substring(0, 14).toUpperCase()}-${idx + 1}`,
         name: it.name,
         qty: it.qty || 1,
         unitPrice: it.unitPrice || 0,
@@ -257,9 +259,9 @@ export function PurchaseUnitView({
       setAwaitingConfirmation(true);
       if (!isDemo) {
         if (!navigator.onLine) throw new Error('Pembuatan PO memerlukan koneksi server. Formulir tetap tersedia untuk dicoba kembali.');
-        await authenticatedPost('/api/purchase-orders', validatedPo);
+        await authenticatedPost('/api/purchase-orders', validatedPo, { expectedUid: ownerId });
       } else {
-        const existing = readStoredArray<PurchaseOrder>(storageKey, []);
+        const existing = readStoredArray<PurchaseOrder>(storageKey, [], isCachedOrder);
         saveStoredData(storageKey, [validatedPo, ...existing.filter(po => po.id !== validatedPo.id)], true);
       }
       // Live orders are confirmed by the server; browser cache cannot undo that result.
@@ -502,10 +504,10 @@ export function PurchaseUnitView({
                 </div>
                 <div className="po-line-numbers">
                   <label htmlFor={`${row.id}-qty`}>{lang === 'en' ? 'Quantity' : 'Jumlah'}
-                    <input id={`${row.id}-qty`} type="number" min="1" step="1" required value={row.qty} onChange={event => handleItemChange(row.id, 'qty', event.target.value)} />
+                    <NumericInput id={`${row.id}-qty`} min="1" step="1" required value={row.qty} onChange={event => handleItemChange(row.id, 'qty', event.target.value)} />
                   </label>
                   <label htmlFor={`${row.id}-price`}>{lang === 'en' ? 'Unit price Rp' : 'Harga satuan Rp'}
-                    <input id={`${row.id}-price`} type="number" min="0" step="1" required value={row.unitPrice} onChange={event => handleItemChange(row.id, 'unitPrice', event.target.value)} />
+                    <NumericInput id={`${row.id}-price`} min="0" step="1" required value={row.unitPrice} onChange={event => handleItemChange(row.id, 'unitPrice', event.target.value)} />
                   </label>
                   <div className="po-line-subtotal"><span>Subtotal</span><ChangeHighlight value={row.total}><strong>Rp {row.total.toLocaleString(numLocale)}</strong></ChangeHighlight></div>
                   <button type="button" disabled={items.length <= 1} onClick={() => handleRemoveItem(row.id)} aria-label={`${lang === 'en' ? 'Remove' : 'Hapus'} ${row.name || index+1}`}><Trash2 size={16}/><span>{lang === 'en' ? 'Remove' : 'Hapus'}</span></button>
@@ -546,10 +548,10 @@ export function PurchaseUnitView({
                     <span className="text-xs text-neutral-600 dark:text-neutral-400">
                       {lang === 'en' ? 'Volume Discount (%):' : 'Diskon Volume (%):'}
                     </span>
-                    <input
-                      type="number"
+                    <NumericInput
                       min="0"
                       max="50"
+                      step="0.01"
                       value={discountPercent}
                       onChange={(e) => { setDiscountPercent(Number(e.target.value) || 0); setImportedTaxAmount(null); }}
                       className="w-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-0.5 text-xs tabular-nums"

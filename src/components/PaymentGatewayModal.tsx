@@ -8,6 +8,7 @@ import { PurchaseOrder, PaymentTransaction } from '../types';
 import { Language, Translations, translations as defaultTranslations } from '../i18n';
 import { downloadReceiptPdf } from '../lib/pdfGenerator';
 import { paymentTotals } from '../lib/procurement';
+import { validateCardLabel } from '../lib/paymentMethodValidation';
 
 interface PaymentGatewayModalProps {
   isOpen: boolean;
@@ -31,10 +32,9 @@ export function PaymentGatewayModal({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType>('virtual_account');
   const [selectedBank, setSelectedBank] = useState<'bca' | 'mandiri' | 'bni' | 'bri'>('bca');
   
-  // Credit card state
-  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 9812');
+  // Simulation labels never collect a full card number or CVV.
+  const [cardLast4, setCardLast4] = useState('9812');
   const [cardExpiry, setCardExpiry] = useState('08/29');
-  const [cardCvv, setCardCvv] = useState('884');
   const [cardHolder, setCardHolder] = useState('PT INVENTORA OPERASIONAL');
   
   // Wire transfer state
@@ -104,6 +104,14 @@ export function PaymentGatewayModal({
 
   const handleProcessPayment = () => {
     if (processing.current) return;
+    let cardLabel: { last4: string; holder: string; exp: string } | null = null;
+    try {
+      if (selectedMethod === 'credit_card') cardLabel = validateCardLabel({ last4: cardLast4, holder: cardHolder, exp: cardExpiry }, undefined, lang);
+      if (selectedMethod === 'bank_transfer' && !treasuryAccount.trim()) throw new Error(lang === 'en' ? 'Select a treasury account.' : 'Pilih rekening treasury.');
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : String(error));
+      return;
+    }
     processing.current = true;
     setPaymentError(null);
     setIsProcessing(true);
@@ -128,7 +136,7 @@ export function PaymentGatewayModal({
         accountRef = getVANumber();
       } else if (selectedMethod === 'credit_card') {
         methodLabel = lang === 'en' ? 'Corporate Credit Card' : 'Kartu Kredit Korporat';
-        accountRef = cardNumber;
+        accountRef = `•••• ${cardLabel!.last4}`;
       } else if (selectedMethod === 'bank_transfer') {
         methodLabel = lang === 'en' ? 'Corporate Wire / RTGS' : 'Transfer Treasury / RTGS';
         accountRef = treasuryAccount;
@@ -359,36 +367,34 @@ export function PaymentGatewayModal({
                   {selectedMethod === 'credit_card' && (
                     <div className="space-y-3">
                       <div>
-                        <label className="text-[11px] text-[#666] dark:text-[#aaa] block mb-1">{activeT.gateway.cardNumLabel}</label>
+                        <label className="text-[11px] text-[#666] dark:text-[#aaa] block mb-1">{lang === 'en' ? 'Last four card digits' : 'Empat digit terakhir kartu'}</label>
                         <div className="relative">
                           <input 
                             type="text"
-                            value={cardNumber}
-                            onChange={(e) => setCardNumber(e.target.value)}
+                            inputMode="numeric"
+                            autoComplete="off"
+                            maxLength={4}
+                            pattern="[0-9]{4}"
+                            value={cardLast4}
+                            onChange={(e) => setCardLast4(e.target.value.replace(/\D/g, '').slice(-4))}
                             className="w-full text-xs font-mono bg-white dark:bg-[#1f1f1f] border border-[#eaeaea] dark:border-[#333] rounded-md px-3 py-2 outline-none focus:border-[#0070f3] text-[#171717] dark:text-[#ededed]"
-                            placeholder="4000 1234 5678 9010"
+                            placeholder="9812"
                           />
                           <CreditCard className="w-4 h-4 text-[#888] absolute right-3 top-2.5" />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <p className="text-[11px] text-[#666] dark:text-[#aaa]">{lang === 'en' ? 'Only a masked label is saved for this simulation.' : 'Simulasi ini hanya menyimpan label kartu tersamarkan.'}</p>
+                      <div>
                         <div>
                           <label className="text-[11px] text-[#666] dark:text-[#aaa] block mb-1">{activeT.gateway.cardExpiryLabel} (MM/YY)</label>
                           <input 
                             type="text"
+                            inputMode="numeric"
+                            maxLength={5}
+                            pattern="(0[1-9]|1[0-2])/[0-9]{2}"
                             value={cardExpiry}
                             onChange={(e) => setCardExpiry(e.target.value)}
-                            className="w-full text-xs font-mono bg-white dark:bg-[#1f1f1f] border border-[#eaeaea] dark:border-[#333] rounded-md px-3 py-2 outline-none focus:border-[#0070f3] text-[#171717] dark:text-[#ededed]"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] text-[#666] dark:text-[#aaa] block mb-1">{activeT.gateway.cardCvvLabel} (3 Digit)</label>
-                          <input 
-                            type="password"
-                            value={cardCvv}
-                            onChange={(e) => setCardCvv(e.target.value)}
-                            maxLength={4}
                             className="w-full text-xs font-mono bg-white dark:bg-[#1f1f1f] border border-[#eaeaea] dark:border-[#333] rounded-md px-3 py-2 outline-none focus:border-[#0070f3] text-[#171717] dark:text-[#ededed]"
                           />
                         </div>
@@ -399,6 +405,7 @@ export function PaymentGatewayModal({
                         <input 
                           type="text"
                           value={cardHolder}
+                          maxLength={120}
                           onChange={(e) => setCardHolder(e.target.value)}
                           className="w-full text-xs bg-white dark:bg-[#1f1f1f] border border-[#eaeaea] dark:border-[#333] rounded-md px-3 py-2 outline-none focus:border-[#0070f3] text-[#171717] dark:text-[#ededed]"
                         />

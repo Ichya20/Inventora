@@ -1,5 +1,5 @@
 import { stockHealth, isInventoryList } from '../lib/inventory';
-import { COMMERCE_KEY, readCommerce, deployCommerceStock } from '../lib/commerce';
+import { commerceStorageKey, inventoryStorageKey, readCommerce, deployCommerceStock } from '../lib/commerce';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Badge, Button, TableWrapper, Th, Td, Tr } from './UI';
 import { RestockForecastCard } from './RestockForecastCard';
@@ -14,13 +14,15 @@ export function InventoryView({
   onNavigate,
   onRestock,
   t,
-  lang = 'en'
+  lang = 'en',
+  isDemo = false
 }: {
   onToast: ToastFunction;
   onNavigate?: (menu: string) => void;
   onRestock?: (draft: RestockDraft) => void;
   t?: Translations;
   lang?: Language;
+  isDemo?: boolean;
 }) {
   const activeT = t || translations[lang] || translations.en;
   const numLocale = lang === 'en' ? 'en-US' : 'id-ID';
@@ -46,7 +48,7 @@ export function InventoryView({
 
   const [inventoryState, setInventoryState] = useState(() => {
     try {
-      const items = readCommerce(defaultItems).inventory;
+      const items = readCommerce(defaultItems, isDemo).inventory;
       if (!isInventoryList(items)) throw new Error('Invalid inventory');
       return { items, error: false };
     } catch { return { items: [] as typeof defaultItems, error: true }; }
@@ -57,19 +59,19 @@ export function InventoryView({
   useEffect(() => {
     if (inventoryState.error) return;
     try {
-      if (localStorage.getItem('inventora_inventory_v1') === null && localStorage.getItem(COMMERCE_KEY) === null) saveStoredData('inventora_inventory_v1', storedItems, true);
+      if (localStorage.getItem(inventoryStorageKey(isDemo)) === null && localStorage.getItem(commerceStorageKey(isDemo)) === null) saveStoredData(inventoryStorageKey(isDemo), storedItems, true);
     } catch { onToast(lang === 'en' ? 'Inventory is not saved. Browser storage is unavailable.' : 'Inventori belum tersimpan. Penyimpanan browser tidak tersedia.', 'error'); }
   }, []);
 
   useEffect(() => {
     const refresh = () => {
-      try { setInventoryState({ items: readCommerce(defaultItems).inventory, error: false }); }
+      try { setInventoryState({ items: readCommerce(defaultItems, isDemo).inventory, error: false }); }
       catch { setInventoryState({ items: [], error: true }); }
     };
     window.addEventListener('storage', refresh);
     window.addEventListener('inventora:data-changed', refresh);
     return () => { window.removeEventListener('storage', refresh); window.removeEventListener('inventora:data-changed', refresh); };
-  }, []);
+  }, [isDemo]);
 
   const [page, setPage] = useState(1);
   const itemsPerPage = 5;
@@ -157,7 +159,7 @@ export function InventoryView({
 
   const handleDeploy = async (id: string) => {
     try {
-      const updated = await deployCommerceStock(id, storedItems);
+      const updated = await deployCommerceStock(id, storedItems, isDemo);
       setInventoryState({ items: updated, error: false });
       onToast(lang === 'en' ? `1 unit of ${id} dispatched and saved` : `Pengeluaran 1 unit ${id} berhasil disimpan`, 'success', {
         title: lang === 'en' ? 'Stock saved' : 'Stok tersimpan',
@@ -174,7 +176,7 @@ export function InventoryView({
       {inventoryState.error && <div role="alert" className="text-sm border border-red-200 dark:border-red-900 rounded-lg p-4 space-y-2 text-red-700 dark:text-red-400">
         <p>{lang === 'en' ? 'Saved inventory cannot be read. The original data is retained; restore a valid backup before changing stock.' : 'Inventori tersimpan tidak dapat dibaca. Data asli tetap disimpan; pulihkan cadangan yang valid sebelum mengubah stok.'}</p>
         <button type="button" className="underline cursor-pointer" onClick={() => {
-          try { exportTextFile('inventora-inventory-recovery.txt', localStorage.getItem(COMMERCE_KEY) ?? localStorage.getItem('inventora_inventory_v1') ?? '', 'text/plain'); }
+          try { exportTextFile('inventora-inventory-recovery.txt', localStorage.getItem(commerceStorageKey(isDemo)) ?? localStorage.getItem(inventoryStorageKey(isDemo)) ?? '', 'text/plain'); }
           catch { onToast(lang === 'en' ? 'Saved inventory could not be downloaded.' : 'Data inventori belum dapat diunduh.', 'error'); }
         }}>{lang === 'en' ? 'Download saved data' : 'Unduh data tersimpan'}</button>
       </div>}

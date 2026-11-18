@@ -7,11 +7,15 @@ export function useNotifications(demo: boolean, uid: string | null, role: Role |
   const currentKey = useRef(key);
   currentKey.current = key;
   const [state, setState] = useState<{ key: string | null; items: AppNotification[] }>({ key: null, items: [] });
+  const readCurrent = (): AppNotification[] => {
+    // Access to the storage object itself can throw when the browser blocks persistence.
+    try { return readNotifications(localStorage, key, role); } catch { return []; }
+  };
   useEffect(() => {
     currentKey.current = key;
     // Legacy entries have no verified owner, so they must not be assigned to the next account.
     try { localStorage.removeItem('inventora_notifications'); } catch {}
-    setState({ key, items: readNotifications(localStorage, key, role) });
+    setState({ key, items: readCurrent() });
     return () => { currentKey.current = null; };
   }, [key, role]);
 
@@ -19,7 +23,7 @@ export function useNotifications(demo: boolean, uid: string | null, role: Role |
     if (!key || currentKey.current !== key) return;
     setState(previous => {
       if (currentKey.current !== key) return previous;
-      const items = visibleNotifications(change(previous.key === key ? previous.items : readNotifications(localStorage, key, role)), role);
+      const items = visibleNotifications(change(previous.key === key ? previous.items : readCurrent()), role);
       try { localStorage.setItem(key, JSON.stringify(items)); } catch {}
       return { key, items };
     });

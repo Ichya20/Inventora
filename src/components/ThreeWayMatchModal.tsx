@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, PackageCheck } from 'lucide-react';
 import type { PurchaseOrder, GoodsReceiptNote, GoodsReceiptItem, ThreeWayMatchStatus } from '../types';
 import { Modal, Button } from './UI';
+import { NumericInput } from './NumericInput';
 import { receiptOrderItems, receiptMatchStatus, validatedReceiptPatch } from '../lib/goodsReceipt';
 import { businessDate } from '../lib/businessDates';
 
@@ -24,7 +25,8 @@ function inspectionItems(po: PurchaseOrder): GoodsReceiptItem[] {
     || !['GOOD', 'EXCELLENT', 'DAMAGED', 'SHORTAGE'].includes(item.condition))) {
     throw new Error('Rincian penerimaan tersimpan tidak valid. Periksa data GRN sebelum melanjutkan.');
   }
-  return saved.map(item => ({ ...item, name: expected.find(line => line.sku === item.sku)!.name }));
+  // Receipt validation follows PO line order; legacy orders may repeat a SKU.
+  return saved.map((item, index) => ({ ...item, name: expected[index].name }));
 }
 
 export function ThreeWayMatchModal({ isOpen, onClose, po, onSaveGrn, canEdit = true, lang = 'en' }: ThreeWayMatchModalProps) {
@@ -133,7 +135,7 @@ export function ThreeWayMatchModal({ isOpen, onClose, po, onSaveGrn, canEdit = t
             return <tr key={`${item.sku}:${index}`}>
               <td className="grn-product"><strong>{item.name}</strong><small>{item.sku}</small></td>
               <td data-label={say('Dipesan', 'Ordered')} className="grn-ordered">{item.orderedQty}</td>
-              <td data-label={say('Diterima', 'Received')}><input type="number" required min="0" step="1"
+              <td data-label={say('Diterima', 'Received')}><NumericInput required min="0" step="1"
                 aria-label={`${say('Jumlah diterima', 'Received quantity')}: ${item.name}`}
                 aria-invalid={!valid || undefined} value={Number.isFinite(item.receivedQty) ? item.receivedQty : ''}
                 onChange={event => updateItem(index, { receivedQty: event.target.valueAsNumber })} /></td>

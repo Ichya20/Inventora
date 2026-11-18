@@ -5,7 +5,8 @@ import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { ToastType } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { exportToCsv, exportTextFile } from '../lib/exportUtils';
-import { loadStoredData, saveStoredData } from '../lib/storageUtils';
+import { saveStoredData } from '../lib/storageUtils';
+import { FINANCE_INVOICES_KEY, LocalInvoice, readFinanceInvoices } from '../lib/financeStorage';
 import { downloadInvoicePdf, downloadReceiptPdf } from '../lib/pdfGenerator';
 
 interface FinanceViewProps {
@@ -28,14 +29,18 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
     { id: 'INV-OUT-893', client: 'Gojek Tokopedia', desc: lang === 'en' ? 'Tech Startup' : 'Startup Teknologi', date: '05 Aug 2026', total: 1100000000, status: 'Overdue', color: 'red' as const, isOverdue: true },
   ];
 
-  const [invoices, setInvoices] = useState(() => {
-    return loadStoredData('inventora_finance_invoices_v1', defaultInvoices);
+  const [initialInvoices] = useState(() => {
+    try { return { invoices: readFinanceInvoices(defaultInvoices), error: false }; }
+    catch { return { invoices: [], error: true }; }
   });
+  const [invoices, setInvoices] = useState(initialInvoices.invoices);
+  const [storageError, setStorageError] = useState(initialInvoices.error);
 
   useEffect(() => {
+    if (storageError) return;
     try {
-      if (localStorage.getItem('inventora_finance_invoices_v1') === null) saveStoredData('inventora_finance_invoices_v1', invoices, true);
-    } catch { onToast(lang === 'en' ? 'Invoices are not saved. Browser storage is unavailable.' : 'Faktur belum tersimpan. Penyimpanan browser tidak tersedia.', 'error'); }
+      if (localStorage.getItem(FINANCE_INVOICES_KEY) === null) saveStoredData(FINANCE_INVOICES_KEY, invoices, true);
+    } catch { setStorageError(true); }
   }, []);
 
   const [activeModal, setActiveModal] = useState<{ type: 'receipt' | 'warning' | 'invoice', data: any } | null>(null);
@@ -44,6 +49,20 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
   const itemsPerPage = 3;
   const [sortConfig, setSortConfig] = useState<{ key: keyof typeof invoices[0], direction: 'asc' | 'desc' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  const refreshInvoices = () => {
+    try { setInvoices(readFinanceInvoices(defaultInvoices)); setStorageError(false); setActiveModal(null); }
+    catch { setStorageError(true); }
+  };
+  useEffect(() => {
+    window.addEventListener('storage', refreshInvoices);
+    return () => window.removeEventListener('storage', refreshInvoices);
+  }, [lang]);
+  const handleRecoveryBackup = () => {
+    try {
+      exportTextFile('inventora-finance-recovery.json', JSON.stringify({ key: FINANCE_INVOICES_KEY, raw: localStorage.getItem(FINANCE_INVOICES_KEY) }, null, 2), 'application/json');
+    } catch { onToast(lang === 'en' ? 'Saved data could not be downloaded.' : 'Data tersimpan belum dapat diunduh.', 'error'); }
+  };
 
   const handleSort = (key: keyof typeof invoices[0]) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -104,7 +123,11 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
 
   const handleMarkAsPaid = (id: string) => {
     try {
-      const updated = markLocalInvoicePaid('inventora_finance_invoices_v1', invoices, id);
+      if (storageError) throw new Error('Restore the saved invoice data first.');
+      let latest: LocalInvoice[];
+      try { latest = readFinanceInvoices(defaultInvoices); }
+      catch (error) { setStorageError(true); throw error; }
+      const updated = markLocalInvoicePaid<LocalInvoice>(FINANCE_INVOICES_KEY, latest, id);
       setInvoices(updated);
       setActiveModal(null);
       onToast(lang === 'en' ? `Paid status for ${id} saved locally.` : `Status Lunas untuk ${id} berhasil disimpan secara lokal.`, 'success');
@@ -117,6 +140,12 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
     if (status === 'Pending') return activeT.finance.pendingBadge;
     return status;
   };
+
+  if (storageError) return <section className="p-4 md:p-8 flex-1" role="alert">
+    <h2 className="text-lg font-semibold">{lang === 'en' ? 'Saved invoices cannot be read' : 'Faktur tersimpan tidak dapat dibaca'}</h2>
+    <p className="mt-2 text-sm text-neutral-500">{lang === 'en' ? 'The original data has been retained. Download it before restoring a valid backup, then retry.' : 'Data asli tetap disimpan. Unduh sebelum memulihkan cadangan yang valid, lalu coba baca ulang.'}</p>
+    <div className="mt-4 flex gap-2"><Button variant="secondary" onClick={handleRecoveryBackup}>{lang === 'en' ? 'Download saved data' : 'Unduh data tersimpan'}</Button><Button variant="primary" onClick={refreshInvoices}>{lang === 'en' ? 'Retry loading' : 'Coba baca ulang'}</Button></div>
+  </section>;
 
   return (
     <section className="p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
@@ -168,7 +197,7 @@ export function FinanceView({ onToast, t, lang = 'en' }: FinanceViewProps) {
                 </Td>
                 <Td><span className={`tabular-nums ${inv.isOverdue ? 'text-[#e00] dark:text-[#ff3333] font-medium' : ''}`}>{inv.date}</span></Td>
                 <Td><span className="tabular-nums font-medium">Rp {inv.total.toLocaleString(numLocale)}</span></Td>
-                <Td><Badge color={inv.color}>{getStatusText(inv.status)}</Badge></Td>
+                <Td><Badge color={inv.color as 'orange' | 'green' | 'blue' | 'red' | 'gray'}>{getStatusText(inv.status)}</Badge></Td>
                 <Td align="right">
                   <div className="flex items-center justify-end gap-1.5">
                     <button

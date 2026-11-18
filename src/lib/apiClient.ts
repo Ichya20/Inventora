@@ -1,11 +1,12 @@
 import { ApiError } from './apiError';
 
-export async function authenticatedPost<T>(url: string, payload: unknown, options: { signal?: AbortSignal } = {}): Promise<T> {
+export async function authenticatedPost<T>(url: string, payload: unknown, options: { signal?: AbortSignal; expectedUid?: string } = {}): Promise<T> {
   if (sessionStorage.getItem('inventora_demo_user')) throw new Error('Fitur server memerlukan akun Firebase. Mode demo hanya menyimpan simulasi lokal.');
   const { auth } = await import('../firebase');
   await auth.authStateReady();
   const user = auth.currentUser;
   if (!user) throw new Error('Silakan masuk untuk menggunakan fitur ini.');
+  if (options.expectedUid && user.uid !== options.expectedUid) throw new Error('Sesi pengguna telah berubah. Silakan masuk kembali.');
   const token = await user.getIdToken();
   if (auth.currentUser?.uid !== user.uid) throw new Error('Sesi pengguna telah berubah. Silakan masuk kembali.');
   const timeout = AbortSignal.timeout(url.startsWith('/api/ai/') || ['/api/copilot', '/api/analyst'].includes(url) ? 35000 : 20000);

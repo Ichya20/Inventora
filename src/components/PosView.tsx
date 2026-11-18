@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Banknote, Plus, Receipt, Search, Trash2 } from 'lucide-react';
 import { Button, Modal } from './UI';
+import { NumericInput } from './NumericInput';
 import { ChangeHighlight, SuccessMark } from './MotionFeedback';
 import { workspaceMotion } from '../lib/motion';
 import { canAccessMenu } from '../lib/authorization';
@@ -9,15 +10,15 @@ import { calculateSale, checkoutSale, readCommerce, type CommerceState, type Sal
 import type { Language, Role, ToastFunction } from '../types';
 import './PosView.css';
 
-type Props = { role: Role; actorId: string; actorName: string; lang: Language; onToast: ToastFunction };
+type Props = { role: Role; actorId: string; actorName: string; lang: Language; onToast: ToastFunction; isDemo?: boolean };
 
-export function PosView({ role, actorId, actorName, lang, onToast }: Props) {
+export function PosView({ role, actorId, actorName, lang, onToast, isDemo = false }: Props) {
   const en = lang === 'en';
   const reduced = useReducedMotion();
   const say = (id: string, english: string) => en ? english : id;
   const money = (value: number) => `Rp ${value.toLocaleString(en ? 'en-US' : 'id-ID')}`;
   const [source, setSource] = useState<{ data: CommerceState | null; error: string }>(() => {
-    try { return { data: readCommerce(), error: '' }; } catch (error) { return { data: null, error: String(error) }; }
+    try { return { data: readCommerce(undefined, isDemo), error: '' }; } catch (error) { return { data: null, error: String(error) }; }
   });
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<SaleInputLine[]>([]);
@@ -25,18 +26,24 @@ export function PosView({ role, actorId, actorName, lang, onToast }: Props) {
   const [cash, setCash] = useState('');
   const [busy, setBusy] = useState(false);
   const processing = useRef(false);
+  const session = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    session.current = controller;
+    return () => { controller.abort(); };
+  }, [actorId, role, isDemo]);
   const requestId = useRef(crypto.randomUUID());
   const [receipt, setReceipt] = useState<SaleTransaction | null>(null);
   const [freshReceipt, setFreshReceipt] = useState(false);
   const refresh = () => {
-    try { setSource({ data: readCommerce(), error: '' }); }
+    try { setSource({ data: readCommerce(undefined, isDemo), error: '' }); }
     catch (error) { setSource({ data: null, error: String(error) }); }
   };
   useEffect(() => {
     window.addEventListener('storage', refresh);
     window.addEventListener('inventora:data-changed', refresh);
     return () => { window.removeEventListener('storage', refresh); window.removeEventListener('inventora:data-changed', refresh); };
-  }, []);
+  }, [isDemo]);
   let totals: ReturnType<typeof calculateSale> | null = null;
   try { totals = calculateSale(cart, taxRate); } catch { /* Incomplete inputs stay editable until checkout. */ }
   const products = source.data?.inventory ?? [];
@@ -59,12 +66,14 @@ export function PosView({ role, actorId, actorName, lang, onToast }: Props) {
     event.preventDefault();
     if (processing.current) return;
     processing.current = true; setBusy(true);
+    const signal = session.current?.signal;
     try {
-      const sale = await checkoutSale({ requestId: requestId.current, actorId, actorName, role, lines: cart, taxRate, amountPaid: cash.trim() ? Number(cash) : NaN });
+      const sale = await checkoutSale({ requestId: requestId.current, actorId, actorName, role, lines: cart, taxRate, amountPaid: cash.trim() ? Number(cash) : NaN, isDemo, signal });
+      if (signal?.aborted) return;
       setFreshReceipt(true); setReceipt(sale); setCart([]); setCash(''); requestId.current = crypto.randomUUID(); refresh();
       onToast(say('Penjualan tersimpan dan stok diperbarui.', 'Sale saved and stock updated.'), 'success', { title: say('Penjualan tersimpan', 'Sale saved') });
-    } catch (error) { onToast(String(error instanceof Error ? error.message : error), 'error'); refresh(); }
-    finally { processing.current = false; setBusy(false); }
+    } catch (error) { if (!signal?.aborted) { onToast(String(error instanceof Error ? error.message : error), 'error'); refresh(); } }
+    finally { processing.current = false; if (!signal?.aborted) setBusy(false); }
   };
   const exportReceipt = async (print: boolean) => {
     if (!receipt) return;
@@ -89,12 +98,12 @@ export function PosView({ role, actorId, actorName, lang, onToast }: Props) {
         <fieldset disabled={busy || !!source.error}><legend>{say('Keranjang penjualan', 'Sales cart')} <ChangeHighlight value={cart.reduce((sum, item) => sum + item.quantity, 0)}>{cart.length} SKU</ChangeHighlight></legend>
           {!cart.length && <p className="pos-empty">{say('Pilih barang dari katalog untuk memulai.', 'Choose a product from the catalogue to begin.')}</p>}
           <div className="pos-cart-lines"><AnimatePresence initial={false}>{cart.map(item => <motion.div className="pos-cart-line" key={item.sku} initial={reduced ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: reduced ? 0 : workspaceMotion.exit } }} transition={{ duration: reduced ? 0 : workspaceMotion.feedback, ease: workspaceMotion.ease }}><div className="pos-cart-name"><ChangeHighlight value={`${item.quantity}:${item.unitPrice}:${item.discountPercent}`}><strong>{products.find(product => product.id === item.sku)?.name ?? item.sku}</strong></ChangeHighlight><button type="button" onClick={() => { requestId.current = crypto.randomUUID(); setCart(current => current.filter(line => line.sku !== item.sku)); }} aria-label={`${say('Hapus', 'Remove')} ${item.sku}`}><Trash2 size={16} /></button></div><small>{item.sku}</small>
-            <div className="pos-line-fields"><label>{say('Jumlah', 'Quantity')}<input required type="number" min="1" max={products.find(product => product.id === item.sku)?.stock ?? 0} step="1" value={item.quantity || ''} onChange={event => update(item.sku, 'quantity', Number(event.target.value))} /></label><label>{say('Harga satuan Rp', 'Unit price Rp')}<input required type="number" min="1" step="1" value={item.unitPrice || ''} onChange={event => update(item.sku, 'unitPrice', Number(event.target.value))} /></label><label>{say('Diskon %', 'Discount %')}<input required type="number" min="0" max="100" step="0.01" value={item.discountPercent} onChange={event => update(item.sku, 'discountPercent', Number(event.target.value))} /></label></div>
+            <div className="pos-line-fields"><label>{say('Jumlah', 'Quantity')}<NumericInput required min="1" max={products.find(product => product.id === item.sku)?.stock ?? 0} step="1" inputMode="numeric" value={item.quantity || ''} onChange={event => update(item.sku, 'quantity', Number(event.target.value))} /></label><label>{say('Harga satuan Rp', 'Unit price Rp')}<NumericInput required min="1" step="1" inputMode="numeric" value={item.unitPrice || ''} onChange={event => update(item.sku, 'unitPrice', Number(event.target.value))} /></label><label>{say('Diskon %', 'Discount %')}<NumericInput required min="0" max="100" step="0.01" inputMode="decimal" placeholder="0" value={item.discountPercent} onChange={event => update(item.sku, 'discountPercent', Number(event.target.value))} /></label></div>
             <div className="pos-line-amount"><span>{say('Subtotal barang', 'Item subtotal')}</span><ChangeHighlight value={totals?.items.find(line => line.sku === item.sku)?.total ?? 'invalid'}>{totals ? money(totals.items.find(line => line.sku === item.sku)!.total) : '—'}</ChangeHighlight></div>
           </motion.div>)}</AnimatePresence></div>
           <label className="pos-tax"><input type="checkbox" checked={taxRate === 11} onChange={event => { requestId.current = crypto.randomUUID(); setTaxRate(event.target.checked ? 11 : 0); }} />{say('PPN simulasi 11%', 'Simulated VAT 11%')}</label>
           <dl className="pos-totals"><div><dt>Subtotal</dt><dd>{totals ? money(totals.subtotal) : '—'}</dd></div><div><dt>{say('Diskon', 'Discount')}</dt><dd>{totals ? money(totals.discount) : '—'}</dd></div><div><dt>{say('PPN', 'VAT')}</dt><dd>{totals ? money(totals.tax) : '—'}</dd></div><div className="pos-total"><dt>Total</dt><dd><ChangeHighlight value={totals?.total ?? 'invalid'}>{totals ? money(totals.total) : '—'}</ChangeHighlight></dd></div></dl>
-          <label className="pos-cash">{say('Tunai diterima Rp', 'Cash received Rp')}<input type="number" required min={totals?.total ?? 1} step="1" inputMode="numeric" value={cash} onChange={event => { requestId.current = crypto.randomUUID(); setCash(event.target.value); }} /></label>
+          <label className="pos-cash">{say('Tunai diterima Rp', 'Cash received Rp')}<NumericInput required min={totals?.total ?? 1} step="1" inputMode="numeric" value={cash} onChange={event => { requestId.current = crypto.randomUUID(); setCash(event.target.value); }} /></label>
           <p className="pos-change" aria-live="polite">{say('Kembalian', 'Change')}: <strong>{totals && cash && Number(cash) >= totals.total ? money(Number(cash) - totals.total) : '—'}</strong></p>
           <Button type="submit" isLoading={busy} disabled={!totals || !source.data} className="pos-pay"><Banknote size={17} />{say('Selesaikan penjualan', 'Complete sale')}</Button>
         </fieldset>

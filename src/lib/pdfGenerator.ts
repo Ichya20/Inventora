@@ -55,7 +55,7 @@ interface PurchaseOrderData {
 }
 
 function formatCurrency(amount: number, lang: 'id' | 'en'): string {
-  const formatted = Math.round(amount).toLocaleString(lang === 'en' ? 'en-US' : 'id-ID');
+  const formatted = amount.toLocaleString(lang === 'en' ? 'en-US' : 'id-ID', { maximumFractionDigits: 20 });
   return `Rp ${formatted}`;
 }
 

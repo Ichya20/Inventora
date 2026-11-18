@@ -1,0 +1,56 @@
+{
+  "scope": "Actual source callbacks executed with local storage and async mocks, no browser/cloud/credentials.",
+  "findings": [
+    {
+      "id": "GATEWAY-CARD-VALIDATION",
+      "severity": "P3",
+      "source": [
+        "src/components/PaymentGatewayModal.tsx:105",
+        "src/components/PaymentGatewayModal.tsx:366",
+        "src/components/PaymentGatewayModal.tsx:633"
+      ],
+      "trigger": "Choose Corporate Credit Card in the simulated vendor-payment modal, empty card number/CVV/holder, expiry 99/99, then record.",
+      "observed": "The actual handler creates SUCCESS and the actual procurement handler accepts and saves the transaction.",
+      "impact": "The simulated payment marks a PO complete using invalid payment details; unlike the subscription label form, this form has no validation.",
+      "limitation": "Simulated payment only; no banking/payment provider was contacted."
+    },
+    {
+      "id": "GATEWAY-RAW-CARD-STORAGE",
+      "severity": "P2",
+      "source": [
+        "src/components/PaymentGatewayModal.tsx:131",
+        "src/components/ProcurementView.tsx:352",
+        "src/lib/procurement.ts:55"
+      ],
+      "trigger": "Type a full card number into the editable vendor-payment simulation form and record.",
+      "observed": "Synthetic test PAN 4111111111111111 is kept unchanged in local transaction accountReference and PO paymentInfo.reference/accountOrCard.",
+      "impact": "Full user-entered card numbers can be retained in localStorage and in the PO payment patch instead of a last-four-digit label.",
+      "limitation": "Synthetic input and local/mocked transition only. Actual Firebase write was not performed; the outbound patch is verified."
+    },
+    {
+      "id": "PO-CREATE-SHAPE-CACHE",
+      "severity": "P2 conditional",
+      "source": [
+        "src/components/PurchaseUnitView.tsx:262",
+        "src/components/ProcurementView.tsx:32"
+      ],
+      "trigger": "Existing demo PO cache is a JSON array containing an invalid row such as [{}], then create a valid new PO.",
+      "observed": "Create reports success and writes the new valid PO together with the invalid row. Procurement then rejects the whole array as a corrupt cache.",
+      "impact": "A successful new PO cannot be opened through the order list until the old invalid row is recovered manually.",
+      "limitation": "Requires preexisting malformed cache. No normal form input producing the old invalid row was established."
+    },
+    {
+      "id": "RECEIPT-SESSION-SWITCH",
+      "severity": "P2 candidate with mocked session transition",
+      "source": [
+        "src/lib/purchaseOrderStore.ts:13",
+        "src/lib/purchaseOrderStore.ts:16",
+        "src/lib/apiClient.ts:7"
+      ],
+      "trigger": "Start saving a receipt as A, switch to another staff account B while A getIdTokenResult is pending, then let A claims finish.",
+      "observed": "persistPoTransition calls authenticatedPost without rechecking captured A; authenticatedPost captures current B. The outbound receipt request is attributed to B.",
+      "impact": "A pending action from the previous account may execute under the next account when that account has receipt permission.",
+      "limitation": "Mocked auth timing; browser/Firebase account-switch lifecycle is not verified. Server still verifies B token and permissions, so this is not an authorization bypass."
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { BILLING_KEYS, isBillingAddons } from '../src/lib/billingStore';
 
 function analyst(post: () => Promise<{ result?: string; error?: string }>) {
   const source = ts.createSourceFile('AnalyticsView.tsx', fs.readFileSync('src/components/AnalyticsView.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -64,6 +65,7 @@ test('billing add-on changes are applied only after storage succeeds', () => {
   for (const fail of [false, true]) {
     const context = vm.createContext({
       addonDraft: { extraSeats: 10, extraAiPacks: 0, dedicatedDatabase: true }, lang: 'id',
+      ensureBillingReadable() {}, BILLING_KEYS, isBillingAddons,
       applied: null, open: true, messages: [] as string[],
       saveStoredData(_key: string, _draft: unknown, strict: boolean) { assert.equal(strict, true); if (fail) throw new Error('Full storage'); },
       setAddons(value: unknown) { context.applied = value; }, setIsAddonModalOpen(value: boolean) { context.open = value; },

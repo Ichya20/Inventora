@@ -8,6 +8,7 @@ export function isInventoryList(value: unknown): value is (StockRecord & { name:
     const item = value as Record<string, unknown> | null;
     return !!item && typeof item.id === 'string' && !!item.id.trim() && typeof item.name === 'string' && !!item.name.trim()
       && (item.desc === undefined || typeof item.desc === 'string') && typeof item.stock === 'number' && Number.isSafeInteger(item.stock) && item.stock >= 0
+      && (item.unitPrice === undefined || (typeof item.unitPrice === 'number' && Number.isSafeInteger(item.unitPrice) && item.unitPrice >= 0))
       && (item.stockMin === undefined || (typeof item.stockMin === 'number' && Number.isFinite(item.stockMin) && item.stockMin >= 0));
   });
   return valid && new Set(value.map(item => item.id)).size === value.length;

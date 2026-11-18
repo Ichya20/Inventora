@@ -5,7 +5,8 @@ import { Card, Badge, Button, TableWrapper, Th, Td, Tr, Modal } from './UI';
 import { Role, ToastType, PaymentTransaction, AppNotification, PurchaseOrder, GoodsReceiptNote, ThreeWayMatchStatus } from '../types';
 import { translations, Language, Translations } from '../i18n';
 import { useDebounce } from '../lib/useDebounce';
-import { loadStoredData, saveStoredData } from '../lib/storageUtils';
+import { readStoredArray, commitStoredArray, saveStoredData, createInventoraBackup } from '../lib/storageUtils';
+import { exportToCsv, exportToJson } from '../lib/exportUtils';
 import { AuditTrailDrawer } from './AuditTrailDrawer';
 import { PrintableVoucher } from './PrintableVoucher';
 import { VirtualizedTable, Column } from './VirtualizedTable';
@@ -18,6 +19,7 @@ import { downloadReceiptPdf } from '../lib/pdfGenerator';
 import { assertPoTransition, normalizePurchaseOrder, paymentInfoFromTransaction, paymentTotals, poStorageKey } from '../lib/procurement';
 import { persistPoTransition } from '../lib/purchaseOrderStore';
 import { businessDate } from '../lib/businessDates';
+import { isCachedOrder } from '../lib/procurementCache';
 import { canPerformPoAction } from '../lib/authorization';
 import { PurchaseOrderItems } from './PurchaseOrderItems';
 import { poStatusLabel, poStatusTone } from '../lib/dashboard';
@@ -27,6 +29,22 @@ import { workspaceMotion } from '../lib/motion';
 import { collection, onSnapshot } from 'firebase/firestore';
 
 const PaymentGatewayModal = lazy(() => import('./PaymentGatewayModal').then(m => ({ default: m.PaymentGatewayModal })));
+
+function isCachedTransaction(value: unknown): value is PaymentTransaction {
+  const tx = value as PaymentTransaction;
+  return !!tx && typeof tx === 'object' && !Array.isArray(tx)
+    && ['id', 'poId', 'vendor', 'methodLabel', 'accountReference', 'receiptNumber', 'timestamp'].every(key => typeof tx[key] === 'string')
+    && !!tx.id && !!tx.poId && Number.isFinite(Date.parse(tx.timestamp))
+    && [tx.amount, tx.taxAmount, tx.totalPaid, tx.withholdingTaxAmount ?? 0].every(amount => Number.isFinite(amount) && amount >= 0 && amount <= Number.MAX_SAFE_INTEGER)
+    && ['bank_transfer', 'virtual_account', 'credit_card', 'qris'].includes(tx.method)
+    && ['SUCCESS', 'PENDING', 'FAILED'].includes(tx.status)
+    && (tx.notes === undefined || typeof tx.notes === 'string');
+}
+
+function readProcurementCache<T>(key: string, fallback: T[], validItem: (item: unknown) => boolean): { data: T[]; error: boolean } {
+  try { return { data: readStoredArray(key, fallback, validItem), error: false }; }
+  catch { return { data: [], error: true }; }
+}
 
 interface ProcurementViewProps {
   initialPoId?: string | null;
@@ -53,6 +71,7 @@ export function ProcurementView({
   onQueueOffline, role, isDemo, ownerId, initialPoId, onInitialPoHandled
 }: ProcurementViewProps) {
   const storageKey = poStorageKey(isDemo, ownerId);
+  const transactionStorageKey = isDemo ? 'inventora_po_transactions' : 'inventora_po_transactions:' + ownerId;
   const reduced = useReducedMotion();
   const saving = useRef(false);
   const [transitionBusy, setTransitionBusy] = useState(false);
@@ -70,13 +89,7 @@ export function ProcurementView({
   const [isVirtualized, setIsVirtualized] = useState(false);
   const [threeWayPo, setThreeWayPo] = useState<PurchaseOrder | null>(null);
 
-  const [transactions, setTransactions] = useState<PaymentTransaction[]>(() => {
-    const saved = localStorage.getItem(isDemo ? 'inventora_po_transactions' : 'inventora_po_transactions:' + ownerId);
-    if (saved) {
-      try { return JSON.parse(saved); } catch {}
-    }
-    if (!isDemo) return [];
-    return [
+  const defaultTransactions: PaymentTransaction[] = !isDemo ? [] : [
       {
         id: 'TX-INVENTORA-8891',
         poId: 'PO-2026-1039',
@@ -108,7 +121,9 @@ export function ProcurementView({
         notes: 'Pembayaran Pengadaan Power Infra APC'
       }
     ];
-  });
+  const [initialTransactions] = useState(() => readProcurementCache(transactionStorageKey, defaultTransactions, isCachedTransaction));
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>(initialTransactions.data);
+  const [transactionCacheError, setTransactionCacheError] = useState(initialTransactions.error);
 
   const defaultPOs: PurchaseOrder[] = [
     {
@@ -195,25 +210,39 @@ export function ProcurementView({
       threeWayMatchStatus: 'PENDING_RECEIPT'
     },
   ];
-  const [pos, setPos] = useState<any[]>(() => {
-    return loadStoredData<PurchaseOrder[]>(storageKey, isDemo ? defaultPOs : []).map(normalizePurchaseOrder);
-  });
+  const [initialOrders] = useState(() => readProcurementCache(storageKey, isDemo ? defaultPOs : [], isCachedOrder));
+  const [pos, setPos] = useState<PurchaseOrder[]>(() => initialOrders.data.map(normalizePurchaseOrder));
+  const [poCacheError, setPoCacheError] = useState(initialOrders.error);
 
-  // Save changes locally to retain modifications across browser reloads
-  useEffect(() => {
-    saveStoredData(storageKey, pos);
-  }, [pos]);
+  const refreshLocalCache = () => {
+    const orders = readProcurementCache(storageKey, isDemo ? defaultPOs : [], isCachedOrder);
+    setPoCacheError(orders.error);
+    if (isDemo && !orders.error) setPos(orders.data.map(normalizePurchaseOrder));
+    const history = readProcurementCache(transactionStorageKey, defaultTransactions, isCachedTransaction);
+    setTransactionCacheError(history.error);
+    if (!history.error) setTransactions(history.data);
+  };
+
+  const handleRecoveryBackup = () => {
+    try { exportToJson(`inventora-recovery-${businessDate()}.json`, createInventoraBackup()); }
+    catch { onToast(lang === 'en' ? 'The backup could not be downloaded. Browser storage is unavailable.' : 'Cadangan tidak dapat diunduh. Penyimpanan browser tidak tersedia.', 'error'); }
+  };
 
   // Synchronize immediately if a new PO is issued in another view or modal
   useEffect(() => {
     const handlePoCreated = () => {
       if (!isDemo) return;
-      const refreshed = loadStoredData<PurchaseOrder[]>(storageKey, isDemo ? defaultPOs : []).map(normalizePurchaseOrder);
-      setPos(refreshed);
+      const refreshed = readProcurementCache(storageKey, defaultPOs, isCachedOrder);
+      setPoCacheError(refreshed.error);
+      if (!refreshed.error) setPos(refreshed.data.map(normalizePurchaseOrder));
     };
     window.addEventListener('inventora_po_created', handlePoCreated);
-    return () => window.removeEventListener('inventora_po_created', handlePoCreated);
-  }, []);
+    window.addEventListener('storage', refreshLocalCache);
+    return () => {
+      window.removeEventListener('inventora_po_created', handlePoCreated);
+      window.removeEventListener('storage', refreshLocalCache);
+    };
+  }, [isDemo, storageKey, transactionStorageKey]);
 
   useEffect(() => {
     if (isDemo) return;
@@ -224,7 +253,14 @@ export function ProcurementView({
       unsubscribe = onSnapshot(collection(db, 'purchaseOrders'), { includeMetadataChanges: true }, snapshot => {
         // Keep the last confirmed status visible while a local write is pending.
         if (snapshot.metadata.hasPendingWrites) return;
-        setPos(snapshot.docs.map(doc => normalizePurchaseOrder({ ...doc.data(), id: doc.id } as PurchaseOrder)));
+        const confirmed = snapshot.docs.map(doc => normalizePurchaseOrder({ ...doc.data(), id: doc.id } as PurchaseOrder));
+        setPos(confirmed);
+        try {
+          // A failed optional cache must never hide confirmed Firestore records or erase damaged bytes.
+          readStoredArray(storageKey, [], isCachedOrder);
+          saveStoredData(storageKey, confirmed, true);
+          setPoCacheError(false);
+        } catch { setPoCacheError(true); }
         setOrdersLoading(snapshot.metadata.fromCache); setOrdersError(false);
       }, error => { setOrdersLoading(false); setOrdersError(true); onToast('Database tidak dapat diakses: ' + error.message, 'error'); });
     }).catch(error => { setOrdersLoading(false); setOrdersError(true); onToast(String(error), 'error'); });
@@ -233,25 +269,34 @@ export function ProcurementView({
 
   const saveTransition = async (id: string, patch: Partial<PurchaseOrder>, source: 'approval' | 'receipt' | 'payment') => {
     if (saving.current) throw new Error('Masih ada perubahan yang sedang disimpan.');
-    const target = pos.find(item => item.id === id);
-    if (!target) throw new Error('PO tidak ditemukan.');
-    assertPoTransition(target, patch.status!, role, source);
-    if (source === 'receipt') {
+    const validatedPatch = (target: PurchaseOrder | undefined) => {
+      if (!target) throw new Error('PO tidak ditemukan.');
+      assertPoTransition(target, patch.status!, role, source);
+      if (source === 'payment' && patch.paymentInfo?.amount !== paymentTotals(target).totalPaid) throw new Error('Nominal pembayaran tidak sesuai PO terbaru.');
+      if (source !== 'receipt') return patch;
       const validated = validatedReceiptPatch(target, patch.grn!, role);
       if (patch.status !== validated.status || patch.threeWayMatchStatus !== validated.threeWayMatchStatus) throw new Error('Status GRN tidak sesuai rincian penerimaan.');
-      patch = validated;
-    }
+      return validated;
+    };
     saving.current = true;
     setTransitionBusy(true);
     try {
       if (!isDemo) {
         if (!isOnline) throw new Error('Tindakan ini memerlukan koneksi ke server.');
-        await persistPoTransition(id, patch, source);
+        await persistPoTransition(id, validatedPatch(pos.find(item => item.id === id)), source, undefined, ownerId);
       } else {
-        const updated = pos.map(item => item.id === id ? { ...item, ...patch } : item);
-        saveStoredData(storageKey, updated, true);
+        const updated = commitStoredArray(storageKey, defaultPOs, current => {
+          if (!current.every(isCachedOrder)) throw new Error('Data PO lokal tidak valid. Data asli tetap disimpan untuk pemulihan.');
+          const latest = current.map(normalizePurchaseOrder);
+          const change = validatedPatch(latest.find(item => item.id === id));
+          return latest.map(item => item.id === id ? { ...item, ...change } : item);
+        });
         setPos(updated);
+        setPoCacheError(false);
       }
+    } catch (error) {
+      if (isDemo) setPoCacheError(readProcurementCache(storageKey, defaultPOs, isCachedOrder).error);
+      throw error;
     } finally { saving.current = false; setTransitionBusy(false); }
   };
 
@@ -288,15 +333,27 @@ export function ProcurementView({
 
   const handlePaymentSuccess = async (tx: PaymentTransaction) => {
     try {
+      if (!isCachedTransaction(tx)) throw new Error('Data transaksi tidak valid.');
       const target = pos.find(item => item.id === tx.poId);
       if (!target || tx.totalPaid !== paymentTotals(target).totalPaid || tx.status !== 'SUCCESS') throw new Error('Nominal atau status transaksi tidak sesuai PO.');
+      const history = readProcurementCache(transactionStorageKey, defaultTransactions, isCachedTransaction);
+      setTransactionCacheError(history.error);
+      if (isDemo && history.error) throw new Error('Riwayat transaksi lokal tidak dapat dibaca. Unduh cadangan dan pulihkan data sebelum mencatat pembayaran.');
       await saveTransition(tx.poId, { status: 'Selesai', color: 'blue', paymentInfo: paymentInfoFromTransaction(tx) }, 'payment');
-      setTransactions(previous => {
-        const updated = [tx, ...previous.filter(item => item.id !== tx.id)];
-        saveStoredData(isDemo ? 'inventora_po_transactions' : 'inventora_po_transactions:' + ownerId, updated);
-        return updated;
-      });
-      onToast(lang === 'en' ? 'Simulated payment recorded for ' + tx.poId : 'Simulasi pembayaran dicatat untuk ' + tx.poId, 'success');
+      let historySaved = false;
+      try {
+        const updated = commitStoredArray(transactionStorageKey, defaultTransactions, current => {
+          if (!current.every(isCachedTransaction)) throw new Error('Riwayat transaksi lokal tidak valid.');
+          return [tx, ...current.filter(item => item.id !== tx.id)];
+        });
+        setTransactions(updated);
+        setTransactionCacheError(false);
+        historySaved = true;
+      } catch { setTransactionCacheError(true); }
+      onToast(historySaved
+        ? (lang === 'en' ? 'Simulated payment recorded for ' + tx.poId : 'Simulasi pembayaran dicatat untuk ' + tx.poId)
+        : (lang === 'en' ? 'The PO payment was recorded, but browser transaction history could not be updated. The payment reference remains on the PO.' : 'Pembayaran PO sudah tercatat, tetapi riwayat browser gagal diperbarui. Referensi pembayaran tetap tersimpan pada PO.'),
+        historySaved ? 'success' : 'warning');
       onNotify?.({ title: 'Simulasi pembayaran PO', message: tx.poId + ': Rp ' + tx.totalPaid.toLocaleString(numLocale), type: 'payment',
         metadata: { poId: tx.poId, amount: tx.totalPaid, vendor: tx.vendor, txId: tx.id, receiptNumber: tx.receiptNumber, method: tx.methodLabel } });
     } catch (error) { onToast(String(error), 'error'); throw error; }
@@ -383,26 +440,18 @@ export function ProcurementView({
     try {
       const headers = ['PO Number', 'Vendor', 'Description', 'Notes', 'Date', 'Total (IDR)', 'Status', 'Department', '3-Way Match Status', 'Payment Receipt'];
       const rows = filteredPos.map(po => [
-        `"${po.id}"`,
-        `"${(po.vendor || '').replace(/"/g, '""')}"`,
-        `"${(po.desc || '').replace(/"/g, '""')}"`,
-        `"${(po.notes || '').replace(/"/g, '""')}"`,
-        `"${po.date}"`,
+        po.id,
+        po.vendor || '',
+        po.desc || '',
+        po.notes || '',
+        po.date,
         po.total,
-        `"${po.status}"`,
-        `"${po.department || 'IT Infrastructure'}"`,
-        `"${po.threeWayMatchStatus || 'PENDING_RECEIPT'}"`,
-        `"${po.paymentInfo?.receiptNo || '-'}"`
+        po.status,
+        po.department || 'IT Infrastructure',
+        po.threeWayMatchStatus || 'PENDING_RECEIPT',
+        po.paymentInfo?.receiptNo || '-'
       ]);
-
-      const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `inventora-procurement-batch-${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      exportToCsv(`inventora-procurement-batch-${businessDate()}.csv`, headers, rows);
 
       onToast(lang === 'en' ? "Batch procurement records downloaded as CSV" : "Data batch pengadaan berhasil diunduh sebagai CSV", "success");
     } catch (e: any) {
@@ -443,10 +492,22 @@ export function ProcurementView({
     return activeT.procurement.pendingApproval;
   };
 
-  if (ordersLoading && !pos.length && !ordersError) return <section className="procurement-workspace p-4 md:p-8 flex-1 overflow-y-auto"><ViewSkeleton title={lang === 'en' ? 'Purchase orders' : 'Purchase order'} lang={lang} /></section>;
+  if (ordersLoading && !pos.length && !ordersError && !poCacheError && !transactionCacheError) return <section className="procurement-workspace p-4 md:p-8 flex-1 overflow-y-auto"><ViewSkeleton title={lang === 'en' ? 'Purchase orders' : 'Purchase order'} lang={lang} /></section>;
 
   return (
     <section className="procurement-workspace p-4 md:p-8 flex-1 flex flex-col gap-6 overflow-y-auto">
+      {(poCacheError || transactionCacheError) && <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+        <p>{lang === 'en'
+          ? `${poCacheError ? 'The purchase order cache' : 'The transaction history'} could not be read or saved. Original browser data has been preserved.`
+          : `${poCacheError ? 'Cache purchase order' : 'Riwayat transaksi'} tidak dapat dibaca atau disimpan. Data asli browser tetap dipertahankan.`}</p>
+        <p className="mt-1 text-xs">{isDemo
+          ? (lang === 'en' ? 'Recover local data before continuing demo changes.' : 'Pulihkan data lokal sebelum melanjutkan perubahan demo.')
+          : (lang === 'en' ? 'Confirmed server orders remain available. Browser history may be incomplete.' : 'PO yang terkonfirmasi di server tetap dapat digunakan. Riwayat browser mungkin belum lengkap.')}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={handleRecoveryBackup}>{lang === 'en' ? 'Download recovery backup' : 'Unduh cadangan pemulihan'}</Button>
+          <Button variant="secondary" onClick={refreshLocalCache}>{lang === 'en' ? 'Retry local data' : 'Coba baca data lokal'}</Button>
+        </div>
+      </div>}
       {initialPoId && ordersLoading && <p role="status" className="text-sm text-[var(--ws-muted)]">{lang === 'en' ? 'Loading the selected order…' : 'Memuat pesanan yang dipilih…'}</p>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
         <Card>
@@ -593,7 +654,7 @@ export function ProcurementView({
                   </Td>
                   <Td><span className="tabular-nums text-xs">{po.date}</span></Td>
                   <Td><span className="tabular-nums font-mono font-medium text-xs">Rp {po.total.toLocaleString(numLocale)}</span></Td>
-                  <Td><ChangeHighlight value={po.status}><Badge color={po.color}>{getStatusBadgeText(po.status)}</Badge></ChangeHighlight></Td>
+                  <Td><ChangeHighlight value={po.status}><Badge color={po.color as any}>{getStatusBadgeText(po.status)}</Badge></ChangeHighlight></Td>
                   <Td>
                     {po.threeWayMatchStatus === 'MATCHED' ? (
                       <button

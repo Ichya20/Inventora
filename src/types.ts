@@ -23,7 +23,7 @@ export type ToastFunction = (
   }
 ) => void;
 
-export type Role = 'Super Admin' | 'Warehouse Manager' | 'Finance Manager' | 'HR Manager';
+export type Role = 'Super Admin' | 'Warehouse Manager' | 'Finance Manager' | 'HR Manager' | 'User';
 
 export type POStatus = 'Pending Approval' | 'Disetujui' | 'Barang Diterima' | 'Selisih Penerimaan' | 'Selesai' | 'Ditolak';
 

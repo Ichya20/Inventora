@@ -1,0 +1,1289 @@
+{
+  "title": "Data Uji ERROR untuk 3 Form Inventora",
+  "prepared": "2026-11-18",
+  "sourceMaterial": "# CAK3BAB3 #9 - DEFENSIVE PROGRAMMING - INT_compressed.pdf",
+  "materialPages": [
+    2,
+    3,
+    12,
+    13,
+    14,
+    15,
+    16,
+    31,
+    32
+  ],
+  "scope": "Validator lokal dan penyimpanan tiruan di memori; bukan pengujian browser, API live, atau Firebase.",
+  "baselines": {
+    "po": {
+      "id": "PO-2026-IT-UJI001",
+      "vendor": "Dell EMC Indonesia",
+      "desc": "IT Infrastructure Requisition (1 items)",
+      "date": "2026-11-18",
+      "deliveryDate": "2026-11-25",
+      "department": "IT Infrastructure",
+      "status": "Pending Approval",
+      "color": "orange",
+      "items": [
+        {
+          "id": "line-1",
+          "sku": "RS-W1-PRO",
+          "name": "Rack Server Web Infrastructure",
+          "qty": 10,
+          "unitPrice": 100000,
+          "subtotal": 1000000
+        }
+      ],
+      "subtotal": 1000000,
+      "discountAmount": 0,
+      "taxAmount": 110000,
+      "withholdingTaxAmount": 0,
+      "total": 1110000,
+      "notes": "Kirim ke gudang utama."
+    },
+    "approvedPo": {
+      "id": "PO-2026-IT-UJI001",
+      "vendor": "Dell EMC Indonesia",
+      "desc": "IT Infrastructure Requisition (1 items)",
+      "date": "2026-11-18",
+      "deliveryDate": "2026-11-25",
+      "department": "IT Infrastructure",
+      "status": "Disetujui",
+      "color": "orange",
+      "items": [
+        {
+          "id": "line-1",
+          "sku": "RS-W1-PRO",
+          "name": "Rack Server Web Infrastructure",
+          "qty": 10,
+          "unitPrice": 100000,
+          "subtotal": 1000000
+        }
+      ],
+      "subtotal": 1000000,
+      "discountAmount": 0,
+      "taxAmount": 110000,
+      "withholdingTaxAmount": 0,
+      "total": 1110000,
+      "notes": "Kirim ke gudang utama."
+    },
+    "grn": {
+      "id": "GRN-UJI-001",
+      "grnNumber": "GRN-UJI-001",
+      "poId": "PO-2026-IT-UJI001",
+      "receivedDate": "2026-11-18",
+      "receivedBy": "Petugas Gudang",
+      "suratJalanNumber": "SJ-UJI-001",
+      "items": [
+        {
+          "sku": "RS-W1-PRO",
+          "name": "Rack Server Web Infrastructure",
+          "orderedQty": 10,
+          "receivedQty": 10,
+          "condition": "GOOD"
+        }
+      ],
+      "status": "MATCHED",
+      "inspectorNotes": ""
+    },
+    "sale": {
+      "requestId": "POS-UJI-001",
+      "actorId": "kasir-uji",
+      "actorName": "Kasir Uji",
+      "role": "Warehouse Manager",
+      "lines": [
+        {
+          "sku": "RS-W1-PRO",
+          "quantity": 2,
+          "unitPrice": 100000,
+          "discountPercent": 10
+        }
+      ],
+      "taxRate": 11,
+      "amountPaid": 200000
+    },
+    "inventory": [
+      {
+        "id": "RS-W1-PRO",
+        "name": "Rack Server Web Infrastructure",
+        "stock": 5,
+        "stockMin": 1,
+        "unitPrice": 100000
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "PO-E01",
+      "form": "PO",
+      "title": "Vendor belum dipilih",
+      "category": "Wajib diisi",
+      "path": "Form",
+      "input": "vendor=\"\"",
+      "expected": "Tolak PO; vendor wajib diisi.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 10,
+            "unitPrice": 100000,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Vendor tidak valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E02",
+      "form": "PO",
+      "title": "Tanggal kirim kosong",
+      "category": "Wajib diisi",
+      "path": "Form",
+      "input": "deliveryDate=\"\"",
+      "expected": "Tolak PO; tanggal kirim wajib diisi.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 10,
+            "unitPrice": 100000,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Tanggal PO atau pengiriman tidak valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E03",
+      "form": "PO",
+      "title": "Tanggal kalender tidak ada",
+      "category": "Format/tanggal",
+      "path": "Payload/validator",
+      "input": "deliveryDate=\"2026-02-30\"",
+      "expected": "Tolak tanggal yang tidak ada dalam kalender.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-02-30",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 10,
+            "unitPrice": 100000,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Tanggal PO atau pengiriman tidak valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E04",
+      "form": "PO",
+      "title": "Nama barang hanya spasi",
+      "category": "Wajib diisi",
+      "path": "Form",
+      "input": "items[0].name=\"   \" (3 spasi)",
+      "expected": "Tolak nama kosong setelah trim.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "   ",
+            "qty": 10,
+            "unitPrice": 100000,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Nama barang tidak valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E05",
+      "form": "PO",
+      "title": "Jumlah barang nol",
+      "category": "Batas bawah",
+      "path": "Form",
+      "input": "qty=0; subtotal barang=0; subtotal PO=0; pajak=0; total=0",
+      "expected": "Tolak; jumlah harus bilangan bulat positif.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 0,
+            "unitPrice": 100000,
+            "subtotal": 0
+          }
+        ],
+        "subtotal": 0,
+        "discountAmount": 0,
+        "taxAmount": 0,
+        "withholdingTaxAmount": 0,
+        "total": 0,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Jumlah, harga, atau subtotal barang tidak konsisten.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E06",
+      "form": "PO",
+      "title": "Jumlah barang pecahan",
+      "category": "Tipe domain",
+      "path": "Form",
+      "input": "qty=1.5; subtotal barang=150000; subtotal PO=150000; pajak=16500; total=166500",
+      "expected": "Tolak meskipun total konsisten; jumlah harus bulat.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 1.5,
+            "unitPrice": 100000,
+            "subtotal": 150000
+          }
+        ],
+        "subtotal": 150000,
+        "discountAmount": 0,
+        "taxAmount": 16500,
+        "withholdingTaxAmount": 0,
+        "total": 166500,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Jumlah, harga, atau subtotal barang tidak konsisten.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E07",
+      "form": "PO",
+      "title": "Harga satuan negatif",
+      "category": "Batas bawah",
+      "path": "Form",
+      "input": "items[0].unitPrice=-100",
+      "expected": "Tolak harga negatif sebelum penyimpanan.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 10,
+            "unitPrice": -100,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Jumlah, harga, atau subtotal barang tidak konsisten.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E08",
+      "form": "PO",
+      "title": "Jumlah bertipe teks",
+      "category": "Tipe data",
+      "path": "Payload/validator",
+      "input": "items[0].qty=\"dua\"",
+      "expected": "Tolak; teks tidak boleh dipakai sebagai jumlah.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": "dua",
+            "unitPrice": 100000,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Jumlah, harga, atau subtotal barang tidak konsisten.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E09",
+      "form": "PO",
+      "title": "Subtotal barang dimanipulasi",
+      "category": "Konsistensi",
+      "path": "Payload/validator",
+      "input": "items[0].subtotal=999998; nilai yang benar=1000000",
+      "expected": "Tolak selisih subtotal Rp2 dari jumlah x harga.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 10,
+            "unitPrice": 100000,
+            "subtotal": 999998
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Jumlah, harga, atau subtotal barang tidak konsisten.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E10",
+      "form": "PO",
+      "title": "Total PO dimanipulasi",
+      "category": "Konsistensi",
+      "path": "Payload/validator",
+      "input": "total=1110002; nilai yang benar=1110000",
+      "expected": "Tolak total yang berbeda Rp2 dari rincian.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 10,
+            "unitPrice": 100000,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110002,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Total PO tidak sesuai rincian barang, diskon, atau pajak.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E11",
+      "form": "PO",
+      "title": "Daftar barang dikosongkan",
+      "category": "Struktur data",
+      "path": "Payload/validator",
+      "input": "items=[]",
+      "expected": "Tolak; PO memerlukan sedikitnya satu barang.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "Kirim ke gudang utama."
+      },
+      "actual": "Rincian PO harus berupa daftar berisi 1–200 barang.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "PO-E12",
+      "form": "PO",
+      "title": "Catatan melewati batas",
+      "category": "Panjang data",
+      "path": "Payload/validator",
+      "input": "notes=\"A\" sebanyak 10001 karakter",
+      "expected": "Tolak catatan yang melebihi 10000 karakter.",
+      "source": "src/lib/purchaseOrderValidation.ts:14; src/components/PurchaseUnitView.tsx:196",
+      "payload": {
+        "id": "PO-2026-IT-UJI001",
+        "vendor": "Dell EMC Indonesia",
+        "desc": "IT Infrastructure Requisition (1 items)",
+        "date": "2026-11-18",
+        "deliveryDate": "2026-11-25",
+        "department": "IT Infrastructure",
+        "status": "Pending Approval",
+        "color": "orange",
+        "items": [
+          {
+            "id": "line-1",
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "qty": 10,
+            "unitPrice": 100000,
+            "subtotal": 1000000
+          }
+        ],
+        "subtotal": 1000000,
+        "discountAmount": 0,
+        "taxAmount": 110000,
+        "withholdingTaxAmount": 0,
+        "total": 1110000,
+        "notes": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "actual": "Catatan PO tidak valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E01",
+      "form": "GRN",
+      "title": "Nama penerima kosong",
+      "category": "Wajib diisi",
+      "path": "Form",
+      "input": "receivedBy=\"\"",
+      "expected": "Tolak GRN; nama penerima wajib diisi.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 10,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "Petugas penerima wajib diisi dengan benar.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E02",
+      "form": "GRN",
+      "title": "Nama penerima hanya spasi",
+      "category": "Wajib diisi",
+      "path": "Form",
+      "input": "receivedBy=\"   \" (3 spasi)",
+      "expected": "Tolak nama kosong setelah trim.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "   ",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 10,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "Petugas penerima wajib diisi dengan benar.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E03",
+      "form": "GRN",
+      "title": "Nomor surat jalan kosong",
+      "category": "Wajib diisi",
+      "path": "Form",
+      "input": "suratJalanNumber=\"\"",
+      "expected": "Tolak GRN; nomor surat jalan wajib diisi.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 10,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "Nomor surat jalan wajib diisi dengan benar.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E04",
+      "form": "GRN",
+      "title": "Nomor surat jalan terlalu panjang",
+      "category": "Panjang data",
+      "path": "Payload/validator",
+      "input": "suratJalanNumber=\"A\" sebanyak 501 karakter",
+      "expected": "Tolak; panjang maksimum 500 karakter.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 10,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "Nomor surat jalan wajib diisi dengan benar.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E05",
+      "form": "GRN",
+      "title": "Jumlah diterima negatif",
+      "category": "Batas bawah",
+      "path": "Form",
+      "input": "items[0].receivedQty=-1",
+      "expected": "Tolak; jumlah diterima tidak boleh negatif.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": -1,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "SKU, jumlah, atau kondisi barang tidak sesuai dengan PO.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E06",
+      "form": "GRN",
+      "title": "Jumlah diterima pecahan",
+      "category": "Tipe domain",
+      "path": "Form",
+      "input": "items[0].receivedQty=1.5",
+      "expected": "Tolak; jumlah diterima harus bulat.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 1.5,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "SKU, jumlah, atau kondisi barang tidak sesuai dengan PO.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E07",
+      "form": "GRN",
+      "title": "Jumlah diterima null",
+      "category": "Tipe data",
+      "path": "Payload/validator",
+      "input": "items[0].receivedQty=null",
+      "expected": "Tolak nilai null; bukan bilangan bulat.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": null,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "SKU, jumlah, atau kondisi barang tidak sesuai dengan PO.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E08",
+      "form": "GRN",
+      "title": "Jumlah melebihi integer aman",
+      "category": "Batas numerik",
+      "path": "Payload/validator",
+      "input": "items[0].receivedQty=9007199254740992",
+      "expected": "Tolak angka di atas batas integer aman JavaScript.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 9007199254740992,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "SKU, jumlah, atau kondisi barang tidak sesuai dengan PO.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E09",
+      "form": "GRN",
+      "title": "Catatan pemeriksaan terlalu panjang",
+      "category": "Panjang data",
+      "path": "Payload/validator",
+      "input": "inspectorNotes=\"A\" sebanyak 4001 karakter",
+      "expected": "Tolak; panjang maksimum 4000 karakter.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 10,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "actual": "Catatan pemeriksaan tidak valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E10",
+      "form": "GRN",
+      "title": "Kondisi di luar daftar pilihan",
+      "category": "Whitelist",
+      "path": "Payload/validator",
+      "input": "items[0].condition=\"UNKNOWN\"",
+      "expected": "Tolak kondisi di luar empat pilihan yang sah.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 10,
+            "condition": "UNKNOWN"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "SKU, jumlah, atau kondisi barang tidak sesuai dengan PO.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E11",
+      "form": "GRN",
+      "title": "Rincian penerimaan hilang",
+      "category": "Relasi data",
+      "path": "Payload/validator",
+      "input": "items=[]; PO memiliki 1 baris barang",
+      "expected": "Tolak; seluruh rincian PO harus diperiksa.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "Daftar penerimaan harus sesuai dengan seluruh rincian PO.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "GRN-E12",
+      "form": "GRN",
+      "title": "Status sesuai dipalsukan",
+      "category": "Konsistensi",
+      "path": "Payload/validator",
+      "input": "receivedQty=9; orderedQty=10; status=\"MATCHED\"",
+      "expected": "Tolak status MATCHED; jumlah tersebut berselisih.",
+      "source": "src/lib/goodsReceipt.ts:27; src/components/ThreeWayMatchModal.tsx:65",
+      "payload": {
+        "id": "GRN-UJI-001",
+        "grnNumber": "GRN-UJI-001",
+        "poId": "PO-2026-IT-UJI001",
+        "receivedDate": "2026-11-18",
+        "receivedBy": "Petugas Gudang",
+        "suratJalanNumber": "SJ-UJI-001",
+        "items": [
+          {
+            "sku": "RS-W1-PRO",
+            "name": "Rack Server Web Infrastructure",
+            "orderedQty": 10,
+            "receivedQty": 9,
+            "condition": "GOOD"
+          }
+        ],
+        "status": "MATCHED",
+        "inspectorNotes": ""
+      },
+      "actual": "Status pencocokan tidak sesuai jumlah atau kondisi barang.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E01",
+      "form": "POS",
+      "title": "Keranjang kosong",
+      "category": "Struktur data",
+      "path": "Form/payload",
+      "input": "lines=[]",
+      "expected": "Tolak transaksi tanpa barang.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Keranjang kosong atau SKU berulang.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E02",
+      "form": "POS",
+      "title": "Jumlah penjualan nol",
+      "category": "Batas bawah",
+      "path": "Form",
+      "input": "lines[0].quantity=0",
+      "expected": "Tolak; jumlah penjualan harus positif.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 0,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Jumlah barang harus bilangan bulat positif.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E03",
+      "form": "POS",
+      "title": "Jumlah penjualan negatif",
+      "category": "Batas bawah",
+      "path": "Form",
+      "input": "lines[0].quantity=-1",
+      "expected": "Tolak jumlah negatif; stok tidak bertambah.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": -1,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Jumlah barang harus bilangan bulat positif.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E04",
+      "form": "POS",
+      "title": "Jumlah penjualan pecahan",
+      "category": "Tipe domain",
+      "path": "Form",
+      "input": "lines[0].quantity=1.5",
+      "expected": "Tolak; jumlah penjualan harus bulat.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 1.5,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Jumlah barang harus bilangan bulat positif.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E05",
+      "form": "POS",
+      "title": "Jumlah melebihi stok",
+      "category": "Aturan stok",
+      "path": "Form",
+      "input": "quantity=6; stok tersedia=5; amountPaid=1000000",
+      "expected": "Tolak stok kurang meskipun uang mencukupi.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 6,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 1000000
+      },
+      "actual": "Stok RS-W1-PRO tidak mencukupi. Perbarui keranjang.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E06",
+      "form": "POS",
+      "title": "Harga jual nol",
+      "category": "Batas bawah",
+      "path": "Form",
+      "input": "lines[0].unitPrice=0",
+      "expected": "Tolak; harga satuan POS harus lebih dari nol.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 2,
+            "unitPrice": 0,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Harga satuan harus berupa rupiah bulat yang valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E07",
+      "form": "POS",
+      "title": "Harga jual rupiah pecahan",
+      "category": "Tipe domain",
+      "path": "Form",
+      "input": "lines[0].unitPrice=1250.5",
+      "expected": "Tolak; harga POS harus berupa rupiah bulat.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 2,
+            "unitPrice": 1250.5,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Harga satuan harus berupa rupiah bulat yang valid.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E08",
+      "form": "POS",
+      "title": "Diskon negatif",
+      "category": "Batas bawah",
+      "path": "Form",
+      "input": "lines[0].discountPercent=-1",
+      "expected": "Tolak diskon di bawah 0 persen.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 2,
+            "unitPrice": 100000,
+            "discountPercent": -1
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Diskon harus antara 0 dan 100 persen.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E09",
+      "form": "POS",
+      "title": "Diskon di atas seratus persen",
+      "category": "Batas atas",
+      "path": "Form",
+      "input": "lines[0].discountPercent=101",
+      "expected": "Tolak diskon di atas 100 persen.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 2,
+            "unitPrice": 100000,
+            "discountPercent": 101
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Diskon harus antara 0 dan 100 persen.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E10",
+      "form": "POS",
+      "title": "Pembayaran kurang satu rupiah",
+      "category": "Batas pembayaran",
+      "path": "Form",
+      "input": "amountPaid=199799; total=199800",
+      "expected": "Tolak pembayaran kurang; transaksi tidak tersimpan.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 2,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 199799
+      },
+      "actual": "Uang diterima belum mencukupi total belanja.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E11",
+      "form": "POS",
+      "title": "SKU tidak terdaftar",
+      "category": "Relasi data",
+      "path": "Payload/validator",
+      "input": "lines[0].sku=\"SKU-TIDAK-ADA\"",
+      "expected": "Tolak barang yang tidak ada pada inventori.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "SKU-TIDAK-ADA",
+            "quantity": 2,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Stok SKU-TIDAK-ADA tidak mencukupi. Perbarui keranjang.",
+      "result": "LULUS (validator menolak)"
+    },
+    {
+      "id": "POS-E12",
+      "form": "POS",
+      "title": "SKU berulang dalam payload",
+      "category": "Keunikan data",
+      "path": "Payload/validator",
+      "input": "lines=[baris dasar, salinan baris dasar]",
+      "expected": "Tolak SKU berulang; jangan kurangi stok dua kali.",
+      "source": "src/lib/commerce.ts:35,94; src/components/PosView.tsx:58",
+      "payload": {
+        "requestId": "POS-UJI-001",
+        "actorId": "kasir-uji",
+        "actorName": "Kasir Uji",
+        "role": "Warehouse Manager",
+        "lines": [
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 2,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          },
+          {
+            "sku": "RS-W1-PRO",
+            "quantity": 2,
+            "unitPrice": 100000,
+            "discountPercent": 10
+          }
+        ],
+        "taxRate": 11,
+        "amountPaid": 200000
+      },
+      "actual": "Keranjang kosong atau SKU berulang.",
+      "result": "LULUS (validator menolak)"
+    }
+  ],
+  "controls": [
+    {
+      "receivedQty": 0,
+      "status": "DISCREPANCY",
+      "actual": "Selisih Penerimaan",
+      "result": "DITERIMA sebagai selisih yang sah"
+    },
+    {
+      "receivedQty": 9,
+      "status": "DISCREPANCY",
+      "actual": "Selisih Penerimaan",
+      "result": "DITERIMA sebagai selisih yang sah"
+    },
+    {
+      "receivedQty": 11,
+      "status": "DISCREPANCY",
+      "actual": "Selisih Penerimaan",
+      "result": "DITERIMA sebagai selisih yang sah"
+    }
+  ],
+  "summary": {
+    "forms": 3,
+    "errorCases": 36,
+    "rejected": 36,
+    "validControls": 3
+  }
+}

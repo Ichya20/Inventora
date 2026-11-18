@@ -1,0 +1,21 @@
+{
+  "scope": "Actual PO initialization/persistence callbacks with in-memory storage; no browser or Firebase.",
+  "findings": [
+    {
+      "id": "PO-CACHE-RECOVERY",
+      "severity": "P2 conditional",
+      "source": [
+        "src/components/ProcurementView.tsx:199",
+        "src/components/ProcurementView.tsx:204",
+        "src/lib/storageUtils.ts:5"
+      ],
+      "trigger": "PO cache already contains a non-array JSON value or truncated JSON.",
+      "observed": {
+        "objectCache": "initializer throws: .map is not a function",
+        "truncatedCache": "fallback [] is saved over original bytes"
+      },
+      "impact": "Opening PO fails before subscription starts, or discards recoverable cached bytes. Live authoritative Firestore records are not erased.",
+      "limitation": "Requires damaged/preexisting cache; no normal form input producing this cache was established."
+    }
+  ]
+}

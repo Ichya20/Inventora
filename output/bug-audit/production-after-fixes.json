@@ -1,0 +1,62 @@
+{
+  "scope": "Current production frontend build and actual static middleware on temporary loopback listener. No Firebase, credentials, browser, or deployment requests.",
+  "frontendContainsBackendBundle": false,
+  "serverBuild": "build/server.cjs",
+  "requests": [
+    {
+      "route": "/dashboard",
+      "status": 200,
+      "bytes": 1323
+    },
+    {
+      "route": "/index.html",
+      "status": 200,
+      "bytes": 1323
+    },
+    {
+      "route": "/sw.js",
+      "status": 200,
+      "bytes": 2847
+    },
+    {
+      "route": "/manifest.webmanifest",
+      "status": 200,
+      "bytes": 715
+    },
+    {
+      "route": "/icon.svg",
+      "status": 200,
+      "bytes": 1105
+    },
+    {
+      "route": "/assets/index-CDKpyagB.js",
+      "status": 200,
+      "bytes": 581101
+    },
+    {
+      "route": "/assets/index-C_hVawQ2.css",
+      "status": 200,
+      "bytes": 133994
+    },
+    {
+      "route": "/assets/dotlottie-player-vUNKgFai.wasm",
+      "status": 200,
+      "bytes": 1238072
+    },
+    {
+      "route": "/server.cjs",
+      "status": 404,
+      "bytes": 0
+    },
+    {
+      "route": "/server.cjs.map",
+      "status": 404,
+      "bytes": 0
+    },
+    {
+      "route": "/build/server.cjs",
+      "status": 404,
+      "bytes": 0
+    }
+  ]
+}

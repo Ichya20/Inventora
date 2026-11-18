@@ -1,0 +1,103 @@
+{
+  "scope": "HTMLParser inspection of generated HTML, not JavaScript execution in a browser.",
+  "fixtures": 24,
+  "passed": 24,
+  "records": [
+    {
+      "id": "script:ai-output",
+      "result": "PASS"
+    },
+    {
+      "id": "script:po-items",
+      "result": "PASS"
+    },
+    {
+      "id": "script:receipt-en",
+      "result": "PASS"
+    },
+    {
+      "id": "script:receipt-id",
+      "result": "PASS"
+    },
+    {
+      "id": "image-event:ai-output",
+      "result": "PASS"
+    },
+    {
+      "id": "image-event:po-items",
+      "result": "PASS"
+    },
+    {
+      "id": "image-event:receipt-en",
+      "result": "PASS"
+    },
+    {
+      "id": "image-event:receipt-id",
+      "result": "PASS"
+    },
+    {
+      "id": "svg-event:ai-output",
+      "result": "PASS"
+    },
+    {
+      "id": "svg-event:po-items",
+      "result": "PASS"
+    },
+    {
+      "id": "svg-event:receipt-en",
+      "result": "PASS"
+    },
+    {
+      "id": "svg-event:receipt-id",
+      "result": "PASS"
+    },
+    {
+      "id": "closing-tag:ai-output",
+      "result": "PASS"
+    },
+    {
+      "id": "closing-tag:po-items",
+      "result": "PASS"
+    },
+    {
+      "id": "closing-tag:receipt-en",
+      "result": "PASS"
+    },
+    {
+      "id": "closing-tag:receipt-id",
+      "result": "PASS"
+    },
+    {
+      "id": "encoded-tag:ai-output",
+      "result": "PASS"
+    },
+    {
+      "id": "encoded-tag:po-items",
+      "result": "PASS"
+    },
+    {
+      "id": "encoded-tag:receipt-en",
+      "result": "PASS"
+    },
+    {
+      "id": "encoded-tag:receipt-id",
+      "result": "PASS"
+    },
+    {
+      "id": "apostrophe:ai-output",
+      "result": "PASS"
+    },
+    {
+      "id": "apostrophe:po-items",
+      "result": "PASS"
+    },
+    {
+      "id": "apostrophe:receipt-en",
+      "result": "PASS"
+    },
+    {
+      "id": "apostrophe:receipt-id",
+      "result": "PASS"
+    }
+  ]
+}

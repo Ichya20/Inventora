@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-11-18T01:26:24.808Z",
+  "method": "Actual TypeScript callbacks evaluated in an isolated VM; browser storage and timer mocked, no network or Firebase calls.",
+  "findings": [
+    {
+      "id": "HR-FRACTIONAL-PAYROLL",
+      "severity": "P2",
+      "source": "src/components/HRView.tsx",
+      "line": 579,
+      "trigger": "In an unrecorded payroll period, enter 0.5 in Performance Bonus / Overtime, then click Record Payroll Simulation.",
+      "actual": {
+        "savedBonus": 0.5,
+        "savedNetPay": 10600000.5,
+        "pdfNetPay": "Rp 10,600,001",
+        "status": "SUCCESS"
+      },
+      "impact": "Payroll accepts an input that fails its declared step=100000 constraint. Saved/onscreen money retains fractions while the generated PDF rounds them, so the archive and PDF disagree.",
+      "relatedLines": {
+        "input": 1246,
+        "normalization": 1250,
+        "recordingButton": 1334,
+        "pdfRounding": 58
+      }
+    },
+    {
+      "id": "BILLING-INVALID-LABEL",
+      "severity": "P3",
+      "source": "src/components/BillingSubscriptionView.tsx",
+      "line": 225,
+      "trigger": "Edit sample payment method: valid last four digits and billing email, Expiry Date=99/99, Cardholder / Entity Name=three spaces, then Save Payment Method.",
+      "actual": {
+        "storedExpiry": "99/99",
+        "storedHolder": "   ",
+        "toast": "success"
+      },
+      "impact": "Malformed expiry and blank cardholder labels pass native required checks and are persisted. This affects local simulation labels only, not a live payment processor.",
+      "relatedLines": {
+        "expiry": 863,
+        "holder": 879
+      }
+    },
+    {
+      "id": "HR-CORRUPT-HISTORY-OVERWRITE",
+      "severity": "P2",
+      "source": "src/components/HRView.tsx",
+      "line": 315,
+      "trigger": "If stored payroll history has invalid JSON, opening HR runs the lenient loader and unconditional persistence effect.",
+      "actual": "The loader falls back to fixture payroll records, and the mount effect overwrites the original payroll history with those fixtures.",
+      "impact": "Damaged payroll data cannot be recovered from browser storage after opening HR. Existing recorded/payroll status is silently replaced instead of showing a recoverable storage error.",
+      "relatedLines": {
+        "loader": 311,
+        "employeePersistence": 306,
+        "storageCatch": 15
+      },
+      "limitation": "Requires already-corrupt localStorage; no normal UI input path to corrupt JSON was established."
+    }
+  ],
+  "disproved": [
+    "Finance search pagination already resets page to 1 onSearchChange."
+  ]
+}

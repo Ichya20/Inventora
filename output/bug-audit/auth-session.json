@@ -1,0 +1,29 @@
+{
+  "scope": "Actual source executed with local mocks; no browser or Firebase test.",
+  "findings": [
+    {
+      "id": "AUTH-01",
+      "classification": "Candidate; real Firebase popup lifecycle not verified",
+      "trigger": "Account A has a pending integration popup; sign in as B and immediately request integration access.",
+      "observed": "B reuses A pending promise and fails with an account-mismatch error instead of requesting B authorization.",
+      "requestsBeforeRetry": [
+        "account-A"
+      ],
+      "requestsAfterRetry": [
+        "account-A",
+        "account-B"
+      ],
+      "impact": "First Calendar/Sheets authorization attempt after account switch fails; retry works. No cross-account token leakage observed.",
+      "limitation": "Mock permits the first popup to stay pending across sign-in. Firebase may cancel concurrent popups; reachability requires real multi-tab/session testing.",
+      "source": "src/firebase.ts:60"
+    },
+    {
+      "id": "AUTH-02",
+      "classification": "Conditional storage error handling bug",
+      "trigger": "Browser refuses localStorage access.",
+      "observed": "Language initializers in Home and Login throw without a fallback; those components cannot render.",
+      "impact": "The login screen fails before the Google button is usable in storage-restricted environments.",
+      "source": "src/App.tsx:854,870"
+    }
+  ]
+}

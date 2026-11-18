@@ -1,14 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Keyboard, Command, ArrowRight, CornerDownLeft, Sparkles } from 'lucide-react';
 import { Modal } from './UI';
+import type { Role } from '../types';
+import { canAccessMenu, isStaffRole } from '../lib/authorization';
 
 interface ShortcutsModalProps {
   isOpen: boolean;
   onClose: () => void;
   lang?: 'en' | 'id';
+  role?: Role | null;
 }
 
-export function ShortcutsModal({ isOpen, onClose, lang = 'en' }: ShortcutsModalProps) {
+export function ShortcutsModal({ isOpen, onClose, lang = 'en', role }: ShortcutsModalProps) {
+  const shortcutAllowed = (keys: string[]) => {
+    if (role === undefined) return true;
+    if (keys[1] === 'J') return isStaffRole(role);
+    const menu = keys[0] === 'N' ? 'purchase' : keys[0] === 'G'
+      ? ({ O: 'overview', P: 'po', I: 'stok', F: 'keuangan', B: 'billing', H: 'sdm', S: 'settings' } as Record<string, string>)[keys[1]] : null;
+    return !menu || canAccessMenu(role, menu);
+  };
   const shortcuts = [
     { keys: ['Cmd / Ctrl', 'K'], desc: lang === 'en' ? 'Open Command Palette' : 'Buka Palet Perintah' },
     { keys: ['Cmd / Ctrl', 'J'], desc: lang === 'en' ? 'Toggle AI Copilot Drawer' : 'Buka / Tutup AI Copilot' },
@@ -22,7 +32,7 @@ export function ShortcutsModal({ isOpen, onClose, lang = 'en' }: ShortcutsModalP
     { keys: ['N', 'P'], desc: lang === 'en' ? 'Draft New Purchase Order' : 'Buat Purchase Order Baru' },
     { keys: ['?'], desc: lang === 'en' ? 'Show Keyboard Shortcuts' : 'Buka Panduan Pintasan Keyboard' },
     { keys: ['Esc'], desc: lang === 'en' ? 'Close Active Modal / Palette' : 'Tutup Modal atau Palet Aktif' },
-  ];
+  ].filter(item => shortcutAllowed(item.keys));
 
   return (
     <Modal

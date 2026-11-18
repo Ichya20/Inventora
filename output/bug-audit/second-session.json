@@ -1,0 +1,21 @@
+{
+  "scope": "Current useNetworkStatus hook executed with memory storage; App/NetworkStatusIndicator rendering conditions reviewed. No browser/Firebase.",
+  "finding": {
+    "id": "LEGACY-QUEUE-VISIBILITY",
+    "severity": "P3 conditional",
+    "source": [
+      "src/lib/useNetworkStatus.ts:89",
+      "src/App.tsx:704",
+      "src/components/NetworkStatusIndicator.tsx:109"
+    ],
+    "trigger": "An old offline queue contains an entry without ownerId; another staff account, including HR Manager, opens Network & Synchronization Status.",
+    "observed": {
+      "accountHasPoAccess": false,
+      "visibleCount": 1,
+      "entityId": "PO-LEGACY-PRIVATE",
+      "description": "Vendor lama, Rp 250.000.000"
+    },
+    "impact": "Legacy PO details remain visible across accounts even when the account cannot open PO. Unowned entries cannot auto-sync, so this is display isolation, not a write authorization bypass.",
+    "limitation": "Requires preexisting legacy queue without ownerId. New enqueue operations always attach an owner."
+  }
+}

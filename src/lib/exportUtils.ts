@@ -17,26 +17,22 @@ export function exportTextFile(filename: string, content: string, mimeType = 'te
   }
 }
 
-export function exportToCsv(filename: string, headers: string[], rows: (string | number | boolean)[][]): void {
-  const sanitizeCell = (cell: string | number | boolean | null | undefined): string => {
-    if (cell === null || cell === undefined) return '""';
-    const str = String(cell).replace(/"/g, '""');
-    return `"${str}"`;
-  };
+export function csvCell(cell: string | number | boolean | null | undefined): string {
+  let text = cell == null ? '' : String(cell);
+  // Spreadsheet applications can evaluate quoted CSV text as a formula.
+  if (typeof cell === 'string' && (/^[\s\uFEFF]*[=+\-@]/u.test(text) || /^[\t\r\n]/.test(text))) {
+    text = `'${text}`;
+  }
+  return `"${text.replace(/"/g, '""')}"`;
+}
 
-  const headerLine = headers.map(sanitizeCell).join(',');
-  const rowLines = rows.map(row => row.map(sanitizeCell).join(','));
+export function exportToCsv(filename: string, headers: string[], rows: (string | number | boolean)[][]): void {
+
+  const headerLine = headers.map(csvCell).join(',');
+  const rowLines = rows.map(row => row.map(csvCell).join(','));
   const csvContent = '\uFEFF' + [headerLine, ...rowLines].join('\r\n');
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  exportTextFile(filename.endsWith('.csv') ? filename : `${filename}.csv`, csvContent, 'text/csv;charset=utf-8;');
 }
 
 /**
