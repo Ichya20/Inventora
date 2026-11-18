@@ -50,6 +50,11 @@
   "review": "80 application tests, TypeScript and production build pass after the motion changes. Server rendering checks original logo geometry, first/repeat opening, immediate login link, bilingual skeletons and native dialog markup; POS render audit passes. Local 21st motion-component review has no errors and retains intentional scroll-table and brand-color findings. The illustrative video decodes all 624 frames and its storyboard was inspected. Live browser interaction and screenshot QA have not been performed. CLI search requires login; no source upload or hosted generation.",
   "decisions": [
     {
+      "date": "2026-11-18",
+      "scope": "Login auth card",
+      "choice": "Adapt the supplied sign-in-1 AuthForm into src/components/ui/sign-in-1.tsx using existing project Button, original InventoraMark, Plus Jakarta Sans, and workspace light/dark tokens. Keep one centered auth card and a primary Google identity action; collapse the four existing local demo roles under a native details element. Use concise inventory, purchase and sales copy, visible keyboard focus, a 220ms entrance with reduced-motion support, and no unsupported email/GitHub/skip-auth paths. Retain verified Firebase claims and demo storage behavior. Block concurrent Google/demo actions while sign-in is pending, and only report domain clipboard success after the operation resolves. The provided component is the source reference; 21st catalog search requires login. React DOM/jsdom and callback tests cover interactions, while live-browser visual QA remains unverified."
+    },
+    {
       "date": "2026-10-28",
       "scope": "Splash pacing and idle",
       "choice": "Slow the original dotLottie introduction to 2.4 seconds and play it each time the opening is mounted, including repeat visits. After completion, stop the canvas timeline and apply a gentle six-second CSS idle to the logo only: 5px vertical movement and 1.2% scale. Remove replay text and session gating. A small icon in the logo panel pauses/resumes both the introduction and idle; resuming idle does not restart the intro. Keep login immediately available and retain a static logo for reduced motion."

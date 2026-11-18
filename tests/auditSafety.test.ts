@@ -150,6 +150,7 @@ test('restricted session storage cannot cause silent demo navigation or mask a s
   const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
   const denied = { getItem() { throw new Error('Storage denied'); }, setItem() { throw new Error('Storage denied'); }, removeItem() { throw new Error('Storage denied'); } };
   const context = vm.createContext({ sessionStorage: denied, clearDemoSession, lang: 'en',
+    authPending: { current: false }, setCopied() {}, setCopyError() {},
     setIsLoading() {}, setUnauthorizedDomain() {}, setErrorMsg(message: string) { context.error = message; },
     navigate(route: string) { context.route = route; },
     require: () => ({ googleSignIn: async () => ({ user: { uid: 'real-user' } }) }),

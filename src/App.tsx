@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { motion, MotionConfig, useReducedMotion } from 'motion/react';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { motion, MotionConfig } from 'motion/react';
 import { CheckCircle2, AlertCircle, Info, XCircle, LayoutDashboard, Settings as SettingsIcon, LogOut, Moon, Sun, Download, ChevronLeft, ChevronRight, ArrowUpDown, Menu, X, Command, Activity, BarChart3, Database, FileText, FileSearch, ArrowRight, UserCircle, ShoppingCart, Users, Search, Sparkles, ExternalLink, Copy, Check, ShieldAlert, CreditCard, Receipt, Printer, Lock, Building2, QrCode, BadgeCheck, Globe, Languages, Keyboard } from 'lucide-react';
 import { ToastType, ToastItem, ToastFunction, Role, PurchaseOrder, PaymentTransaction, AppNotification, RestockDraft } from './types';
 import { translations, Language, Translations } from './i18n';
@@ -16,7 +16,8 @@ import { InteractiveToaster, playNotificationChime } from './components/Interact
 import { InventoraLoadingScreen } from './components/InventoraLoadingScreen';
 import { OpeningSequence } from './components/OpeningSequence';
 import { InventoraMark } from './components/InventoraMark';
-import { workspaceMotion } from './lib/motion';
+import { AuthForm } from './components/ui/sign-in-1';
+import './components/LoginPage.css';
 import { exportToCsv, exportToJson } from './lib/exportUtils';
 import { loadStoredData, saveStoredData, clearAllInventoraStorage, createInventoraBackup } from './lib/storageUtils';
 import { canAccessMenu, canPerformPoAction, isStaffRole, resolveAccountRole } from './lib/authorization';
@@ -871,7 +872,6 @@ function Home() {
 
 function Login() {
   const navigate = useNavigate();
-  const reduceMotion = useReducedMotion();
   const [lang, setLang] = useState<Language>(() => {
     try {
       const saved = localStorage.getItem('inventora_language');
@@ -888,8 +888,11 @@ function Login() {
   const [errorMsg, setErrorMsg] = useState('');
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState('');
+  const authPending = React.useRef(false);
 
   const handleDemoLogin = (role: Role = 'Super Admin') => {
+    if (authPending.current) return;
     try {
       sessionStorage.setItem('inventora_demo_user', JSON.stringify({
         email: `${role.toLowerCase().replace(/\s+/g, '.')}@inventora.com`,
@@ -903,9 +906,13 @@ function Login() {
   };
 
   const handleGoogleLogin = async () => {
+    if (authPending.current) return;
+    authPending.current = true;
     setIsLoading(true);
     setErrorMsg('');
     setUnauthorizedDomain(null);
+    setCopied(false);
+    setCopyError('');
     try {
       const { googleSignIn } = await import('./firebase');
       const res = await googleSignIn();
@@ -917,191 +924,80 @@ function Login() {
       if (e?.code === 'auth/unauthorized-domain' || e?.message?.includes('auth/unauthorized-domain')) {
         setUnauthorizedDomain(typeof window !== 'undefined' ? window.location.hostname : 'run.app');
       } else if (
-        e?.code === 'auth/popup-closed-by-user' ||
-        e?.code === 'auth/cancelled-popup-request' ||
-        e?.message?.includes('auth/popup-closed-by-user') ||
-        e?.message?.includes('auth/cancelled-popup-request')
+        e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request' ||
+        e?.message?.includes('auth/popup-closed-by-user') || e?.message?.includes('auth/cancelled-popup-request')
       ) {
-        // User closed or dismissed popup intentionally; no error banner needed
+        // Dismissing the popup leaves sign-in available for another attempt.
       } else if (e?.code === 'auth/popup-blocked' || e?.message?.includes('auth/popup-blocked')) {
-        setErrorMsg(
-          lang === 'en'
-            ? 'Sign-in popup was blocked by your browser. Please allow popups or use Demo Login below.'
-            : 'Popup login diblokir oleh browser. Harap izinkan popup atau gunakan Login Demo di bawah.'
-        );
+        setErrorMsg(lang === 'en' ? 'Allow popups in your browser, then try Google sign-in again.' : 'Izinkan popup di browser, lalu coba login Google lagi.');
       } else {
-        setErrorMsg(e.message || (lang === 'en' ? 'Login failed' : 'Gagal masuk'));
+        setErrorMsg(e?.message || (lang === 'en' ? 'Login failed. Please try again.' : 'Gagal masuk. Silakan coba lagi.'));
       }
     } finally {
+      authPending.current = false;
       setIsLoading(false);
     }
   };
 
+  const copyDomain = async () => {
+    if (!unauthorizedDomain) return;
+    setCopyError('');
+    try {
+      await navigator.clipboard.writeText(unauthorizedDomain);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+      setCopyError(lang === 'en' ? 'Copy unavailable. Select and copy the address above.' : 'Tidak dapat menyalin. Pilih dan salin alamat di atas.');
+    }
+  };
+
   return (
-    <div className="relative min-h-screen w-full bg-gradient-to-br from-[#fafafa] via-[#f4f6f9] to-[#eaedf2] flex flex-col items-center justify-center font-sans px-4 py-8 overflow-hidden">
-      {/* Language Switcher Top Right */}
-      <div className="absolute top-6 right-6 z-20 flex items-center rounded-lg border border-[#eaeaea] bg-white/80 backdrop-blur-md p-1 shadow-sm">
-        <button
-          type="button"
-          onClick={() => handleLangToggle('en')}
-          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
-            lang === 'en'
-              ? 'bg-[#171717] text-white shadow-sm'
-              : 'text-[#666] hover:text-[#171717]'
-          }`}
+    <main className="login-page" lang={lang}>
+      <nav className="login-navigation" aria-label={lang === 'en' ? 'Sign-in navigation' : 'Navigasi login'}>
+        <Link to="/" className="login-back"><ChevronLeft size={16} aria-hidden="true" />{lang === 'en' ? 'Back to Inventora' : 'Kembali ke Inventora'}</Link>
+        <div className="login-language" role="group" aria-label={lang === 'en' ? 'Language' : 'Bahasa'}>
+          <button type="button" lang="en" aria-label="English" aria-pressed={lang === 'en'} onClick={() => handleLangToggle('en')}>EN</button>
+          <button type="button" lang="id" aria-label="Bahasa Indonesia" aria-pressed={lang === 'id'} onClick={() => handleLangToggle('id')}>ID</button>
+        </div>
+      </nav>
+      <div className="login-body">
+        <AuthForm
+          logo={<InventoraMark size={48} />}
+          title={lang === 'en' ? 'Sign in to Inventora' : 'Masuk ke Inventora'}
+          description={lang === 'en' ? 'Manage your stock, purchases, and sales.' : 'Kelola stok, pembelian, dan penjualan.'}
+          isLoading={isLoading}
+          primaryAction={{
+            label: isLoading ? (lang === 'en' ? 'Connecting to Google…' : 'Menghubungkan ke Google…') : (lang === 'en' ? 'Continue with Google' : 'Lanjutkan dengan Google'),
+            onClick: handleGoogleLogin,
+            icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>,
+          }}
+          separatorLabel={lang === 'en' ? 'or' : 'atau'}
+          secondaryLabel={lang === 'en' ? 'Explore the demo' : 'Coba demo'}
+          secondaryDescription={lang === 'en' ? 'Choose a role. Demo changes stay in this browser.' : 'Pilih peran. Perubahan demo tersimpan di browser ini.'}
+          secondaryActions={[
+            { label: 'Super Admin', description: lang === 'en' ? 'All demo modules' : 'Semua modul demo', onClick: () => handleDemoLogin('Super Admin') },
+            { label: lang === 'en' ? 'Warehouse' : 'Gudang', description: lang === 'en' ? 'Stock, POS & receipts' : 'Stok, POS & penerimaan', onClick: () => handleDemoLogin('Warehouse Manager') },
+            { label: lang === 'en' ? 'Finance' : 'Keuangan', description: lang === 'en' ? 'Invoices & payments' : 'Faktur & pembayaran', onClick: () => handleDemoLogin('Finance Manager') },
+            { label: lang === 'en' ? 'Human resources' : 'SDM', description: lang === 'en' ? 'Employees & payroll' : 'Karyawan & penggajian', onClick: () => handleDemoLogin('HR Manager') },
+          ]}
+          footerContent={lang === 'en' ? 'New Google accounts receive standard user access.' : 'Akun Google baru mendapat akses pengguna biasa.'}
         >
-          EN
-        </button>
-        <button
-          type="button"
-          onClick={() => handleLangToggle('id')}
-          className={`px-2.5 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
-            lang === 'id'
-              ? 'bg-[#171717] text-white shadow-sm'
-              : 'text-[#666] hover:text-[#171717]'
-          }`}
-        >
-          ID
-        </button>
+          {unauthorizedDomain && <div className="login-alert login-alert-warning" role="alert">
+            <div className="login-alert-title"><ShieldAlert size={16} aria-hidden="true" /><span>{lang === 'en' ? 'Google sign-in is unavailable on this address.' : 'Login Google belum tersedia di alamat ini.'}</span></div>
+            <details className="login-domain-details">
+              <summary>{lang === 'en' ? 'Setup details' : 'Detail pengaturan'}</summary>
+              <p>{lang === 'en' ? 'Add this address to Authorized domains in Firebase Authentication.' : 'Tambahkan alamat ini ke Authorized domains di Firebase Authentication.'}</p>
+              <div className="login-domain-row"><code>{unauthorizedDomain}</code><button type="button" onClick={copyDomain}>
+                {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied ? (lang === 'en' ? 'Copied' : 'Tersalin') : (lang === 'en' ? 'Copy' : 'Salin')}
+              </button></div>
+              {copyError && <p role="status" className="login-copy-status">{copyError}</p>}
+              <a href="https://console.firebase.google.com/project/gen-lang-client-0135204887/authentication/settings" target="_blank" rel="noopener noreferrer"><ExternalLink size={13} aria-hidden="true" />{lang === 'en' ? 'Open Firebase settings' : 'Buka pengaturan Firebase'}</a>
+            </details>
+          </div>}
+          {errorMsg && !unauthorizedDomain && <div className="login-alert login-alert-error" role="alert">{errorMsg}</div>}
+        </AuthForm>
       </div>
-
-      <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduceMotion ? 0 : workspaceMotion.page, ease: workspaceMotion.ease }}
-        className="relative z-10 w-full max-w-sm bg-white p-8 rounded-2xl shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_4px_16px_rgba(0,0,0,0.04)]"
-      >
-        <div className="flex justify-center items-center gap-2 mb-6">
-          <InventoraMark size={28} className="login-mark" />
-          <span className="text-2xl font-semibold tracking-tight text-[#171717] leading-none mt-0.5">Inventora</span>
-        </div>
-        <div className="text-center mb-6">
-          <h1 className="text-lg font-medium tracking-tight text-[#171717]">
-            {lang === 'en' ? 'Sign in to workspace' : 'Masuk ke Workspace'}
-          </h1>
-          <p className="text-sm text-[#666] mt-1">
-            {lang === 'en' ? 'Authenticate to access the dashboard and integrations' : 'Otentikasi untuk mengakses dashboard dan integrasi sistem'}
-          </p>
-        </div>
-
-        {unauthorizedDomain && (
-          <div className="mb-5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-left">
-            <div className="flex items-start gap-2.5">
-              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="flex-1 text-xs">
-                <h4 className="font-semibold text-amber-900 text-xs mb-1">
-                  {lang === 'en' ? 'Preview Domain Authorization Required' : 'Otorisasi Domain Preview Diperlukan'}
-                </h4>
-                <p className="text-amber-800 leading-relaxed mb-2 text-[11px]">
-                  {lang === 'en'
-                    ? "Google Sign-In blocked this request because the preview domain isn't yet listed in Firebase Authorized Domains."
-                    : 'Google Sign-In memblokir permintaan ini karena domain preview belum terdaftar di Firebase Authorized Domains.'}
-                </p>
-                <div className="flex items-center justify-between gap-1.5 bg-amber-100/80 px-2 py-1.5 rounded font-mono text-[10px] text-amber-950 mb-2.5 border border-amber-200">
-                  <span className="truncate max-w-[190px]">{unauthorizedDomain}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(unauthorizedDomain);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                    className="flex items-center gap-1 text-amber-800 hover:text-amber-950 font-sans font-medium text-[11px] shrink-0 cursor-pointer"
-                  >
-                    {copied ? <Check className="w-3 h-3 text-green-700" /> : <Copy className="w-3 h-3" />}
-                    {copied ? (lang === 'en' ? 'Copied' : 'Tersalin') : (lang === 'en' ? 'Copy' : 'Salin')}
-                  </button>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('Super Admin')}
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-1.5 px-2.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" /> {lang === 'en' ? 'Enter Instantly as Demo Admin' : 'Masuk Langsung sebagai Demo Admin'}
-                  </button>
-                  <a
-                    href="https://console.firebase.google.com/project/gen-lang-client-0135204887/authentication/settings"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-amber-800 hover:underline flex items-center justify-center gap-1 text-[11px] pt-0.5"
-                  >
-                    <ExternalLink className="w-3 h-3" /> {lang === 'en' ? 'Add domain in Firebase Console' : 'Tambah domain di Firebase Console'}
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {errorMsg && !unauthorizedDomain && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-100">
-            {errorMsg}
-          </div>
-        )}
-
-        <button
-          onClick={handleGoogleLogin}
-          disabled={isLoading}
-          className="w-full bg-white text-[#171717] border border-[#eaeaea] font-medium px-4 py-2 rounded-md text-sm hover:bg-[#fafafa] transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:scale-[0.98] disabled:opacity-80 disabled:active:scale-100 flex items-center justify-center gap-2 h-10 cursor-pointer"
-        >
-          {isLoading ? (
-            <svg className="animate-spin h-4 w-4 text-[#171717]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (
-            <>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-              {lang === 'en' ? 'Sign in with Google' : 'Masuk dengan Google'}
-            </>
-          )}
-        </button>
-
-        <div className="relative my-4 flex items-center justify-center">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#eaeaea]"></div></div>
-          <span className="relative bg-white px-2 text-xs text-[#888]">
-            {lang === 'en' ? 'or test with demo' : 'atau uji coba demo'}
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-[11px] text-neutral-500 font-medium uppercase tracking-wider text-center">
-            {lang === 'en' ? 'Select Instant Demo Role' : 'Pilih Peran Uji Coba Cepat'}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleDemoLogin('Super Admin')}
-              className="p-2.5 rounded-lg border border-neutral-200 hover:border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800 transition-all text-left cursor-pointer shadow-xs"
-            >
-              <span className="block text-xs font-semibold">Super Admin</span>
-              <span className="block text-[10px] text-neutral-400">{lang === 'en' ? 'Full System Access' : 'Akses Penuh'}</span>
-            </button>
-            <button
-              onClick={() => handleDemoLogin('Warehouse Manager')}
-              className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
-            >
-              <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'Warehouse Mgr' : 'Manajer Gudang'}</span>
-              <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Stock & GRN' : 'Stok & GRN'}</span>
-            </button>
-            <button
-              onClick={() => handleDemoLogin('Finance Manager')}
-              className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
-            >
-              <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'Finance Lead' : 'Manajer Keuangan'}</span>
-              <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Invoices & Payouts' : 'Faktur & Bayar'}</span>
-            </button>
-            <button
-              onClick={() => handleDemoLogin('HR Manager')}
-              className="p-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 bg-neutral-50 hover:bg-white transition-all text-left cursor-pointer shadow-xs"
-            >
-              <span className="block text-xs font-semibold text-neutral-900">{lang === 'en' ? 'HR Manager' : 'Manajer SDM'}</span>
-              <span className="block text-[10px] text-neutral-500">{lang === 'en' ? 'Payroll & Staff' : 'Gaji & Karyawan'}</span>
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
+    </main>
   );
 }
 

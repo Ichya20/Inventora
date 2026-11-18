@@ -83,6 +83,7 @@ test('successful Google login clears a previous demo identity before navigating'
     const login = sourceFunction('handleGoogleLogin', {
       require: () => ({ googleSignIn: async () => success ? { user: { uid: 'real-user' } } : null }),
       setIsLoading() {}, setErrorMsg() {}, setUnauthorizedDomain() {},
+      authPending: { current: false }, setCopied() {}, setCopyError() {},
       lang: 'en', clearDemoSession: () => calls.push('remove:inventora_demo_user'),
       navigate: (path: string) => calls.push(`navigate:${path}`),
     });
