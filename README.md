@@ -18,6 +18,10 @@
 
 [Tour](#a-quick-tour) · [How it works](#how-it-works) · [Data](#data-and-storage) · [Getting started](#getting-started) · [API](#api) · [Status](#project-status)
 
+<br>
+
+<img src="docs/images/opening.jpg" alt="Inventora opening page with the original four-square logo and the Open workspace action" width="100%">
+
 </div>
 
 <br>
@@ -43,6 +47,8 @@ The same workspace includes employee records, payroll simulations, local invoice
 
 ## A quick tour
 
+These screenshots were captured from the running local application on **18 November 2026**, with English labels and demo/sample records.
+
 ### 1. Sign in and open your workspace
 
 The opening page leads to Google sign-in. New Google accounts receive the `User` role, with access to Overview and Settings. Staff access comes from a verified Firebase custom claim.
@@ -50,6 +56,17 @@ The opening page leads to Google sign-in. New Google accounts receive the `User`
 For a local walkthrough, open **Explore the demo** on the login page and choose Super Admin, Warehouse Manager, Finance Manager, or HR Manager. These choices create a browser demo session; they do not grant Firebase staff privileges.
 
 The dashboard sidebar groups operational modules and workspace tools. It collapses into an icon rail on desktop and opens as a drawer on smaller screens. Module visibility, active-page indicators, and pending PO counts follow the account and current records.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/login.jpg" alt="Inventora login page with Google sign-in and the expandable demo selector" width="100%"></td>
+    <td width="50%"><img src="docs/images/dashboard.jpg" alt="Inventora demo dashboard with PO totals, stock attention, order stages, and the new sidebar" width="100%"></td>
+  </tr>
+  <tr>
+    <td><b>Sign in</b> with Google or open a local demo role.</td>
+    <td><b>Overview</b> brings purchase-order progress and the next operational actions together.</td>
+  </tr>
+</table>
 
 ### 2. Check inventory and record a sale
 
@@ -59,9 +76,34 @@ The dashboard sidebar groups operational modules and workspace tools. It collaps
 
 Sales history opens the saved receipt for printing or PDF download. The optional 11% VAT setting is a simulation value.
 
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/inventory.jpg" alt="Inventora inventory with product counts, stock conditions, SKU search, and dispatch controls" width="100%"></td>
+    <td width="50%"><img src="docs/images/pos.jpg" alt="Inventora POS catalogue and a draft cart with a sample selling price and five percent discount" width="100%"></td>
+  </tr>
+  <tr>
+    <td><b>Inventory</b> shows product quantities and stock that needs review.</td>
+    <td><b>Point of Sale</b> calculates the cart total and cash change. The pictured cart is an unsubmitted example.</td>
+  </tr>
+</table>
+
 ### 3. Follow a purchase order
 
-Create a PO with vendor details, dated delivery information, line items, and calculated totals. The stored workflow is:
+Create a PO with vendor details, dated delivery information, line items, and calculated totals.
+
+<img src="docs/images/procurement.jpg" alt="Inventora purchase-order registry with supplier details, amounts, approval status, and receipt actions" width="100%">
+
+<details>
+<summary><b>View the purchase-order form</b></summary>
+<br>
+
+<img src="docs/images/purchase-order-form.jpg" alt="Inventora PO form with supplier, delivery date, catalogue selection, product name, quantity, and unit price" width="100%">
+
+The form shown uses the application's sample product and budget values. No order was submitted for this screenshot.
+
+</details>
+
+The stored workflow is:
 
 ```mermaid
 flowchart LR
@@ -87,6 +129,27 @@ PO documents retain line items, receipt information, and payment information tog
 | **Settings** | Account preferences, language, browser-data backup, and workspace controls where permitted |
 
 Finance reminders download an `.eml` draft for the user to send. Payroll, vendor payments, and subscription actions record simulations; they do not transfer funds or charge a bank account.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/finance.jpg" alt="Inventora Finance showing sample paid, unpaid, and overdue invoice totals with invoice actions" width="100%"></td>
+    <td width="50%"><img src="docs/images/people.jpg" alt="Inventora People module with a payroll period, employee directory, and recorded payroll simulations" width="100%"></td>
+  </tr>
+  <tr>
+    <td><b>Finance</b> tracks browser-local invoices and payment simulations.</td>
+    <td><b>People</b> keeps employee records and payroll history by period.</td>
+  </tr>
+</table>
+
+### 5. On a phone
+
+The opening page stacks its content and logo. Inside the workspace, the sidebar becomes a drawer with full module labels and account controls.
+
+<p align="center">
+  <img src="docs/images/opening-mobile.jpg" alt="Inventora opening page on a phone with stacked text, login action, and original logo" width="280">
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/images/navigation-mobile.jpg" alt="Inventora mobile navigation drawer with operational modules, account identity, theme control, and logout" width="280">
+</p>
 
 ## How it works
 
@@ -274,7 +337,7 @@ npx --yes firebase-tools emulators:exec --only firestore --project demo-inventor
 
 That command uses the local `demo-inventora` project. See [tests/firestore.rules.test.ts](tests/firestore.rules.test.ts) for the emulator scenarios.
 
-The recorded application checks use DOM tests, mocks, and local HTTP. They do not establish live Firebase/Gemini availability or visual correctness in a real browser. The build currently reports some chunks above 500 kB.
+The recorded automated checks use DOM tests, mocks, and local HTTP. They do not establish live Firebase/Gemini availability. The screenshots above were inspected in the local demo; they are separate from the automated suite. The build currently reports some chunks above 500 kB.
 
 ## Repository layout
 
